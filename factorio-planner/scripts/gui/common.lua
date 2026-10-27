@@ -105,7 +105,9 @@ common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
 --- A rate split for display: the number, the slowest belt that carries it,
 --- and how full that belt is. Fluids get no belt.
 --- @return table { text, belt (rich text or ""), fill, color?, fill_color?, tooltip?, exceeds? }
-function common.rate_display(ctx, per_second, key, fluid_keys)
+--- @param opts table? { total = true }: a plan-wide total, which may span several belts
+---   by design, so it is never shown as a problem
+function common.rate_display(ctx, per_second, key, fluid_keys, opts)
   local text = fp_util.format_rate(per_second, ctx.unit)
   if belts.is_fluid(key, fluid_keys) then
     return { text = text, belt = "", fill = "", tooltip = L("fluid-no-limit") }
@@ -115,6 +117,12 @@ function common.rate_display(ctx, per_second, key, fluid_keys)
   local tier = check.tier
   local capacity = fp_util.format_rate(tier.capacity * (ctx.one_lane and 0.5 or 1), ctx.unit, true)
   local lane = ctx.one_lane and L("belt-one-lane") or ""
+  if check.exceeds and opts and opts.total then
+    return {
+      text = text, belt = "[entity=" .. tier.name .. "]", fill = fp_util.format_count(check.belts) .. "×",
+      tooltip = L("belt-total-tooltip", fp_util.format_count(check.belts), common.entity_name(tier.name), capacity, lane),
+    }
+  end
   if check.exceeds then
     -- the only red: more than the highest allowed belt carries
     return {
@@ -131,11 +139,11 @@ end
 
 local WHITE = { r = 1, g = 1, b = 1 }
 
-common.RATE_WIDTH, common.BELT_WIDTH, common.FILL_WIDTH = 80, 24, 44
+common.RATE_WIDTH, common.BELT_WIDTH, common.FILL_WIDTH = 80, 36, 44
 
 --- Add three table cells: rate, belt icon, fill. Named prefix_rate/_belt/_fill when a prefix is given.
-function common.rate_cells(parent, ctx, per_second, key, fluid_keys, prefix, rate_width)
-  local d = per_second and common.rate_display(ctx, per_second, key, fluid_keys) or { text = "", belt = "", fill = "" }
+function common.rate_cells(parent, ctx, per_second, key, fluid_keys, prefix, rate_width, opts)
+  local d = per_second and common.rate_display(ctx, per_second, key, fluid_keys, opts) or { text = "", belt = "", fill = "" }
   local rate = parent.add({ type = "label", name = prefix and (prefix .. "_rate"), caption = d.text, tooltip = d.tooltip })
   rate.style.width = rate_width or common.RATE_WIDTH
   rate.style.horizontal_align = "right"

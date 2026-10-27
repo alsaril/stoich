@@ -711,6 +711,12 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   t.eq(over.color, common.RED)
   t.eq(over.belt, "[entity=fast-transport-belt]")
   t.eq(over.fill, "1.33×")
+  -- a plan-wide total may take several belts by design: same numbers, not red
+  local total = common.rate_display(ctx, 40, "item/iron-plate", nil, { total = true })
+  t.eq(total.color, nil)
+  t.eq(total.fill_color, nil)
+  t.eq(total.fill, "1.33×")
+  t.eq(total.tooltip[1], "fp.belt-total-tooltip")
   local fluid = common.rate_display(ctx, 400, "fluid/water")
   t.eq(fluid.belt, "")
   t.eq(fluid.fill, "")
