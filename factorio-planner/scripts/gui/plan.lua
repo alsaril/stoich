@@ -158,16 +158,19 @@ function plan_tab.fill_rows(player, holder, r, ctx)
       copies.add({ type = "button", caption = "+", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = 1 } })
       local needed = r.counts[id]
       t.add({ type = "label", caption = (needed and not r.undetermined[id]) and fp_util.format_count(needed) or "?" })
-      local s = t.add({ type = "label", caption = shortage and ((shortage > 0.005 and "+" or "") .. fp_util.format_count(shortage)) or "?", style = "bold_label" })
+      -- never below 0: a covered demand is green, the surplus goes in the tooltip
+      local caption, tip = "?", nil
+      if shortage then
+        caption = class == "short" and ("+" .. fp_util.format_count(shortage)) or "0"
+        if shortage < -0.005 then tip = L("surplus-tooltip", fp_util.format_count(-shortage)) end
+      end
+      local s = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = tip })
       if class == "short" then s.style.font_color = common.RED
-      elseif class == "ok" then s.style.font_color = common.GREEN
-      elseif class == "over" then s.style.font_color = common.GREY end
+      elseif class == "ok" then s.style.font_color = common.GREEN end
       local bar = t.add({ type = "progressbar", value = (needed and needed > 0) and math.min(1, f.copies / needed) or 1 })
       bar.style.width = 90
-      -- same colours as the shortage: red short, green ok, grey overbuilt / not needed
-      if class == "short" then bar.style.color = common.RED
-      elseif class == "ok" then bar.style.color = common.GREEN
-      else bar.style.color = common.GREY end
+      -- same colours as the shortage: red short, green covered
+      bar.style.color = class == "short" and common.RED or common.GREEN
       local chokes = plan.chokes(f, ctx.tiers, ctx.max_index, ctx.one_lane, belts)
       if #chokes > 0 then
         local tip = { "", L("chokes") }

@@ -52,7 +52,6 @@ function factories.build(player, parent, ctx)
   common.spacer(bar)
   bar.add({ type = "button", caption = L("export-all"), tags = { fp = "fac_export_all" } })
   bar.add({ type = "button", caption = L("import"), enabled = ctx.can_edit, tags = { fp = "fac_import" } })
-  bar.add({ type = "button", caption = L("import-old"), tooltip = L("import-old-tooltip"), enabled = ctx.can_edit, tags = { fp = "fac_import_old" } })
 
   local ids = model.factory_ids()
   if #ids == 0 then
@@ -249,102 +248,6 @@ handlers.fac_import_ok = function(player, element)
   local ok, added = pcall(exchange.add_to_plan, unpacked, player.index, plan.balance_factory, model.validate_factory)
   if not ok then
     if err then err.caption = L("import-error-not-a-planner-string") end
-    plan.changed()
-    return
-  end
-  finish_import(player, added)
-end
-
--- Old Kotlin state importer: paste, parse, mark fluids, pick unit, import.
-
-function factories.old_import_dialog(player)
-  local state = model.player(player.index)
-  local dlg = state.dialog
-  local frame = common.open_dialog(player, "import_old", L("import-old"))
-  state.dialog = dlg
-  local outer = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
-  local body = outer.add({ type = "flow", direction = "vertical" })
-  body.style.vertical_spacing = 8
-  if not dlg.items then
-    body.add({ type = "label", caption = L("import-old-paste") })
-    local box = body.add({ type = "text-box", name = "fp_old_text", text = "" })
-    box.style.width = 500
-    box.style.height = 200
-    box.word_wrap = true
-    box.focus()
-    body.add({ type = "label", name = "fp_import_error", caption = "" }).style.font_color = common.RED
-    local buttons = common.dialog_buttons(frame)
-    buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
-    common.spacer(buttons)
-    buttons.add({ type = "button", caption = L("next"), style = "confirm_button", tags = { fp = "old_parse" } })
-    return
-  end
-  local unit_row = body.add({ type = "flow", direction = "horizontal" })
-  unit_row.add({ type = "label", caption = L("import-old-unit") })
-  local units = {}
-  for i, u in ipairs(fp_util.UNIT_ORDER) do units[i] = fp_util.UNITS[u].suffix end
-  unit_row.add({ type = "drop-down", items = units, selected_index = dlg.unit_index or 2, tags = { fp = "old_unit" } })
-  body.add({ type = "label", caption = L("import-old-fluids"), style = "bold_label" })
-  local pane = body.add({ type = "scroll-pane" })
-  pane.style.maximal_height = 360
-  local t = pane.add({ type = "table", column_count = 3 })
-  t.style.horizontal_spacing = 16
-  for _, name in ipairs(dlg.items) do
-    t.add({ type = "checkbox", caption = name, state = dlg.fluids[name] or false, tags = { fp = "old_fluid", item = name } })
-  end
-  local buttons = common.dialog_buttons(frame)
-  buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
-  common.spacer(buttons)
-  buttons.add({ type = "button", caption = L("import"), style = "confirm_button", tags = { fp = "old_import_ok" } })
-end
-
-handlers.fac_import_old = function(player)
-  if not check_edit(player) then return end
-  model.player(player.index).dialog = { kind = "import_old" }
-  factories.old_import_dialog(player)
-end
-
-handlers.old_parse = function(player)
-  local state = model.player(player.index)
-  local frame = player.gui.screen.fp_dialog
-  local text = frame and common.find(frame, "fp_old_text")
-  local data = text and helpers.json_to_table(text.text)
-  local items = data and exchange.old_items(data)
-  if not items then
-    local err = common.find(frame, "fp_import_error")
-    if err then err.caption = L("import-error-old") end
-    return
-  end
-  local fluids = {}
-  for _, name in ipairs(items) do fluids[name] = exchange.guess_fluid(name) or nil end
-  state.dialog = { kind = "import_old", data = data, items = items, fluids = fluids, unit_index = 2 }
-  factories.old_import_dialog(player)
-end
-
-handlers.old_unit = function(player, element, event)
-  if event.name ~= defines.events.on_gui_selection_state_changed then return end
-  local dlg = model.player(player.index).dialog
-  if dlg then dlg.unit_index = element.selected_index end
-end
-
-handlers.old_fluid = function(player, element)
-  local dlg = model.player(player.index).dialog
-  if dlg then dlg.fluids[element.tags.item] = element.state or nil end
-end
-
-handlers.old_import_ok = function(player)
-  if not check_edit(player) then return end
-  local dlg = model.player(player.index).dialog
-  if not (dlg and dlg.data) then return end
-  local unit = fp_util.UNIT_ORDER[dlg.unit_index or 2]
-  local list = exchange.from_old(dlg.data, fp_util.UNITS[unit].factor, dlg.fluids)
-  if not list then return end
-  local unpacked = { factories = {} }
-  for _, f in ipairs(list) do unpacked.factories[#unpacked.factories + 1] = { factory = f } end
-  local ok, added = pcall(exchange.add_to_plan, unpacked, player.index, plan.balance_factory, model.validate_factory)
-  if not ok then
-    player.print(L("import-error-old"))
-    common.close_dialog(player)
     plan.changed()
     return
   end

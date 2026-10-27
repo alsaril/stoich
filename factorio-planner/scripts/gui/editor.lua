@@ -143,39 +143,53 @@ local function save_state(player, d, ctx)
   return true, nil
 end
 
+-- Items of the factory in three groups: what comes in, what goes out, and what
+-- is made and used up inside. Each item can be marked external.
+local ITEM_GROUPS = {
+  { key = "inputs", caption = "items-inputs", tooltip = "items-inputs-tooltip" },
+  { key = "outputs", caption = "items-outputs", tooltip = "items-outputs-tooltip" },
+  { key = "inside", caption = "items-inside", tooltip = "items-inside-tooltip" },
+}
+
 local function render_items(box, player, d, ctx)
   box.clear()
   local f = d.factory
   local r = f.result
   local fluid_keys = plan.fluid_keys(f)
-  local t = box.add({ type = "table", name = "fp_items_table", column_count = 8 })
-  t.style.horizontal_spacing = 10
-  t.style.column_alignments[3] = "right"
-  t.style.column_alignments[7] = "right"
-  for _ = 1, 2 do
-    t.add({ type = "empty-widget" })
-    t.add({ type = "label", caption = L("col-item"), style = "bold_label" })
-    t.add({ type = "label", caption = { "", L("col-net"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label", tooltip = L("col-net-tooltip") })
-    t.add({ type = "label", caption = L("col-external"), style = "bold_label", tooltip = L("col-external-tooltip") })
-  end
+  local groups = { inputs = {}, outputs = {}, inside = {} }
   for _, entry in ipairs(r.flow) do
-    local key = entry.item
-    t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
-    local name = t.add({ type = "label", caption = fp_util.localised(key) })
-    name.style.maximal_width = 170
-    local net = r.net[key]
-    if net then
-      common.rate_label(t, ctx, net, key, fluid_keys)
-    else
-      t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+    local net = r.net[entry.item]
+    local g = (net == nil) and "inside" or (net > 0 and "outputs" or "inputs")
+    table.insert(groups[g], entry.item)
+  end
+  local row = box.add({ type = "flow", name = "fp_items_groups", direction = "horizontal" })
+  row.style.horizontal_spacing = 24
+  for _, group in ipairs(ITEM_GROUPS) do
+    local col = row.add({ type = "flow", direction = "vertical" })
+    col.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "bold_label",
+      tooltip = L(group.tooltip) })
+    local t = col.add({ type = "table", column_count = 4 })
+    t.style.horizontal_spacing = 8
+    t.style.column_alignments[3] = "right"
+    for _, key in ipairs(groups[group.key]) do
+      t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
+      local name = t.add({ type = "label", caption = fp_util.localised(key) })
+      name.style.maximal_width = 150
+      local net = r.net[key]
+      if net then
+        common.rate_label(t, ctx, net, key, fluid_keys)
+      else
+        t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+      end
+      local suggested = r.suggested_external[key]
+      t.add({
+        type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
+        caption = L("col-external"),
+        tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
+        tags = { fp = "editor_external", item = key },
+      })
     end
-    local suggested = r.suggested_external[key]
-    t.add({
-      type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
-      caption = suggested and L("suggested-mark") or nil,
-      tooltip = suggested and L("suggested-tooltip") or nil,
-      tags = { fp = "editor_external", item = key },
-    })
+    if #groups[group.key] == 0 then col.add({ type = "label", caption = "—" }) end
   end
 end
 
@@ -282,11 +296,13 @@ local function build_lines(parent, player, d, ctx)
   parent.add({ type = "label", caption = L("section-lines"), style = "caption_label" })
   local t = parent.add({ type = "table", name = "fp_lines", column_count = 11, draw_horizontal_line_after_headers = true })
   t.style.horizontal_spacing = 10
-  for i = 4, 9 do t.style.column_alignments[i] = "right" end
+  -- numbers right-aligned; the anchor (checkbox + count) left-aligned with a gap after "Built"
+  for _, i in ipairs({ 4, 7, 8, 9 }) do t.style.column_alignments[i] = "right" end
   local heads = { "", "col-line", "col-machine", "col-scanned", "col-anchor", "", "col-solved", "col-diff", "col-output", "", "" }
   for _, h in ipairs(heads) do
     if h == "" then t.add({ type = "empty-widget" }) else
-      t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
+      local head = t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
+      if h == "col-anchor" then head.style.left_margin = 16 end
     end
   end
   for _, line in ipairs(f.lines) do
@@ -333,7 +349,9 @@ local function build_lines(parent, player, d, ctx)
       local anchored = f.anchors[id] ~= nil
       local a = t.add({ type = "flow", direction = "horizontal" })
       a.style.vertical_align = "center"
-      a.add({ type = "checkbox", state = anchored, enabled = ctx.can_edit, tags = { fp = "editor_anchor", line = id } })
+      a.style.left_margin = 16
+      a.add({ type = "checkbox", state = anchored, enabled = ctx.can_edit, tooltip = L("col-anchor-tooltip"),
+        tags = { fp = "editor_anchor", line = id } })
       common.number_field(a, anchored and f.anchors[id] or nil, { fp = "editor_anchor_value", line = id },
         { enabled = ctx.can_edit and anchored, width = 56, name = "anchor_" .. id })
       t.add({ type = "empty-widget" })

@@ -80,41 +80,6 @@ t.test("exchange: rejects strings that are not ours", function()
   t.eq(err, "newer-format")
 end)
 
-t.test("exchange: old Kotlin state imports and balances like the old tool", function()
-  fake.reset()
-  local state = json.read_file(TEST_ROOT .. "/tests/fixtures/old_state.json")
-  local items = exchange.old_items(state)
-  t.eq(#items, 41)
-  local fluids = {}
-  for _, name in ipairs(items) do
-    if exchange.guess_fluid(name) then fluids[name] = true end
-  end
-  t.truthy(fluids["mineral water"])
-  local list = exchange.from_old(state, 60, fluids)
-  t.eq(#list, 42)
-  local sinks = 0
-  for _, f in ipairs(list) do
-    if f.kind == "sink" then sinks = sinks + 1 end
-  end
-  t.eq(sinks, 1)
-  local unpacked = { factories = {} }
-  for _, f in ipairs(list) do unpacked.factories[#unpacked.factories + 1] = { factory = f } end
-  exchange.add_to_plan(unpacked, 1, plan.balance_factory)
-  local r = plan.rebalance()
-  t.eq(r.status, "EXACT")
-  local by_name = {}
-  for _, id in ipairs(model.factory_ids()) do by_name[model.get(id).name] = id end
-  t.near(r.counts[by_name["green circuits"]], 14.05, 0.01)
-  t.near(r.shortage[by_name["green circuits"]], 10.05, 0.01)
-  t.near(r.shortage[by_name["uranium processing"]], -0.77, 0.01)
-  t.eq(r.order[1], by_name["green circuits"])
-  -- fluids were marked on the imported lines
-  local oil = model.get(by_name["oil"])
-  local marked = false
-  for k in pairs(oil.lines[1].fluid_keys) do marked = true end
-  t.truthy(marked, "oil line has a fluid key")
-end)
-
 -- Review finding: malformed pastes must not raise (a Lua error ends a multiplayer game).
 t.test("exchange: malformed strings are rejected without errors", function()
   fake.reset()
@@ -132,15 +97,5 @@ t.test("exchange: malformed strings are rejected without errors", function()
       -- whatever survives must still be balanceable
       for _, e in ipairs(unpacked.factories) do plan.balance_factory(e.factory) end
     end
-  end
-  local olds = {
-    '{"factories":{"a":{"factory":{"name":5},"summary":{"x":1}},"b":{"factory":{"name":"b"},"summary":{"y":"z"}}}}',
-    '{"factories":{"a":{"summary":3}}}',
-    '[1,2,3]',
-  }
-  for _, text in ipairs(olds) do
-    local data = json.decode(text)
-    t.truthy(pcall(exchange.old_items, data))
-    t.truthy(pcall(exchange.from_old, data, 60, {}))
   end
 end)

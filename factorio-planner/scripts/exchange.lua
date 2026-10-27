@@ -1,6 +1,5 @@
--- Export / import of factories and plans as strings, and the importer for the
--- old Kotlin calculator's state JSON. The table conversions are pure; encode()
--- and decode() use helpers.* in game (tests pass their own codec).
+-- Export / import of factories and plans as strings. The table conversions are
+-- pure; encode() and decode() use helpers.* in game.
 
 local fp_util = require("scripts.util")
 local model = require("scripts.model")
@@ -188,115 +187,6 @@ function exchange.decode(text)
   local json = helpers.decode_string(text)
   if not json then return nil end
   return helpers.json_to_table(json)
-end
-
--- Old Kotlin calculator --------------------------------------------------------------------
-
-local FLUID_WORDS = { "water", "steam", "oil", "gas", "acid", "lubricant", "hydrogen", "oxygen", "nitrogen", "chlorine", "hcl", "hno3", "ammonia", "slurry", "fluid" }
-
---- Default for the "is this a fluid?" checkboxes; the user decides.
-function exchange.guess_fluid(name)
-  local lower = name:lower()
-  for _, w in ipairs(FLUID_WORDS) do
-    if lower:find(w, 1, true) then return true end
-  end
-  return false
-end
-
---- Old factories from a decoded `state/def` (or a single balanced factory).
---- @return table[]? { name, summary, multiplier, final }
-local function old_factories(data)
-  if type(data) ~= "table" then return nil end
-  local list = {}
-  if type(data.factories) == "table" then
-    for name, f in pairs(data.factories) do
-      if type(f) == "table" and type(f.summary) == "table" then
-        local def = f.factory or {}
-        list[#list + 1] = { name = tostring(def.name or name), summary = f.summary, multiplier = tonumber(def.multiplier) or 1, final = def.final and true or false }
-      end
-    end
-  elseif type(data.summary) == "table" then
-    local def = data.factory or {}
-    list[1] = { name = tostring(def.name or "imported"), summary = data.summary, multiplier = tonumber(def.multiplier) or 1, final = def.final and true or false }
-  else
-    return nil
-  end
-  table.sort(list, function(a, b) return a.name < b.name end)
-  return list
-end
-
---- All item names in an old state, for the fluid checkboxes.
-local function old_items(data)
-  local list = old_factories(data)
-  if not list then return nil end
-  local set = {}
-  for _, f in ipairs(list) do
-    for k in pairs(f.summary) do set[tostring(k)] = true end
-  end
-  return fp_util.sorted_keys(set)
-end
-
---- Convert an old state to factory tables with custom/ item keys.
---- @param unit_factor number 1 if the old numbers were per second, 60 per minute, 3600 per hour
---- @param fluids table<string, boolean> old item names that are fluids
---- @return table[]? factories (not saved)
-local function from_old(data, unit_factor, fluids)
-  local list = old_factories(data)
-  if not list then return nil end
-  unit_factor = unit_factor or 1
-  fluids = fluids or {}
-  local out = {}
-  for _, old in ipairs(list) do
-    local flow, fluid_keys, has_output = {}, {}, false
-    for raw_name, v in pairs(old.summary) do
-      local name = tostring(raw_name)
-      local key = fp_util.key("custom", name)
-      local rate = (tonumber(v) or 0) / unit_factor
-      if rate ~= 0 then
-        flow[key] = rate
-        if fluids[name] then fluid_keys[key] = true end
-        if rate > 0 then has_output = true end
-      end
-    end
-    local f
-    if old.final and not has_output then
-      f = model.new_factory("sink")
-      model.add_line(f, { kind = "custom", label = "consumption", count = 1, flow = {} })
-      f.sink_items = {}
-      for _, key in ipairs(fp_util.sorted_keys(flow)) do
-        f.sink_items[#f.sink_items + 1] = { key = key, rate = -flow[key], fluid = fluid_keys[key] }
-      end
-      f.lines[1].flow = flow
-      f.lines[1].fluid_keys = fluid_keys
-      f.anchors = { [f.lines[1].id] = 1 }
-    else
-      f = model.new_factory("factory")
-      local line = model.add_line(f, { kind = "custom", label = old.name, count = 1, flow = flow, fluid_keys = fluid_keys })
-      f.anchors[line.id] = 1
-      f.copies = old.multiplier
-      f.pinned = old.final
-    end
-    f.name = old.name
-    for key in pairs(flow) do f.external[key] = true end
-    out[#out + 1] = f
-  end
-  return out
-end
-
---- All item names in an old state, for the fluid checkboxes; nil when it isn't one.
-function exchange.old_items(data)
-  local ok, items = pcall(old_items, data)
-  if ok then return items end
-  return nil
-end
-
---- Convert an old state to factory tables with custom/ item keys; nil when malformed.
---- @param unit_factor number 1 if the old numbers were per second, 60 per minute, 3600 per hour
---- @param fluids table<string, boolean> old item names that are fluids
-function exchange.from_old(data, unit_factor, fluids)
-  local ok, list = pcall(from_old, data, unit_factor, fluids)
-  if ok then return list end
-  return nil
 end
 
 return exchange

@@ -125,11 +125,10 @@ function plan.rebalance()
   return r
 end
 
---- Shortage class for colouring: "short", "ok", "over" or nil when unknown.
+--- "short" when more copies are needed, "ok" when demand is covered (overbuilt counts as ok).
 function plan.shortage_class(shortage)
   if shortage == nil then return nil end
   if shortage > plan.TOLERANCE then return "short" end
-  if shortage < -plan.TOLERANCE then return "over" end
   return "ok"
 end
 

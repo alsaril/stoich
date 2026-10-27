@@ -259,28 +259,6 @@ t.test("gui: export and import a factory string", function()
   t.truthy(mock.text(dialog(p)):find("import-error", 1, true))
 end)
 
-t.test("gui: import the old Kotlin state", function()
-  local p = boot()
-  open(p)
-  tab(p, 2)
-  click(p, "fac_import_old")
-  local f = assert(io.open(TEST_ROOT .. "/tests/fixtures/old_state.json"))
-  local s = f:read("*a")
-  f:close()
-  mock.type_text(p, mock.named(dialog(p), "fp_old_text"), s)
-  click(p, "old_parse")
-  t.truthy(mock.find(dialog(p), "old_fluid"))
-  mock.select(p, mock.find(dialog(p), "old_unit"), 2)
-  click(p, "old_import_ok")
-  local r = storage.plans.main.result
-  t.eq(r.status, "EXACT")
-  local by_name = {}
-  for id, fac in pairs(storage.plans.main.factories) do by_name[fac.name] = id end
-  t.near(r.counts[by_name["green circuits"]], 14.05, 0.01)
-  tab(p, 1)
-  tab(p, 3)
-end)
-
 t.test("gui: generators-only selection opens a sink with their fuel", function()
   local p = boot()
   capture(p, { mock.boiler(1, 1, "coal"), mock.boiler(2, 1, "coal") })
@@ -530,17 +508,6 @@ t.test("gui: remaining controls", function()
   -- items tab collapse
   tab(p, 3)
   click(p, "items_collapse")
-  -- old importer fluid ticks
-  tab(p, 2)
-  click(p, "fac_import_old")
-  local f = assert(io.open(TEST_ROOT .. "/tests/fixtures/old_state.json"))
-  local text = f:read("*a")
-  f:close()
-  mock.type_text(p, mock.named(dialog(p), "fp_old_text"), text)
-  click(p, "old_parse")
-  click(p, "old_fluid", { item = "coal" })
-  t.truthy(storage.players[1].dialog.fluids["coal"])
-  click(p, "dialog_close")
   click(p, "window_close")
   t.eq(win(p), nil)
 end)
@@ -672,6 +639,53 @@ t.test("gui: split prompt offers every useful item in a dropdown", function()
   mock.select(p, cand, #cands)
   mock.click(p, mock.find(win(p), "problem_split", { mode = "factory" }))
   t.eq(d.factory.splits[1].item, cands[#cands])
+end)
+
+t.test("gui: picker maps recipes to products; fluid flag only for custom names", function()
+  local p = boot()
+  open(p)
+  tab(p, 2)
+  click(p, "fac_new_sink")
+  t.eq(mock.find(win(p), "row_fluid", { mode = "sink" }), nil, "no fluid flag for an empty row")
+  -- picking a recipe (as the signal picker allows) stores what it makes
+  mock.pick(p, mock.find(win(p), "row_signal", { mode = "sink", i = 1 }), { type = "recipe", name = "plastic-bar" })
+  t.eq(draft_of(p).factory.sink_items[1].key, "item/plastic-bar")
+  t.eq(mock.find(win(p), "row_fluid", { mode = "sink" }), nil, "no fluid flag for a real item")
+  click(p, "row_add", { mode = "sink" })
+  mock.type_text(p, mock.find(win(p), "row_text", { mode = "sink", i = 2 }), "space data", true)
+  t.truthy(mock.find(win(p), "row_fluid", { mode = "sink", i = 2 }), "fluid flag for the custom name")
+  t.eq(mock.find(win(p), "row_fluid", { mode = "sink", i = 1 }), nil)
+end)
+
+t.test("gui: editor groups items; shortage never shows below 0", function()
+  local p = boot()
+  capture(p, oil_build())
+  local text = mock.text(win(p))
+  t.truthy(text:find("<fp.items-inputs>", 1, true) and text:find("<fp.items-outputs>", 1, true) and text:find("<fp.items-inside>", 1, true))
+  mock.click(p, mock.named(win(p), "fp_save"))
+  local id
+  for fid in pairs(storage.plans.main.factories) do id = fid end
+  add_sink(p, "plastic-bar", 60)
+  tab(p, 1)
+  for _ = 1, 10 do
+    local b = mock.find(win(p), "problem_external", { mode = "plan" })
+    if not b then break end
+    mock.click(p, b)
+  end
+  local r = storage.plans.main.result
+  t.eq(r.status, "EXACT")
+  t.truthy(r.shortage[id] < 0, "overbuilt in this plan")
+  -- the shortage cell reads 0, green, with the surplus in its tooltip
+  local found = false
+  for _, e in ipairs(mock.all(win(p))) do
+    local tip = e.type == "label" and e.tooltip
+    if type(tip) == "table" and tip[1] == "fp.surplus-tooltip" then
+      found = true
+      t.eq(e.caption, "0")
+      t.eq(e.style.font_color, require("scripts.gui.common").GREEN)
+    end
+  end
+  t.truthy(found, "surplus shown in a tooltip")
 end)
 
 t.test("gui: every handler is reached by some scenario", function()
