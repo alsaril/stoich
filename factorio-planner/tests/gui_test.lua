@@ -211,6 +211,7 @@ t.test("gui: plan split between two factories, slider in the plan tab", function
   local a = saved_oil(p)
   -- duplicate gives a second design making the same items
   tab(p, 2)
+  click(p, "fac_details")
   click(p, "fac_duplicate", { id = a })
   add_sink(p, "plastic-bar", 60)
   tab(p, 1)
@@ -234,6 +235,14 @@ t.test("gui: export and import a factory string", function()
   local p = boot()
   local id = saved_oil(p)
   tab(p, 2)
+  -- duplicate, export and "modified" are behind the Details toggle
+  t.eq(mock.find(win(p), "fac_export", { id = id }), nil)
+  t.eq(mock.find(win(p), "fac_duplicate", { id = id }), nil)
+  t.eq(mock.text(win(p)):find("<fp.col-modified>", 1, true), nil)
+  t.eq(mock.text(win(p)):find("<fp.col-status>", 1, true), nil, "no status column")
+  click(p, "fac_details")
+  t.truthy(mock.text(win(p)):find("<fp.col-modified>", 1, true))
+  t.truthy(mock.find(win(p), "fac_duplicate", { id = id }))
   click(p, "fac_export", { id = id })
   local text = mock.all(dialog(p))
   local box

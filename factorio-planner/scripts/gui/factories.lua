@@ -53,6 +53,10 @@ function factories.build(player, parent, ctx)
   bar.add({ type = "button", caption = L("export-all"), tags = { fp = "fac_export_all" } })
   bar.add({ type = "button", caption = L("import"), enabled = ctx.can_edit, tags = { fp = "fac_import" } })
 
+  local state = model.player(player.index)
+  local details = state.factories_details or false
+  bar.add({ type = "checkbox", caption = L("details"), tooltip = L("details-tooltip"), state = details, tags = { fp = "fac_details" } })
+
   local ids = model.factory_ids()
   if #ids == 0 then
     parent.add({ type = "label", caption = L("no-factories") })
@@ -61,10 +65,16 @@ function factories.build(player, parent, ctx)
   local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
   pane.style.maximal_height = 600
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", column_count = 8, draw_horizontal_lines = true })
+  -- Saved factories are always EXACT (Save requires it), so there is no status column;
+  -- an invalid one (a mod it uses was removed) gets a red name and a warning icon.
+  local heads = { "", "col-name", "col-lines", "col-net-flow" }
+  if details then heads[#heads + 1] = "col-modified" end
+  heads[#heads + 1] = ""
+  heads[#heads + 1] = ""
+  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true })
   t.style.horizontal_spacing = 10
   t.style.vertical_spacing = 4
-  for _, h in ipairs({ "", "col-name", "col-lines", "col-net-flow", "col-status", "col-modified", "", "" }) do
+  for _, h in ipairs(heads) do
     if h == "" then t.add({ type = "empty-widget" }) else t.add({ type = "label", caption = L(h), style = "bold_label" }) end
   end
   -- sinks first, then factories, each by name
@@ -77,27 +87,45 @@ function factories.build(player, parent, ctx)
   for _, id in ipairs(ids) do
     local f = model.get(id)
     t.add({ type = "sprite", sprite = common.factory_sprite(f) })
-    local name = t.add({ type = "label", caption = f.kind == "sink" and { "", f.name, " ", L("sink-mark") } or f.name })
-    name.style.maximal_width = 200
-    if f.invalid then name.style.font_color = common.RED end
+    local name_cell = t.add({ type = "flow", direction = "horizontal" })
+    name_cell.style.vertical_align = "center"
+    local name = name_cell.add({ type = "label", caption = f.kind == "sink" and { "", f.name, " ", L("sink-mark") } or f.name })
+    name.style.maximal_width = 220
+    if f.invalid then
+      name.style.font_color = common.RED
+      local warn = name_cell.add({ type = "sprite", sprite = "utility/warning_icon",
+        tooltip = L("invalid-missing", table.concat(f.invalid, ", ")) })
+      warn.style.size = 16
+      warn.style.stretch_image_to_widget_size = true
+    end
     t.add({ type = "label", caption = f.kind == "sink" and "" or tostring(#f.lines) })
     outputs_flow(t, f, ctx)
-    common.status_label(t, f.result and f.result.status or "INVALID")
-    t.add({ type = "label", caption = { "", common.player_name(f.modified_by), " ", common.time_ago(f.modified_tick) } })
-    local edit = t.add({ type = "flow", direction = "horizontal" })
-    edit.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
+    if details then
+      t.add({ type = "label", caption = { "", common.player_name(f.modified_by), " ", common.time_ago(f.modified_tick) } })
+    end
+    local buttons = t.add({ type = "flow", direction = "horizontal" })
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
       tags = { fp = "fac_edit", id = id } })
-    edit.add({ type = "sprite-button", style = "tool_button", sprite = "utility/copy", tooltip = L("duplicate"), enabled = ctx.can_edit,
-      tags = { fp = "fac_duplicate", id = id } })
-    edit.add({ type = "sprite-button", style = "tool_button", sprite = "utility/export", tooltip = L("export"),
-      tags = { fp = "fac_export", id = id } })
     if f.source then
-      edit.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"),
+      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"),
         tags = { fp = "show_map", id = id } })
+    else
+      buttons.add({ type = "empty-widget" }).style.width = 28 -- keep the columns aligned
+    end
+    if details then
+      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/copy", tooltip = L("duplicate"), enabled = ctx.can_edit,
+        tags = { fp = "fac_duplicate", id = id } })
+      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/export", tooltip = L("export"),
+        tags = { fp = "fac_export", id = id } })
     end
     t.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
       tags = { fp = "fac_delete", id = id } })
   end
+end
+
+handlers.fac_details = function(player, element)
+  model.player(player.index).factories_details = element.state
+  window.refresh(player)
 end
 
 window.builders.factories = factories.build
