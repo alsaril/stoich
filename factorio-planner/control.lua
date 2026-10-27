@@ -125,7 +125,10 @@ end
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   if event.setting == "fp-rate-unit" then
     local player = event.player_index and game.get_player(event.player_index)
-    if player and window.is_open(player) then window.refresh(player) end
+    if player and window.is_open(player) then
+      window.sync_unit(player)
+      window.refresh(player)
+    end
   elseif event.setting == "fp-edit-permission" or event.setting == "fp-max-belt" or event.setting == "fp-one-lane" then
     window.refresh_all()
   end

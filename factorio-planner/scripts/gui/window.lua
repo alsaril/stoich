@@ -45,7 +45,16 @@ function window.open(player, tab)
   local size = window.size(player)
   w.style.width = size.width
   w.style.height = size.height
+  -- the rate unit lives in the title bar: it applies to every tab
+  local units, selected = {}, 2
+  local unit = player.mod_settings["fp-rate-unit"].value
+  for i, u in ipairs(fp_util.UNIT_ORDER) do
+    units[i] = fp_util.UNITS[u].suffix
+    if u == unit then selected = i end
+  end
   common.titlebar(w, L("title"), "window_close", {
+    { type = "drop-down", name = "fp_unit", items = units, selected_index = selected, tooltip = L("setting-unit"),
+      tags = { fp = "set_unit" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/grid_view",
       tooltip = L(state.compact and "size-large" or "size-compact"), tags = { fp = "window_size" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/clock", tooltip = L("log"), tags = { fp = "open_log" } },
@@ -133,6 +142,17 @@ function window.refresh(player)
   if builder then builder(player, container, common.ctx(player)) end
 end
 
+--- Show the current rate unit in the title bar (it can also change in the game's mod settings).
+function window.sync_unit(player)
+  local w = get(player)
+  local dd = w and w.fp_titlebar and w.fp_titlebar.fp_unit
+  if not dd then return end
+  local unit = player.mod_settings["fp-rate-unit"].value
+  for i, u in ipairs(fp_util.UNIT_ORDER) do
+    if u == unit then dd.selected_index = i end
+  end
+end
+
 --- Rebuild the whole window (e.g. after a size change).
 function window.reopen(player)
   if not get(player) then return end
@@ -186,15 +206,6 @@ local function settings_dialog(player)
   local t = body.add({ type = "table", column_count = 2 })
   t.style.vertical_spacing = 8
   t.style.horizontal_spacing = 12
-
-  t.add({ type = "label", caption = L("setting-unit") })
-  local units = {}
-  local selected = 1
-  for i, u in ipairs(fp_util.UNIT_ORDER) do
-    units[i] = fp_util.UNITS[u].suffix
-    if u == ctx.unit then selected = i end
-  end
-  t.add({ type = "drop-down", items = units, selected_index = selected, tags = { fp = "set_unit" } })
 
   t.add({ type = "label", caption = L("setting-edit"), tooltip = L("setting-edit-tooltip") })
   t.add({

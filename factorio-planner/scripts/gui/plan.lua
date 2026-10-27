@@ -57,12 +57,6 @@ local function build_header(parent, player, r, ctx)
   local reason = bar.add({ type = "label", caption = problems.summary(player, "plan", r) })
   reason.style.maximal_width = 560
   common.spacer(bar)
-  local items, selected = {}, 2
-  for i, u in ipairs(fp_util.UNIT_ORDER) do
-    items[i] = fp_util.UNITS[u].suffix
-    if u == ctx.unit then selected = i end
-  end
-  bar.add({ type = "drop-down", items = items, selected_index = selected, tooltip = L("setting-unit"), tags = { fp = "set_unit" } })
   bar.add({ type = "sprite-button", style = "tool_button", sprite = "utility/refresh", tooltip = L("recalculate"), tags = { fp = "plan_recalculate" } })
 end
 
