@@ -822,29 +822,6 @@ t.test("gui: a new sink is named after its first item; the list marks sinks with
   t.truthy(mock.text(win(p)):find("<fp.sink-mark>", 1, true), "marked in its own column")
 end)
 
-t.test("gui: a new capture can replace an existing factory", function()
-  local p = boot()
-  local id = saved_oil(p)
-  tab(p, 1)
-  click(p, "plan_copies", { id = id, delta = 1 })
-  capture(p, oil_build())
-  local dd = mock.find(win(p), "editor_replace")
-  t.truthy(dd, "replace dropdown for a new capture")
-  t.eq(dd.selected_index, 1, "save as new by default")
-  mock.select(p, dd, 2)
-  t.eq(draft_of(p).replace_id, id)
-  t.eq(mock.named(win(p), "fp_save").caption[1], "fp.replace")
-  mock.click(p, mock.named(win(p), "fp_save"))
-  local n = 0
-  for _ in pairs(storage.plans.main.factories) do n = n + 1 end
-  t.eq(n, 1, "replaced, not added")
-  t.eq(storage.plans.main.factories[id].copies, 2, "copies kept")
-  -- editing a saved factory offers no replace option
-  tab(p, 2)
-  click(p, "fac_edit", { id = id })
-  t.eq(mock.find(win(p), "editor_replace"), nil)
-end)
-
 t.test("gui: every handler is reached by some scenario", function()
   local f = assert(io.open(TEST_ROOT .. "/scripts/gui/common.lua"))
   f:close()

@@ -159,7 +159,7 @@ function model.save_factory(factory, base, player_index, force)
     end
   end
   local saved = fp_util.deep_copy(factory)
-  local action = base.action or "edited"
+  local action = "edited"
   if existing then
     -- Copies and pin change live without a draft; keep the current ones unless this draft changed them.
     if saved.copies == base.copies then saved.copies = existing.copies end
@@ -174,25 +174,6 @@ function model.save_factory(factory, base, player_index, force)
   plan.factories[saved.id] = saved
   model.log(player_index, { "fp.log-" .. action }, saved.name)
   return true, saved
-end
-
---- Replace an existing factory with a new one (e.g. a fresh capture). The target
---- keeps its id, copy count, Fixed flag and group, so plan splits that reference it
---- still work; its name and icon are kept too unless keep_name is false.
---- @param base_revision integer the target's revision when the player chose it
---- @return boolean ok
---- @return table result saved factory, or the conflict as in save_factory
-function model.replace_factory(factory, target_id, base_revision, player_index, force, keep_name)
-  local target = model.get(target_id)
-  if not target and not force then return false, { deleted = true } end
-  local f = fp_util.deep_copy(factory)
-  f.id = target_id
-  if target then
-    f.copies, f.pinned, f.group = target.copies, target.pinned, target.group
-    if keep_name then f.name, f.icon = target.name, target.icon end
-  end
-  return model.save_factory(f, { revision = base_revision, copies = f.copies, pinned = f.pinned, action = "replaced" },
-    player_index, force)
 end
 
 function model.delete_factory(id, player_index)
