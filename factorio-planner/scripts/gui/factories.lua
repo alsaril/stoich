@@ -18,7 +18,6 @@ local factories = {}
 local function outputs_flow(parent, f, ctx)
   local flow = parent.add({ type = "flow", direction = "horizontal" })
   flow.style.horizontal_spacing = 2
-  flow.style.horizontally_stretchable = true -- this column takes the spare width
   local net = f.result and f.result.net or {}
   local keys = fp_util.sorted_keys(net)
   table.sort(keys, function(a, b)
@@ -72,12 +71,15 @@ function factories.build(player, parent, ctx)
   if details then heads[#heads + 1] = "col-modified" end
   heads[#heads + 1] = ""
   heads[#heads + 1] = ""
-  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true, draw_vertical_lines = true })
+  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true })
   t.style.horizontally_stretchable = true
   t.style.horizontal_spacing = 10
   t.style.vertical_spacing = 4
   for _, h in ipairs(heads) do
-    if h == "" then t.add({ type = "empty-widget" }) else t.add({ type = "label", caption = L(h), style = "bold_label" }) end
+    if h == "" then t.add({ type = "empty-widget" }) else
+      -- stretchable headers: the data columns share the spare width (invisible spacing)
+      t.add({ type = "label", caption = L(h), style = "bold_label" }).style.horizontally_stretchable = true
+    end
   end
   -- sinks first, then factories, each by name
   table.sort(ids, function(a, b)

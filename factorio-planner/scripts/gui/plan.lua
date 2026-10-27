@@ -158,14 +158,18 @@ function plan_tab.fill_rows(player, holder, r, ctx)
   local pane = holder.add({ type = "scroll-pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", column_count = 11, draw_horizontal_lines = true, draw_vertical_lines = true })
+  local t = pane.add({ type = "table", column_count = 11, draw_horizontal_lines = true })
   t.style.horizontally_stretchable = true
   t.style.horizontal_spacing = 10
   t.style.column_alignments[4] = "right"
   t.style.column_alignments[5] = "right"
   local heads = { "", "col-name", "col-copies", "col-needed", "col-shortage", "col-progress", "", "col-pin", "", "", "" }
   for _, h in ipairs(heads) do
-    if h == "" then t.add({ type = "empty-widget" }) else t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") }) end
+    if h == "" then t.add({ type = "empty-widget" }) else
+      -- stretchable headers: the data columns share the spare width (invisible spacing)
+      local head = t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
+      head.style.horizontally_stretchable = true
+    end
   end
   local shown = 0
   for _, id in ipairs(order) do
@@ -177,7 +181,6 @@ function plan_tab.fill_rows(player, holder, r, ctx)
       t.add({ type = "sprite", sprite = common.factory_sprite(f) })
       local name = t.add({ type = "label", caption = f.name, tooltip = common.flow_tooltip(ctx, f.result.net, L("per-copy")) })
       name.style.maximal_width = 320
-      name.style.horizontally_stretchable = true -- the name column takes the spare width
       local copies = t.add({ type = "flow", direction = "horizontal" })
       copies.style.vertical_align = "center"
       copies.add({ type = "button", caption = "−", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = -1 } })
