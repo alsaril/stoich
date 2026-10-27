@@ -98,6 +98,14 @@ script.on_event(defines.events.on_gui_closed, function(event)
   end
 end)
 
+-- The window is sized to the screen: refit it when the resolution or UI scale changes.
+local function refit(event)
+  local player = game.get_player(event.player_index)
+  if player and window.is_open(player) then window.reopen(player) end
+end
+script.on_event(defines.events.on_player_display_resolution_changed, refit)
+script.on_event(defines.events.on_player_display_scale_changed, refit)
+
 script.on_event(defines.events.on_gui_location_changed, function(event)
   local element = event.element
   if element and element.valid and element.name == "fp_window" then

@@ -404,7 +404,7 @@ function editor.build(player, parent, ctx)
   reason.style.single_line = false
 
   local scroll = parent.add({ type = "scroll-pane", style = "scroll_pane" })
-  scroll.style.maximal_height = 560
+  scroll.style.vertically_stretchable = true
   scroll.style.horizontally_stretchable = true
   -- spacing is a flow property, so the content sits in a vertical flow
   local pane = scroll.add({ type = "flow", direction = "vertical" })

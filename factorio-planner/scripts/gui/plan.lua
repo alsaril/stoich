@@ -97,14 +97,41 @@ local function build_sinks(parent, player, ctx)
   end
 end
 
+-- In the Plan tab only a summary; the cards live in the Splits tab.
 local function build_splits(parent, player)
   local p = model.plan()
   if #p.splits == 0 then return end
-  parent.add({ type = "label", caption = L("section-plan-splits"), style = "caption_label" })
-  local box = parent.add({ type = "table", name = "fp_plan_splits", column_count = 3 })
-  box.style.horizontal_spacing = 8
+  local row = parent.add({ type = "flow", direction = "horizontal" })
+  row.style.vertical_align = "center"
+  row.style.horizontal_spacing = 8
+  row.add({ type = "label", caption = L("section-plan-splits"), style = "caption_label" })
+  for _, split in ipairs(p.splits) do
+    local n = 0
+    for _ in pairs(split.shares) do n = n + 1 end
+    row.add({ type = "sprite", sprite = common.key_sprite(split.item), tooltip = fp_util.localised(split.item) })
+    row.add({ type = "label", caption = L("split-summary", fp_util.localised(split.item), n) })
+  end
+  row.add({ type = "button", caption = L("open-splits"), tags = { fp = "open_splits_tab" } })
+end
+
+--- Splits tab: one card per plan split, with the needed count of each factory.
+function plan_tab.build_splits_tab(player, parent, ctx)
+  parent.add({ type = "label", caption = L("splits-explain"), style = "info_label" }).style.single_line = false
+  local p = model.plan()
+  if #p.splits == 0 then
+    parent.add({ type = "label", caption = L("no-plan-splits") })
+    return
+  end
+  local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
+  pane.style.vertically_stretchable = true
+  pane.style.horizontally_stretchable = true
+  local box = pane.add({ type = "table", name = "fp_plan_splits", column_count = 2 })
+  box.style.horizontal_spacing = 12
+  box.style.vertical_spacing = 12
   for i, split in ipairs(p.splits) do splits.build_card(box, player, "plan", i, split) end
 end
+
+window.builders.splits = plan_tab.build_splits_tab
 
 local function build_table(parent, player, r, ctx)
   local state = model.player(player.index)
@@ -129,9 +156,10 @@ function plan_tab.fill_rows(player, holder, r, ctx)
     return
   end
   local pane = holder.add({ type = "scroll-pane", style = "scroll_pane" })
-  pane.style.maximal_height = 420
+  pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", column_count = 11, draw_horizontal_lines = true })
+  local t = pane.add({ type = "table", column_count = 11, draw_horizontal_lines = true, draw_vertical_lines = true })
+  t.style.horizontally_stretchable = true
   t.style.horizontal_spacing = 10
   t.style.column_alignments[4] = "right"
   t.style.column_alignments[5] = "right"
@@ -148,7 +176,8 @@ function plan_tab.fill_rows(player, holder, r, ctx)
       shown = shown + 1
       t.add({ type = "sprite", sprite = common.factory_sprite(f) })
       local name = t.add({ type = "label", caption = f.name, tooltip = common.flow_tooltip(ctx, f.result.net, L("per-copy")) })
-      name.style.maximal_width = 220
+      name.style.maximal_width = 320
+      name.style.horizontally_stretchable = true -- the name column takes the spare width
       local copies = t.add({ type = "flow", direction = "horizontal" })
       copies.style.vertical_align = "center"
       copies.add({ type = "button", caption = "−", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = -1 } })
@@ -231,18 +260,11 @@ window.builders.plan = plan_tab.build
 --- Refresh for the player who moved a plan split slider: rebuild everything
 --- except the split cards, which are updated in place.
 function plan_tab.refresh_except_splits(player, index, line)
+  -- the cards are in the Splits tab now: update them (and their needed counts) in place
   local w = window.get(player)
-  local root = w and w.fp_inner.fp_tabs.fp_content_plan
-  if not (root and root.fp_plan_header) then return end
-  local ctx = common.ctx(player)
-  local r = result()
-  root.fp_plan_header.clear()
-  build_header(root.fp_plan_header, player, r, ctx)
-  local rows = common.find(root, "fp_plan_rows")
-  if rows then plan_tab.fill_rows(player, rows, r, ctx) end
-  root.fp_plan_problems.clear()
-  build_problems(root.fp_plan_problems, player, r, ctx)
-  for i in ipairs(model.plan().splits) do splits.update_card(root.fp_plan_splits_box, player, "plan", i, i == index and line or nil) end
+  local root = w and w.fp_inner.fp_tabs.fp_content_splits
+  if not root then return end
+  for i in ipairs(model.plan().splits) do splits.update_card(root, player, "plan", i, i == index and line or nil) end
 end
 
 -- Targets for split cards and problems ------------------------------------------------------------
@@ -253,7 +275,18 @@ splits.targets.plan = {
   counts = function() return result().counts end,
   name_of = function(_, id)
     local f = model.get(id)
-    return f and f.name or tostring(id)
+    if not f then return tostring(id) end
+    -- several factories can share a name (e.g. many "Iron ore" mines): tell them apart
+    for _, other in ipairs(model.factory_ids()) do
+      if other ~= id and model.get(other).name == f.name then return f.name .. " #" .. id end
+    end
+    return f.name
+  end,
+  extra_of = function(_, id)
+    local r = result()
+    local needed = r.counts[id]
+    if needed == nil or r.undetermined[id] then return L("needed-unknown") end
+    return L("needed-count", fp_util.format_count(needed))
   end,
   sprite_of = function(_, id)
     local f = model.get(id)
@@ -290,6 +323,7 @@ problems.actions.plan = {
     draft.add_split(model.plan(), item, solver.producers_of(list, item), list)
     model.log(player.index, { "fp.log-plan-split", fp_util.rich(item) }, nil)
     plan.changed()
+    window.select_tab(player, "splits")
   end,
   show_item = function(player, item)
     local state = model.player(player.index)
@@ -301,6 +335,10 @@ problems.actions.plan = {
 }
 
 -- Handlers ------------------------------------------------------------------------------------------
+
+handlers.open_splits_tab = function(player)
+  window.select_tab(player, "splits")
+end
 
 handlers.plan_recalculate = function()
   plan.changed()

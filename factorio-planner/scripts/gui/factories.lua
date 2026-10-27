@@ -18,6 +18,7 @@ local factories = {}
 local function outputs_flow(parent, f, ctx)
   local flow = parent.add({ type = "flow", direction = "horizontal" })
   flow.style.horizontal_spacing = 2
+  flow.style.horizontally_stretchable = true -- this column takes the spare width
   local net = f.result and f.result.net or {}
   local keys = fp_util.sorted_keys(net)
   table.sort(keys, function(a, b)
@@ -63,7 +64,7 @@ function factories.build(player, parent, ctx)
     return
   end
   local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
-  pane.style.maximal_height = 600
+  pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
   -- Saved factories are always EXACT (Save requires it), so there is no status column;
   -- an invalid one (a mod it uses was removed) gets a red name and a warning icon.
@@ -71,7 +72,8 @@ function factories.build(player, parent, ctx)
   if details then heads[#heads + 1] = "col-modified" end
   heads[#heads + 1] = ""
   heads[#heads + 1] = ""
-  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true })
+  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true, draw_vertical_lines = true })
+  t.style.horizontally_stretchable = true
   t.style.horizontal_spacing = 10
   t.style.vertical_spacing = 4
   for _, h in ipairs(heads) do

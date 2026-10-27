@@ -347,6 +347,7 @@ function mock.new_player(index, opts)
     printed = {},
     cursor_stack = { set_stack = function(stack) p.cursor = stack.name return true end },
     controller = nil,
+    display_resolution = { width = 2560, height = 1440 }, display_scale = 1,
   }
   function p.print(msg) mock.check_localised(msg, "print") p.printed[#p.printed + 1] = msg end
   function p.clear_cursor() p.cursor = nil return true end

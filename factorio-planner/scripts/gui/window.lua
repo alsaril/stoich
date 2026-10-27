@@ -9,7 +9,7 @@ local handlers = common.handlers
 
 local window = {}
 
-window.TABS = { "plan", "factories", "items" }
+window.TABS = { "plan", "factories", "items", "splits" }
 
 -- Tab builders, registered by the tab modules: builder(player, container, ctx)
 window.builders = {}
@@ -42,18 +42,29 @@ function window.open(player, tab)
     return w
   end
   w = player.gui.screen.add({ type = "frame", name = "fp_window", direction = "vertical" })
+  local size = window.size(player)
+  w.style.width = size.width
+  w.style.height = size.height
   common.titlebar(w, L("title"), "window_close", {
+    { type = "sprite-button", style = "frame_action_button", sprite = "utility/grid_view",
+      tooltip = L(state.compact and "size-large" or "size-compact"), tags = { fp = "window_size" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/clock", tooltip = L("log"), tags = { fp = "open_log" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/preset", tooltip = L("settings"), tags = { fp = "open_settings" } },
   })
   local inner = w.add({ type = "frame", name = "fp_inner", style = "inside_deep_frame", direction = "vertical" })
+  inner.style.vertically_stretchable = true
+  inner.style.horizontally_stretchable = true
   local tabs = inner.add({ type = "tabbed-pane", name = "fp_tabs", style = "tabbed_pane_with_no_side_padding", tags = { fp = "tab_changed" } })
+  tabs.style.vertically_stretchable = true
+  tabs.style.horizontally_stretchable = true
   for _, name in ipairs(window.TABS) do
     local tab = tabs.add({ type = "tab", name = "fp_tab_" .. name, caption = L("tab-" .. name) })
     local content = tabs.add({ type = "flow", name = "fp_content_" .. name, direction = "vertical" })
     content.style.padding = 8
     content.style.vertical_spacing = 6
-    content.style.width = 980
+    -- the content fills the window; scroll panes inside take the remaining height
+    content.style.horizontally_stretchable = true
+    content.style.vertically_stretchable = true
     tabs.add_tab(tab, content)
   end
   tabs.selected_tab_index = tab_index(state.tab)
@@ -87,16 +98,48 @@ function window.select_tab(player, name)
   window.refresh(player)
 end
 
---- Rebuild the selected tab.
+--- Window size for a player: most of the screen, or a fixed compact size.
+--- (Factorio mod windows can't be resized by dragging.)
+function window.size(player)
+  local state = model.player(player.index)
+  if state.compact then return { width = 1000, height = 640 } end
+  local res = player.display_resolution or { width = 1920, height = 1080 }
+  local scale = player.display_scale or 1
+  local width = math.floor(res.width / scale * 0.8)
+  local height = math.floor(res.height / scale * 0.85)
+  return { width = math.max(900, math.min(width, 1600)), height = math.max(500, math.min(height, 1200)) }
+end
+
+--- Rebuild the selected tab. The other tabs are emptied, so a long list in one
+--- tab doesn't keep stretching the window when another is shown.
 function window.refresh(player)
   local w = get(player)
   if not w then return end
   local state = model.player(player.index)
-  local container = w.fp_inner.fp_tabs["fp_content_" .. state.tab]
+  local tabs = w.fp_inner.fp_tabs
+  for _, name in ipairs(window.TABS) do
+    local other = tabs["fp_content_" .. name]
+    if other and name ~= state.tab then other.clear() end
+  end
+  local splits_tab = tabs.fp_tab_splits
+  if splits_tab then
+    local n = #model.plan().splits
+    splits_tab.badge_text = n > 0 and tostring(n) or "" -- nil would show as "nil"
+  end
+  local container = tabs["fp_content_" .. state.tab]
   if not container then return end
   local builder = window.builders[state.tab]
   container.clear()
   if builder then builder(player, container, common.ctx(player)) end
+end
+
+--- Rebuild the whole window (e.g. after a size change).
+function window.reopen(player)
+  if not get(player) then return end
+  local state = model.player(player.index)
+  window.close(player)
+  state.location = nil
+  window.open(player)
 end
 
 --- Refresh every player who has the window open. A player's open factory
@@ -120,6 +163,12 @@ window.refresh_editor_status = function() end
 
 handlers.window_close = function(player)
   window.close(player)
+end
+
+handlers.window_size = function(player)
+  local state = model.player(player.index)
+  state.compact = not state.compact or nil
+  window.reopen(player)
 end
 
 handlers.tab_changed = function(player, element, event)

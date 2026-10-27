@@ -19,6 +19,7 @@ local splits = {}
 ---   counts(player) -> current solved counts by id,
 ---   name_of(player, id) -> LocalisedString, sprite_of(player, id) -> SpritePath,
 ---   changed(player, structural) -> called after a change,
+---   extra_of(player, id)? -> caption of an extra column (plan: needed copies),
 ---   can_edit(player) -> bool }
 splits.targets = {}
 
@@ -50,7 +51,8 @@ function splits.build_card(parent, player, mode, index, split)
   head.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("split-remove"),
     enabled = enabled, tags = { fp = "split_remove", mode = mode, index = index } })
 
-  local t = card.add({ type = "table", name = "fp_split_table", column_count = 4 })
+  local extra = target.extra_of
+  local t = card.add({ type = "table", name = "fp_split_table", column_count = extra and 5 or 4 })
   t.style.horizontal_spacing = 8
   t.style.column_alignments[4] = "right"
   for i, id in ipairs(ids) do
@@ -69,6 +71,10 @@ function splits.build_card(parent, player, mode, index, split)
     else
       t.add({ type = "empty-widget" })
       t.add({ type = "label", name = "l_" .. id, caption = fp_util.format_count(share) .. "%", tooltip = L("split-last-tooltip") })
+    end
+    if extra then
+      local x = t.add({ type = "label", name = "x_" .. id, caption = extra(player, id), style = "info_label" })
+      x.style.left_margin = 8
     end
   end
   return card
@@ -90,6 +96,8 @@ function splits.update_card(container, player, mode, index, except_line)
       if field then field.text = common.precise(share) end
     end
     if last then last.caption = fp_util.format_count(share) .. "%" end
+    local x = t["x_" .. id]
+    if x and target.extra_of then x.caption = target.extra_of(player, id) end
   end
 end
 

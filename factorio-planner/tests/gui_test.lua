@@ -407,7 +407,7 @@ end)
 
 -- Fuzz: fire the natural event on every interactive element, re-reading the
 -- GUI after each one (actions rebuild it), including dialogs.
-local SKIP = { window_close = true, tab_changed = true }
+local SKIP = { window_close = true, tab_changed = true, window_size = true }
 
 local function act(p, e)
   local kind = e.type
@@ -447,7 +447,7 @@ t.test("gui: fuzz every control on every screen", function()
   saved_oil(p)
   add_sink(p, "plastic-bar", 60)
   local total = 0
-  for tab_index = 1, 3 do
+  for tab_index = 1, 4 do
     open(p)
     tab(p, tab_index)
     total = total + poke_all(p)
@@ -459,7 +459,8 @@ t.test("gui: fuzz every control on every screen", function()
   if storage.players[1].draft then click(p, "editor_cancel") end
   click(p, "fac_new_sink")
   total = total + poke_all(p)
-  t.truthy(total > 150, "poked " .. total .. " controls")
+  -- only the visible tab has content, so each pass pokes just that tab's controls
+  t.truthy(total > 80, "poked " .. total .. " controls")
 end)
 
 t.test("gui: remaining controls", function()
@@ -728,6 +729,59 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
     if e.name and e.name:match("^out_%d+_belt$") and e.caption ~= "" then any_rate = true end
   end
   t.truthy(any_rate, "output belt cells filled")
+end)
+
+t.test("gui: only the shown tab has content; window size toggle; splits tab", function()
+  local p = boot()
+  saved_oil(p)
+  open(p)
+  tab(p, 2)
+  local tabs = mock.named(win(p), "fp_tabs")
+  tab(p, 1)
+  t.eq(#tabs.fp_content_factories.children, 0, "factories tab emptied when hidden")
+  t.truthy(#tabs.fp_content_plan.children > 0)
+  -- window fits the screen, compact toggle
+  local big = win(p).style.width
+  click(p, "window_size")
+  t.eq(win(p).style.width, 1000)
+  t.eq(storage.players[1].compact, true)
+  click(p, "window_size")
+  t.eq(win(p).style.width, big)
+  -- hide satisfied factories
+  click(p, "plan_hide_ok")
+  t.eq(storage.players[1].hide_ok, true)
+  -- splits tab: empty message, then a split from the plan problems lands there
+  tab(p, 4)
+  t.truthy(mock.text(win(p)):find("<fp.no-plan-splits>", 1, true))
+end)
+
+t.test("gui: plan split summary links to the splits tab", function()
+  local p = boot()
+  local a = saved_oil(p)
+  tab(p, 2)
+  click(p, "fac_details")
+  click(p, "fac_duplicate", { id = a })
+  -- two factories with the same name, like several identical mines
+  for _, f in pairs(storage.plans.main.factories) do f.name = "Plastic bar" end
+  add_sink(p, "plastic-bar", 60)
+  tab(p, 1)
+  for _ = 1, 10 do
+    local b = mock.find(win(p), "problem_external", { mode = "plan" })
+    if not b then break end
+    mock.click(p, b)
+  end
+  click(p, "problem_split", { mode = "plan" })
+  t.eq(storage.players[1].tab, "splits", "adding a plan split shows the splits tab")
+  local text = mock.text(win(p))
+  t.truthy(text:find("#", 1, true), "same-named factories get their id")
+  t.truthy(text:find("<fp.needed-count>", 1, true), "needed copies per factory")
+  tab(p, 1)
+  t.eq(mock.find(win(p), "split_slider", { mode = "plan" }), nil, "no cards in the plan tab")
+  click(p, "open_splits_tab")
+  t.eq(storage.players[1].tab, "splits")
+  local slider = mock.find(win(p), "split_slider", { mode = "plan" })
+  mock.slide(p, slider, 25)
+  t.truthy(slider.valid, "slider survives")
 end)
 
 t.test("gui: every handler is reached by some scenario", function()
