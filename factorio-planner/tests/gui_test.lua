@@ -694,16 +694,25 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   local ctx = common.ctx(p) -- mock: express belts not researched, so fast is the highest allowed
   local d = common.rate_display(ctx, 10, "item/iron-plate")
   t.eq(d.color, nil, "number not tinted")
-  t.truthy(d.caption:find("[entity=transport-belt]", 1, true))
-  t.truthy(d.caption:find("67%", 1, true), d.caption)
+  t.eq(d.belt, "[entity=transport-belt]")
+  t.eq(d.fill, "67%")
   t.eq(d.tooltip[1], "fp.belt-tooltip")
   local over = common.rate_display(ctx, 40, "item/iron-plate")
   t.eq(over.exceeds, true)
   t.eq(over.color, common.RED)
-  t.truthy(over.caption:find("1.33×[entity=fast-transport-belt]", 1, true), over.caption)
+  t.eq(over.belt, "[entity=fast-transport-belt]")
+  t.eq(over.fill, "1.33×")
   local fluid = common.rate_display(ctx, 400, "fluid/water")
-  t.eq(fluid.color, nil)
-  t.eq(fluid.exceeds, nil)
+  t.eq(fluid.belt, "")
+  t.eq(fluid.fill, "")
+  -- the editor shows them as three columns, updated in place while balancing
+  capture(p, oil_build())
+  local lines = mock.named(win(p), "fp_lines")
+  local any_rate = false
+  for _, e in ipairs(mock.all(lines)) do
+    if e.name and e.name:match("^out_%d+_belt$") and e.caption ~= "" then any_rate = true end
+  end
+  t.truthy(any_rate, "output belt cells filled")
 end)
 
 t.test("gui: every handler is reached by some scenario", function()

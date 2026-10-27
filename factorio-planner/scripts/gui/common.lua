@@ -102,47 +102,62 @@ common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
 --- @param per_second number
 --- @param key string item key
 --- @param fluid_keys table? custom keys marked fluid
+--- A rate split for display: the number, the slowest belt that carries it,
+--- and how full that belt is. Fluids get no belt.
+--- @return table { text, belt (rich text or ""), fill, color?, fill_color?, tooltip?, exceeds? }
 function common.rate_display(ctx, per_second, key, fluid_keys)
   local text = fp_util.format_rate(per_second, ctx.unit)
   if belts.is_fluid(key, fluid_keys) then
-    return { caption = text, tooltip = L("fluid-no-limit") } -- fluids: plain, never limited
+    return { text = text, belt = "", fill = "", tooltip = L("fluid-no-limit") }
   end
   local check = belts.tier_for(per_second, ctx.tiers, ctx.max_index, ctx.one_lane)
-  if not check then return { caption = text } end
+  if not check then return { text = text, belt = "", fill = "" } end
   local tier = check.tier
-  local belt = "[entity=" .. tier.name .. "]"
   local capacity = fp_util.format_rate(tier.capacity * (ctx.one_lane and 0.5 or 1), ctx.unit, true)
   local lane = ctx.one_lane and L("belt-one-lane") or ""
   if check.exceeds then
     -- the only red: more than the highest allowed belt carries
     return {
-      caption = "[img=utility/warning_icon] " .. text .. "  " .. fp_util.format_count(check.belts) .. "×" .. belt,
-      color = RED,
+      text = text, belt = "[entity=" .. tier.name .. "]", fill = fp_util.format_count(check.belts) .. "×",
+      color = RED, fill_color = RED, exceeds = true,
       tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(tier.name), capacity, lane),
-      exceeds = true,
     }
   end
-  -- the number stays plain; the icon is the slowest belt that carries it, with how full it is
-  local fill = math.floor(check.belts * 100 + 0.5)
   return {
-    caption = text .. "  " .. belt .. "[font=default-small]" .. fill .. "%[/font]",
-    tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, fill, lane),
+    text = text, belt = "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
+    tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, math.floor(check.belts * 100 + 0.5), lane),
   }
 end
 
---- Add a label showing a rate with the belt it needs.
-function common.rate_label(parent, ctx, per_second, key, fluid_keys, name)
-  local d = common.rate_display(ctx, per_second, key, fluid_keys)
-  local label = parent.add({ type = "label", name = name, caption = d.caption, tooltip = d.tooltip })
-  if d.color then label.style.font_color = d.color end
-  return label, d
+local WHITE = { r = 1, g = 1, b = 1 }
+
+common.RATE_WIDTH, common.BELT_WIDTH, common.FILL_WIDTH = 80, 24, 44
+
+--- Add three table cells: rate, belt icon, fill. Named prefix_rate/_belt/_fill when a prefix is given.
+function common.rate_cells(parent, ctx, per_second, key, fluid_keys, prefix, rate_width)
+  local d = per_second and common.rate_display(ctx, per_second, key, fluid_keys) or { text = "", belt = "", fill = "" }
+  local rate = parent.add({ type = "label", name = prefix and (prefix .. "_rate"), caption = d.text, tooltip = d.tooltip })
+  rate.style.width = rate_width or common.RATE_WIDTH
+  rate.style.horizontal_align = "right"
+  rate.style.font_color = d.color or WHITE
+  local belt = parent.add({ type = "label", name = prefix and (prefix .. "_belt"), caption = d.belt, tooltip = d.tooltip })
+  belt.style.width = common.BELT_WIDTH
+  belt.style.horizontal_align = "center"
+  local fill = parent.add({ type = "label", name = prefix and (prefix .. "_fill"), caption = d.fill, tooltip = d.tooltip })
+  fill.style.width = common.FILL_WIDTH
+  fill.style.horizontal_align = "right"
+  fill.style.font_color = d.fill_color or common.GREY
+  return d
 end
 
-function common.set_rate_label(label, ctx, per_second, key, fluid_keys)
-  local d = common.rate_display(ctx, per_second, key, fluid_keys)
-  label.caption = d.caption
-  label.tooltip = d.tooltip
-  label.style.font_color = d.color or { r = 1, g = 1, b = 1 }
+--- Update cells added by rate_cells (by prefix) in place; per_second nil clears them.
+function common.set_rate_cells(parent, prefix, ctx, per_second, key, fluid_keys)
+  local rate, belt, fill = parent[prefix .. "_rate"], parent[prefix .. "_belt"], parent[prefix .. "_fill"]
+  if not (rate and belt and fill) then return end
+  local d = per_second and common.rate_display(ctx, per_second, key, fluid_keys) or { text = "", belt = "", fill = "" }
+  rate.caption, rate.tooltip, rate.style.font_color = d.text, d.tooltip, d.color or WHITE
+  belt.caption, belt.tooltip = d.belt, d.tooltip
+  fill.caption, fill.tooltip, fill.style.font_color = d.fill, d.tooltip, d.fill_color or common.GREY
   return d
 end
 

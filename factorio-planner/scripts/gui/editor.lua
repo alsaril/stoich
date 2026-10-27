@@ -168,18 +168,22 @@ local function render_items(box, player, d, ctx)
     local col = row.add({ type = "flow", direction = "vertical" })
     col.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "bold_label",
       tooltip = L(group.tooltip) })
-    local t = col.add({ type = "table", column_count = 4 })
-    t.style.horizontal_spacing = 8
-    t.style.column_alignments[3] = "right"
+    -- icon, name, rate, belt, fill, external
+    local t = col.add({ type = "table", column_count = 6 })
+    t.style.horizontal_spacing = 6
     for _, key in ipairs(groups[group.key]) do
       t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
       local name = t.add({ type = "label", caption = fp_util.localised(key) })
-      name.style.maximal_width = 150
+      name.style.maximal_width = 130
       local net = r.net[key]
       if net then
-        common.rate_label(t, ctx, net, key, fluid_keys)
+        common.rate_cells(t, ctx, net, key, fluid_keys, nil, 64)
       else
-        t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+        local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+        dash.style.width = 64
+        dash.style.horizontal_align = "right"
+        t.add({ type = "empty-widget" })
+        t.add({ type = "empty-widget" })
       end
       local suggested = r.suggested_external[key]
       t.add({
@@ -215,7 +219,6 @@ function editor.update_results(player, skip_split, skip_line)
     for _, line in ipairs(f.lines) do
       local solved = lines_table["solved_" .. line.id]
       local diff = lines_table["diff_" .. line.id]
-      local tier = lines_table["tier_" .. line.id]
       local c = r.counts[line.id]
       local unknown = r.undetermined[line.id] or c == nil
       if solved then solved.caption = unknown and "?" or fp_util.format_count(c) end
@@ -228,13 +231,10 @@ function editor.update_results(player, skip_split, skip_line)
           diff.style.font_color = dv > 0.005 and common.YELLOW or common.GREY
         end
       end
-      if tier then
+      if lines_table["out_" .. line.id .. "_rate"] then
         local out = main_output(line)
-        if out and c and not unknown then
-          common.set_rate_label(tier, ctx, c * line.flow[out], out, line.fluid_keys)
-        else
-          tier.caption = ""
-        end
+        local rate = (out and c and not unknown) and c * line.flow[out] or nil
+        common.set_rate_cells(lines_table, "out_" .. line.id, ctx, rate, out, line.fluid_keys)
       end
     end
   end
@@ -294,11 +294,11 @@ end
 local function build_lines(parent, player, d, ctx)
   local f = d.factory
   parent.add({ type = "label", caption = L("section-lines"), style = "caption_label" })
-  local t = parent.add({ type = "table", name = "fp_lines", column_count = 11, draw_horizontal_line_after_headers = true })
+  local t = parent.add({ type = "table", name = "fp_lines", column_count = 13, draw_horizontal_line_after_headers = true })
   t.style.horizontal_spacing = 10
   -- numbers right-aligned; the anchor (checkbox + count) left-aligned with a gap after "Built"
-  for _, i in ipairs({ 4, 7, 8, 9 }) do t.style.column_alignments[i] = "right" end
-  local heads = { "", "col-line", "col-machine", "col-scanned", "col-anchor", "", "col-solved", "col-diff", "col-output", "", "" }
+  for _, i in ipairs({ 4, 7, 8, 9, 11 }) do t.style.column_alignments[i] = "right" end
+  local heads = { "", "col-line", "col-machine", "col-scanned", "col-anchor", "", "col-solved", "col-diff", "col-output", "col-belt", "col-fill", "", "" }
   for _, h in ipairs(heads) do
     if h == "" then t.add({ type = "empty-widget" }) else
       local head = t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
@@ -332,7 +332,7 @@ local function build_lines(parent, player, d, ctx)
       else
         t.add({ type = "empty-widget" })
       end
-      for _ = 1, 5 do t.add({ type = "empty-widget" }) end
+      for _ = 1, 7 do t.add({ type = "empty-widget" }) end
     else
       t.add({ type = "sprite", sprite = common.line_sprite(line), tooltip = common.flow_tooltip(ctx, line.flow, { "", line_name(line), " ", L("per-machine") }) })
       local name = t.add({ type = "label", caption = line_name(line), tooltip = common.flow_tooltip(ctx, line.flow, L("per-machine")) })
@@ -357,7 +357,7 @@ local function build_lines(parent, player, d, ctx)
       t.add({ type = "empty-widget" })
       t.add({ type = "label", name = "solved_" .. id, caption = "" })
       t.add({ type = "label", name = "diff_" .. id, caption = "" })
-      t.add({ type = "label", name = "tier_" .. id, caption = "" })
+      common.rate_cells(t, ctx, nil, nil, nil, "out_" .. id)
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", enabled = ctx.can_edit,
         tooltip = L("edit-flow"), tags = { fp = "editor_edit_flow", line = id } })
     end

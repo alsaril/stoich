@@ -23,7 +23,8 @@ local function plan_fluid_keys()
 end
 
 -- Column widths of the items table.
-local W = { toggle = 28, name = 220, total = 110, per_copy = 110, share = 180, info = 190 }
+-- Belts go on the per-copy flow: that is what one copy puts on a belt.
+local W = { toggle = 28, name = 210, total = 90, share = 170, info = 170 }
 
 local function cell_label(t, caption, width, opts)
   opts = opts or {}
@@ -34,11 +35,8 @@ local function cell_label(t, caption, width, opts)
   return label
 end
 
-local function rate_cell(t, ctx, rate, key, fluid_keys)
-  local label = common.rate_label(t, ctx, rate, key, fluid_keys)
-  label.style.width = W.total
-  label.style.horizontal_align = "right"
-  return label
+local function total_cell(t, ctx, rate)
+  return cell_label(t, fp_util.format_rate(rate, ctx.unit), W.total, { right = true })
 end
 
 function items.build(player, parent, ctx)
@@ -66,13 +64,15 @@ function items.build(player, parent, ctx)
   local pane = parent.add({ type = "scroll-pane", name = "fp_items_pane", style = "scroll_pane" })
   pane.style.maximal_height = 600
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", name = "fp_items_table", column_count = 6 })
+  local t = pane.add({ type = "table", name = "fp_items_table", column_count = 8 })
   t.style.horizontal_spacing = 12
   t.style.vertical_spacing = 2
   t.add({ type = "empty-widget" }).style.width = W.toggle
   cell_label(t, L("col-item"), W.name, { style = "bold_label" })
   cell_label(t, L("col-total"), W.total, { style = "bold_label", right = true })
-  cell_label(t, L("col-per-copy"), W.per_copy, { style = "bold_label", right = true })
+  cell_label(t, L("col-per-copy"), common.RATE_WIDTH, { style = "bold_label", right = true })
+  cell_label(t, L("col-belt"), common.BELT_WIDTH, { style = "bold_label", tooltip = L("col-belt-tooltip") })
+  cell_label(t, L("col-fill"), common.FILL_WIDTH, { style = "bold_label", right = true, tooltip = L("col-fill-tooltip") })
   cell_label(t, L("col-share"), W.share, { style = "bold_label" })
   cell_label(t, "", W.info)
 
@@ -89,8 +89,8 @@ function items.build(player, parent, ctx)
     name.add({ type = "sprite", sprite = common.key_sprite(key) })
     local label = name.add({ type = "label", caption = fp_util.localised(key), style = "bold_label" })
     label.style.single_line = true
-    rate_cell(t, ctx, entry.total, key, fluid_keys)
-    cell_label(t, "", W.per_copy)
+    total_cell(t, ctx, entry.total)
+    common.rate_cells(t, ctx, nil)
     local producers, consumers = 0, 0
     for _, c in ipairs(entry.components) do
       if not c.virtual then
@@ -114,18 +114,16 @@ function items.build(player, parent, ctx)
           src.add({ type = "sprite", sprite = "utility/indication_arrow" })
           local v = src.add({ type = "label", caption = L("virtual-" .. c.source), style = "info_label" })
           v.style.single_line = true
-          rate_cell(t, ctx, c.count, key, fluid_keys)
-          cell_label(t, "", W.per_copy)
+          total_cell(t, ctx, c.count)
+          common.rate_cells(t, ctx, nil)
         else
           local f = model.get(c.source)
           src.add({ type = "sprite", sprite = f and common.factory_sprite(f) or "utility/missing_icon" })
           src.add({ type = "button", caption = f and f.name or "?", style = "list_box_item", tooltip = L("open-in-editor"),
             tags = { fp = "items_open", id = c.source } })
-          rate_cell(t, ctx, c.count, key, fluid_keys)
+          total_cell(t, ctx, c.count)
           local per_copy = f and (f.kind == "sink" and plan.sink_flow(f)[key] or f.result.net[key]) or 0
-          local pc = common.rate_label(t, ctx, per_copy, key, fluid_keys)
-          pc.style.width = W.per_copy
-          pc.style.horizontal_align = "right"
+          common.rate_cells(t, ctx, per_copy, key, fluid_keys)
         end
         local share = t.add({ type = "flow", direction = "horizontal" })
         share.style.vertical_align = "center"
