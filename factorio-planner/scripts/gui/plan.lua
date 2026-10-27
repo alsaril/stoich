@@ -53,9 +53,12 @@ local function build_header(parent, player, r, ctx)
   bar.style.horizontally_stretchable = true
   bar.style.height = 40
   bar.style.vertical_align = "center"
-  common.status_label(bar, r.status)
-  local reason = bar.add({ type = "label", caption = problems.summary(player, "plan", r) })
-  reason.style.maximal_width = 560
+  -- an empty plan has no status worth showing
+  if #(r.order or {}) > 0 or next(model.plan().factories) then
+    common.status_label(bar, r.status)
+    local n = problems.count(r)
+    if n > 0 then bar.add({ type = "label", caption = L("status-problems", n) }) end
+  end
   common.spacer(bar)
   bar.add({ type = "sprite-button", style = "tool_button", sprite = "utility/refresh", tooltip = L("recalculate"), tags = { fp = "plan_recalculate" } })
 end
@@ -66,7 +69,7 @@ local function build_sinks(parent, player, ctx)
     if model.get(id).kind == "sink" then ids[#ids + 1] = id end
   end
   if #ids == 0 then return end
-  parent.add({ type = "label", caption = L("section-sinks"), style = "caption_label" })
+  parent.add({ type = "label", caption = { "", L("section-sinks"), " (", common.unit_suffix(ctx), ")" }, style = "caption_label" })
   local t = parent.add({ type = "table", column_count = 4 })
   t.style.horizontal_spacing = 10
   for _, id in ipairs(ids) do
@@ -74,8 +77,11 @@ local function build_sinks(parent, player, ctx)
     t.add({ type = "sprite", sprite = common.factory_sprite(f) })
     local name = t.add({ type = "label", caption = f.name, style = "bold_label" })
     name.style.minimal_width = 120
-    local flow = t.add({ type = "flow", direction = "horizontal" })
-    flow.style.vertical_align = "center"
+    -- icon + rate pairs that wrap onto more rows, so a long sink doesn't widen the window
+    local per_row = model.player(player.index).compact and 4 or 8
+    local flow = t.add({ type = "table", column_count = per_row * 2 })
+    flow.style.horizontal_spacing = 4
+    flow.style.vertical_spacing = 4
     for i, row in ipairs(f.sink_items or {}) do
       if row.key then
         flow.add({ type = "sprite", sprite = common.key_sprite(row.key), tooltip = fp_util.localised(row.key) })
@@ -86,7 +92,7 @@ local function build_sinks(parent, player, ctx)
     local buttons = t.add({ type = "flow", direction = "horizontal" })
     buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
       tags = { fp = "fac_edit", id = id } })
-    buttons.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("delete"),
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("delete"),
       enabled = ctx.can_edit, tags = { fp = "fac_delete", id = id } })
   end
 end
@@ -152,20 +158,25 @@ function plan_tab.fill_rows(player, holder, r, ctx)
   local pane = holder.add({ type = "scroll-pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", column_count = 11, draw_horizontal_lines = true })
+  -- fixed column widths (only the name stretches), so the table also fits the compact window
+  local t = pane.add({ type = "table", column_count = 10, draw_horizontal_lines = true })
   t.style.horizontally_stretchable = true
-  t.style.horizontal_spacing = 10
+  t.style.horizontal_spacing = 14
   t.style.column_alignments[4] = "right"
   t.style.column_alignments[5] = "right"
-  local heads = { "", "col-name", "col-copies", "col-needed", "col-shortage", "col-progress", "", "col-pin", "", "", "" }
+  local heads = {
+    { "", 24 }, { "col-name", nil }, { "col-copies", 80 }, { "col-needed", 64 }, { "col-shortage", 70 },
+    { "col-progress", 96 }, { "", 24 }, { "col-pin", 40 }, { "", 28 }, { "", 28 },
+  }
   for _, h in ipairs(heads) do
-    if h == "" then t.add({ type = "empty-widget" }) else
-      -- stretchable headers: the data columns share the spare width (invisible spacing)
-      local head = t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
-      head.style.horizontally_stretchable = true
+    local head
+    if h[1] == "" then head = t.add({ type = "empty-widget" }) else
+      head = t.add({ type = "label", caption = L(h[1]), style = "bold_label", tooltip = L(h[1] .. "-tooltip") })
     end
+    if h[2] then head.style.width = h[2] else head.style.horizontally_stretchable = true end
   end
   local shown = 0
+  local names = common.factory_names(ctx)
   for _, id in ipairs(order) do
     local f = model.get(id)
     local shortage = r.shortage[id]
@@ -173,8 +184,8 @@ function plan_tab.fill_rows(player, holder, r, ctx)
     if f and matches(f, filter) and not (state.hide_ok and class == "ok") then
       shown = shown + 1
       t.add({ type = "sprite", sprite = common.factory_sprite(f) })
-      local name = t.add({ type = "label", caption = f.name, tooltip = common.flow_tooltip(ctx, f.result.net, L("per-copy")) })
-      name.style.maximal_width = 320
+      local name = t.add({ type = "label", caption = names[id], tooltip = common.flow_tooltip(ctx, f.result.net, L("per-copy")) })
+      name.style.maximal_width = 360
       local copies = t.add({ type = "flow", direction = "horizontal" })
       copies.style.vertical_align = "center"
       copies.add({ type = "button", caption = "−", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = -1 } })
@@ -183,46 +194,50 @@ function plan_tab.fill_rows(player, holder, r, ctx)
       c.style.horizontal_align = "center"
       copies.add({ type = "button", caption = "+", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = 1 } })
       local needed = r.counts[id]
-      t.add({ type = "label", caption = (needed and not r.undetermined[id]) and fp_util.format_count(needed) or "?" })
-      -- never below 0: a covered demand is green, the surplus goes in the tooltip
+      local known = needed ~= nil and not r.undetermined[id]
+      t.add({ type = "label", caption = known and fp_util.format_count(needed) or "?" })
+      -- whole copies still to build; never below 0, green when covered; the exact need in the tooltip
       local caption, tip = "?", nil
-      if shortage then
-        caption = class == "short" and ("+" .. fp_util.format_count(shortage)) or "0"
-        if shortage < -0.005 then tip = L("surplus-tooltip", fp_util.format_count(-shortage)) end
+      if shortage and known then
+        caption = class == "short" and ("+" .. math.ceil(shortage - 1e-6)) or "0"
+        local covered = needed > 0 and math.min(100, math.floor(100 * f.copies / needed + 0.5)) or 100
+        tip = L("shortage-tooltip", fp_util.format_count(needed), fp_util.format_count(f.copies),
+          fp_util.format_count(math.max(0, shortage)), covered)
+        if shortage < -0.005 then tip = { "", tip, "\n", L("surplus-tooltip", fp_util.format_count(-shortage)) } end
       end
-      local s = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = tip })
-      if class == "short" then s.style.font_color = common.RED
-      elseif class == "ok" then s.style.font_color = common.GREEN end
-      local bar = t.add({ type = "progressbar", value = (needed and needed > 0) and math.min(1, f.copies / needed) or 1 })
-      bar.style.width = 90
-      -- same colours as the shortage: red short, green covered
-      bar.style.color = class == "short" and common.RED or common.GREEN
+      local sl = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = tip })
+      if known and class == "short" then sl.style.font_color = common.RED
+      elseif known and class == "ok" then sl.style.font_color = common.GREEN end
+      if known then
+        local bar = t.add({ type = "progressbar", value = needed > 0 and math.min(1, f.copies / needed) or 1, tooltip = tip })
+        bar.style.width = 90
+        -- same colours as the shortage: red short, green covered
+        bar.style.color = class == "short" and common.RED or common.GREEN
+      else
+        t.add({ type = "empty-widget" }) -- no coverage to show while the need is unknown
+      end
       local chokes = plan.chokes(f, ctx.tiers, ctx.max_index, ctx.one_lane, belts)
       if #chokes > 0 then
-        local tip = { "", L("chokes") }
+        local ctip = { "", L("chokes") }
         for i, ch in ipairs(chokes) do
-          if i <= 6 then tip[#tip + 1] = { "", "\n", fp_util.rich(ch.item), " ", fp_util.format_rate(ch.rate, ctx.unit, true), " = ", fp_util.format_count(ch.check.belts), "×[entity=" .. ch.check.tier.name .. "]" } end
+          if i <= 6 then ctip[#ctip + 1] = { "", "\n", fp_util.rich(ch.item), " ", fp_util.format_rate(ch.rate, ctx.unit, true), " = ", fp_util.format_count(ch.check.belts), "×[entity=" .. ch.check.tier.name .. "]" } end
         end
-        t.add({ type = "sprite", sprite = "utility/warning_icon", tooltip = tip })
+        t.add({ type = "sprite", sprite = "utility/warning_icon", tooltip = ctip })
       else
         t.add({ type = "empty-widget" })
       end
       t.add({ type = "checkbox", state = f.pinned or false, enabled = ctx.can_edit, tooltip = L("pinned-tooltip"), tags = { fp = "plan_pin", id = id } })
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"), tags = { fp = "fac_edit", id = id } })
+      -- delete lives in the Factories tab
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"), enabled = f.source ~= nil,
         tags = { fp = "show_map", id = id } })
-      t.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
-        tags = { fp = "fac_delete", id = id } })
     end
   end
   if shown == 0 then holder.add({ type = "label", caption = L("plan-filtered") }) end
 end
 
 local function build_problems(box, player, r, ctx)
-  if #r.problems > 0 then
-    box.add({ type = "label", caption = L("section-problems"), style = "caption_label" })
-    problems.render(box, player, "plan", r, ctx)
-  end
+  if #r.problems > 0 then problems.render(box, player, "plan", r, ctx) end
   if r.excluded and #r.excluded > 0 then
     local names = { "" }
     for i, id in ipairs(r.excluded) do
@@ -246,10 +261,11 @@ end
 function plan_tab.build(player, parent, ctx)
   local r = result()
   build_header(section(parent, "fp_plan_header"), player, r, ctx)
+  -- problems first: they are what needs doing
+  build_problems(section(parent, "fp_plan_problems"), player, r, ctx)
   build_sinks(section(parent, "fp_plan_sinks"), player, ctx)
   build_splits(section(parent, "fp_plan_splits_box"), player)
   build_table(section(parent, "fp_plan_main"), player, r, ctx)
-  build_problems(section(parent, "fp_plan_problems"), player, r, ctx)
 end
 
 window.builders.plan = plan_tab.build
@@ -270,14 +286,8 @@ splits.targets.plan = {
   holder = function() return model.plan() end,
   units = function() return units() end,
   counts = function() return result().counts end,
-  name_of = function(_, id)
-    local f = model.get(id)
-    if not f then return tostring(id) end
-    -- several factories can share a name (e.g. many "Iron ore" mines): tell them apart
-    for _, other in ipairs(model.factory_ids()) do
-      if other ~= id and model.get(other).name == f.name then return f.name .. " #" .. id end
-    end
-    return f.name
+  name_of = function(player, id)
+    return common.factory_names(common.ctx(player))[id] or tostring(id)
   end,
   extra_of = function(_, id)
     local r = result()

@@ -689,7 +689,8 @@ t.test("gui: editor groups items; shortage never shows below 0", function()
   local found = false
   for _, e in ipairs(mock.all(win(p))) do
     local tip = e.type == "label" and e.tooltip
-    if type(tip) == "table" and tip[1] == "fp.surplus-tooltip" then
+    -- { "", { "fp.shortage-tooltip", ... }, "\n", { "fp.surplus-tooltip", ... } }
+    if type(tip) == "table" and type(tip[4]) == "table" and tip[4][1] == "fp.surplus-tooltip" then
       found = true
       t.eq(e.caption, "0")
       t.eq(e.style.font_color, require("scripts.gui.common").GREEN)
@@ -719,7 +720,7 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   t.eq(total.fill, "1.33×")
   t.eq(total.tooltip[1], "fp.belt-total-tooltip")
   local fluid = common.rate_display(ctx, 400, "fluid/water")
-  t.eq(fluid.belt, "")
+  t.eq(fluid.belt, "—")
   t.eq(fluid.fill, "")
   -- the editor shows them as three columns, updated in place while balancing
   capture(p, oil_build())
@@ -872,6 +873,35 @@ t.test("gui: dropping the tool cancels a recapture", function()
   -- a later capture opens a new factory as usual
   capture(p, gear_build(300))
   t.eq(draft_of(p).factory.id, nil)
+end)
+
+t.test("gui: a factory without an anchor offers to anchor its first line", function()
+  local p = boot()
+  open(p)
+  tab(p, 2)
+  click(p, "fac_new")
+  click(p, "editor_add_custom")
+  mock.pick(p, mock.find(dialog(p), "row_signal", { mode = "dialog", i = 1 }), { type = "item", name = "iron-plate" })
+  mock.type_text(p, mock.find(dialog(p), "row_rate", { mode = "dialog", i = 1 }), "60")
+  click(p, "dlg_line_ok")
+  local d = draft_of(p)
+  d.factory.anchors = {}
+  click(p, "editor_external", { item = "item/iron-plate" })
+  t.eq(d.factory.result.status, "NEEDS_SPLIT")
+  click(p, "problem_anchor", { mode = "factory" })
+  t.eq(d.factory.anchors[d.factory.lines[1].id], 1)
+  t.eq(d.factory.result.status, "EXACT")
+end)
+
+t.test("gui: the editor builds in both window sizes", function()
+  local p = boot()
+  open(p)
+  click(p, "window_size") -- compact: one column
+  capture(p, oil_build())
+  t.truthy(mock.named(win(p), "fp_lines"))
+  t.eq(mock.named(win(p), "fp_items_groups").direction, "horizontal")
+  click(p, "window_size") -- large: two columns, item groups stacked
+  t.eq(mock.named(win(p), "fp_items_groups").direction, "vertical")
 end)
 
 t.test("gui: every handler is reached by some scenario", function()

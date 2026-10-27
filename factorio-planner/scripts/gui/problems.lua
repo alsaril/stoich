@@ -38,42 +38,115 @@ local function names(player, mode, ids)
   return out
 end
 
---- One-line summary of a result for headers.
-function problems.summary(player, mode, result)
-  local p = result.problems[1]
-  if result.status == "EXACT" then return "" end
-  if not p then return "" end
-  if p.type == "split" then
-    return L("prompt-split", fp_util.rich(p.item), fp_util.localised(p.item), #p.lines)
-  elseif p.type == "conflict" then
-    local key = p.items[1]
-    local reason = p.reasons[key]
-    if reason == "no_consumer" then return L("conflict-no-consumer", fp_util.rich(key), fp_util.localised(key)) end
-    if reason == "no_producer" then return L("conflict-no-producer", fp_util.rich(key), fp_util.localised(key)) end
-    return L("conflict-items", #p.items)
-  elseif p.type == "anchor" then
-    return L("prompt-anchor")
-  elseif p.type == "negative" then
-    return L("negative", names(player, mode, p.lines))
-  elseif p.type == "invalid" then
-    return L("invalid-factory")
-  elseif p.type == "empty_sink" then
-    return L("empty-sink")
+--- Conflicting items across all conflict problems, once each, in order.
+local function conflict_items(result)
+  local out, seen = {}, {}
+  local split_involved = false
+  for _, p in ipairs(result.problems) do
+    if p.type == "conflict" then
+      for _, key in ipairs(p.items) do
+        if not seen[key] then
+          seen[key] = true
+          out[#out + 1] = { key = key, reason = p.reasons[key] }
+        end
+      end
+      if #p.splits > 0 then split_involved = true end
+    end
   end
-  return ""
+  return out, split_involved
+end
+
+--- Number of problem rows shown (conflicts count once per item).
+function problems.count(result)
+  local n = #conflict_items(result)
+  for _, p in ipairs(result.problems) do
+    if p.type ~= "conflict" then n = n + 1 end
+  end
+  return n
+end
+
+--- Names of the lines (factory) or factories (plan) that make (sign > 0) or use (sign < 0) an item.
+local function who(player, mode, key, sign)
+  local target = splits.targets[mode]
+  local ids = {}
+  for _, unit in ipairs(target.units(player)) do
+    local v = unit.flow[key] or 0
+    if v * sign > 0 then ids[#ids + 1] = unit.id end
+  end
+  table.sort(ids, function(a, b)
+    if type(a) ~= type(b) then return type(a) == "number" end
+    return a < b
+  end)
+  return names(player, mode, ids)
+end
+
+local function conflict_row(list, player, mode, ctx, entry)
+  local key, reason = entry.key, entry.reason
+  local row = list.add({ type = "flow", direction = "horizontal" })
+  row.style.vertical_align = "center"
+  row.style.horizontal_spacing = 6
+  row.add({ type = "sprite", sprite = "utility/status_not_working" })
+  item_button(row, mode, key)
+  local text
+  if mode == "plan" then
+    if reason == "no_producer" then
+      text = L("plan-no-producer", "", fp_util.localised(key), who(player, mode, key, -1))
+    elseif reason == "no_consumer" then
+      text = L("plan-no-consumer", "", fp_util.localised(key), who(player, mode, key, 1))
+    else
+      text = L("conflict-item", "", fp_util.localised(key))
+    end
+  else
+    if reason == "no_producer" then
+      text = L("conflict-no-producer", "", fp_util.localised(key))
+    elseif reason == "no_consumer" then
+      text = L("conflict-no-consumer", "", fp_util.localised(key))
+    else
+      text = L("conflict-item", "", fp_util.localised(key))
+    end
+  end
+  row.add({ type = "label", caption = text })
+  local function button(caption, tooltip, action)
+    row.add({ type = "button", caption = L(caption), tooltip = tooltip and L(tooltip) or nil, enabled = ctx.can_edit,
+      tags = { fp = action, mode = mode, item = key } })
+  end
+  if mode == "plan" then
+    if reason == "no_consumer" then
+      button("plan-to-outside", "plan-outside-tooltip", "problem_external")
+      button("add-sink", "add-sink-tooltip-plan", "problem_sink")
+    else
+      button("plan-from-outside", "plan-outside-tooltip", "problem_external")
+    end
+  else
+    if reason == "no_producer" then
+      button("mark-input", "mark-input-tooltip", "problem_external")
+    elseif reason == "no_consumer" then
+      button("mark-output", "mark-output-tooltip", "problem_external")
+      button("add-void", "add-sink-tooltip-factory", "problem_sink")
+    else
+      button("mark-external", nil, "problem_external")
+    end
+  end
 end
 
 --- Render all problems with their buttons.
 function problems.render(parent, player, mode, result, ctx)
   local list = parent.add({ type = "flow", name = "fp_problems", direction = "vertical" })
   list.style.vertical_spacing = 4
+  local conflicts, split_involved = conflict_items(result)
+  for _, entry in ipairs(conflicts) do conflict_row(list, player, mode, ctx, entry) end
+  if split_involved then list.add({ type = "label", caption = L("conflict-split"), style = "info_label" }) end
   for _, p in ipairs(result.problems) do
-    local row = list.add({ type = "flow", direction = "horizontal" })
-    row.style.vertical_align = "center"
-    row.style.horizontal_spacing = 6
+    local row
+    if p.type ~= "conflict" then
+      row = list.add({ type = "flow", direction = "horizontal" })
+      row.style.vertical_align = "center"
+      row.style.horizontal_spacing = 6
+    end
     if p.type == "split" then
       row.add({ type = "sprite", sprite = "utility/status_yellow" })
-      row.add({ type = "label", caption = L("prompt-split", fp_util.rich(p.item), fp_util.localised(p.item), #p.lines) })
+      row.add({ type = "label", caption = L(mode == "plan" and "prompt-split-plan" or "prompt-split", fp_util.rich(p.item),
+        fp_util.localised(p.item), #p.lines) })
       local cands = p.candidates or { p.item }
       if #cands > 1 then
         local items = {}
@@ -83,34 +156,6 @@ function problems.render(parent, player, mode, result, ctx)
       end
       row.add({ type = "button", caption = L("choose-split"), enabled = ctx.can_edit,
         tags = { fp = "problem_split", mode = mode, item = p.item, cands = cands } })
-    elseif p.type == "conflict" then
-      -- one row per item: status, the item (click: show it), text, fixes
-      row.destroy()
-      for _, key in ipairs(p.items) do
-        local item_row = list.add({ type = "flow", direction = "horizontal" })
-        item_row.style.vertical_align = "center"
-        item_row.style.horizontal_spacing = 6
-        item_row.add({ type = "sprite", sprite = "utility/status_not_working" })
-        item_button(item_row, mode, key)
-        local reason = p.reasons[key]
-        local text
-        if reason == "no_consumer" then
-          text = L("conflict-no-consumer", "", fp_util.localised(key))
-        elseif reason == "no_producer" then
-          text = L("conflict-no-producer", "", fp_util.localised(key))
-        else
-          text = L("conflict-item", "", fp_util.localised(key))
-        end
-        item_row.add({ type = "label", caption = text })
-        item_row.add({ type = "button", caption = L("mark-external"), enabled = ctx.can_edit,
-          tags = { fp = "problem_external", mode = mode, item = key } })
-        -- In the plan a sink only helps with a surplus; in a factory the "sink" line can also supply an input.
-        if not (mode == "plan" and reason == "no_producer") then
-          item_row.add({ type = "button", caption = L("add-sink"), enabled = ctx.can_edit,
-            tooltip = L("add-sink-tooltip-" .. mode), tags = { fp = "problem_sink", mode = mode, item = key } })
-        end
-      end
-      if #p.splits > 0 then list.add({ type = "label", caption = L("conflict-split") }) end
     elseif p.type == "anchor" then
       row.add({ type = "sprite", sprite = "utility/status_yellow" })
       row.add({ type = "label", caption = L("prompt-anchor-lines", names(player, mode, p.lines)) })

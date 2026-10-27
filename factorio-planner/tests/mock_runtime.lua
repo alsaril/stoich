@@ -99,8 +99,10 @@ local STYLE_CLASSES = {
 
 local function style_classes(element_data)
   if element_data.type == "flow" then
+    -- the real game gives a flow a horizontal_flow or vertical_flow style by direction:
+    -- horizontal_spacing on a vertical flow (or vertical_spacing on a horizontal one) is an error
     local dir = element_data.direction == "vertical" and "LuaVerticalFlowStyle" or "LuaHorizontalFlowStyle"
-    return { LuaFlowStyle = true, [dir] = true }
+    return { [dir] = true }
   end
   return STYLE_CLASSES[element_data.type] or {}
 end

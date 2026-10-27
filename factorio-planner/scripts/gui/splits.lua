@@ -48,11 +48,12 @@ function splits.build_card(parent, player, mode, index, split)
     head.add({ type = "label", caption = fp_util.localised(split.item), style = "bold_label" })
   end
   common.spacer(head)
-  head.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("split-remove"),
+  head.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("split-remove"),
     enabled = enabled, tags = { fp = "split_remove", mode = mode, index = index } })
 
   local extra = target.extra_of
-  local t = card.add({ type = "table", name = "fp_split_table", column_count = extra and 5 or 4 })
+  -- icon, name, slider, share, "%" (, extra)
+  local t = card.add({ type = "table", name = "fp_split_table", column_count = extra and 6 or 5 })
   t.style.horizontal_spacing = 8
   t.style.column_alignments[4] = "right"
   for i, id in ipairs(ids) do
@@ -64,14 +65,19 @@ function splits.build_card(parent, player, mode, index, split)
       local slider = t.add({ type = "slider", name = "s_" .. id, minimum_value = 0, maximum_value = 100, value = share,
         value_step = 0.5, enabled = enabled, tags = { fp = "split_slider", mode = mode, index = index, line = id } })
       slider.style.width = 140
-      local field = t.add({ type = "textfield", name = "f_" .. id, text = common.precise(share), numeric = true,
+      -- shown with at most 2 decimals; the share itself keeps full precision
+      local field = t.add({ type = "textfield", name = "f_" .. id, text = fp_util.format_count(share), numeric = true,
         allow_decimal = true, lose_focus_on_confirm = true, enabled = enabled,
         tags = { fp = "split_share", mode = mode, index = index, line = id } })
-      field.style.width = 56
+      field.style.width = 64
+      field.style.horizontal_align = "right"
     else
       t.add({ type = "empty-widget" })
-      t.add({ type = "label", name = "l_" .. id, caption = fp_util.format_count(share) .. "%", tooltip = L("split-last-tooltip") })
+      local last = t.add({ type = "label", name = "l_" .. id, caption = fp_util.format_count(share), tooltip = L("split-last-tooltip") })
+      last.style.width = 64
+      last.style.horizontal_align = "right"
     end
+    t.add({ type = "label", caption = L("row-percent") })
     if extra then
       local x = t.add({ type = "label", name = "x_" .. id, caption = extra(player, id), style = "info_label" })
       x.style.left_margin = 8
@@ -93,9 +99,9 @@ function splits.update_card(container, player, mode, index, except_line)
     local slider, field, last = t["s_" .. id], t["f_" .. id], t["l_" .. id]
     if id ~= except_line then
       if slider then slider.slider_value = share end
-      if field then field.text = common.precise(share) end
+      if field then field.text = fp_util.format_count(share) end
     end
-    if last then last.caption = fp_util.format_count(share) .. "%" end
+    if last then last.caption = fp_util.format_count(share) end
     local x = t["x_" .. id]
     if x and target.extra_of then x.caption = target.extra_of(player, id) end
   end
@@ -116,7 +122,7 @@ handlers.split_slider = function(player, element, event)
   -- keep this row's field in sync with the slider
   local field = element.parent["f_" .. element.tags.line]
   local split = splits.targets[element.tags.mode].holder(player).splits[element.tags.index]
-  if field and split then field.text = common.precise(split.shares[element.tags.line] or 0) end
+  if field and split then field.text = fp_util.format_count(split.shares[element.tags.line] or 0) end
 end
 
 handlers.split_share = function(player, element, event)

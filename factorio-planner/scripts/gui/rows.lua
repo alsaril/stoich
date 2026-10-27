@@ -85,7 +85,7 @@ function rows.build(parent, player, mode, ctx, enabled)
         t.add({ type = "empty-widget" })
       end
     end
-    t.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", enabled = enabled,
+    t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", enabled = enabled,
       tags = { fp = "row_delete", mode = mode, i = i } })
   end
   box.add({ type = "button", caption = L("add-row"), enabled = enabled, tags = { fp = "row_add", mode = mode } })

@@ -71,14 +71,16 @@ function items.build(player, parent, ctx)
   t.style.vertical_spacing = 2
   t.add({ type = "empty-widget" }).style.width = W.toggle
   cell_label(t, L("col-item"), W.name, { style = "bold_label" })
-  cell_label(t, L("col-total"), common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-total-tooltip") })
+  local unit = common.unit_suffix(ctx)
+  cell_label(t, { "", L("col-total"), " (", unit, ")" }, common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-total-tooltip") })
   cell_label(t, L("col-belt"), common.BELT_WIDTH, { style = "bold_label", tooltip = L("col-belt-total-tooltip") })
   cell_label(t, L("col-fill"), common.FILL_WIDTH, { style = "bold_label", right = true, tooltip = L("col-fill-total-tooltip") })
-  cell_label(t, L("col-per-copy"), common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-per-copy-tooltip") })
+  cell_label(t, { "", L("col-per-copy"), " (", unit, ")" }, common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-per-copy-tooltip") })
   cell_label(t, L("col-share"), W.share, { style = "bold_label" })
   cell_label(t, "", W.info)
 
   local focus_element
+  local names = common.factory_names(ctx)
   for _, entry in ipairs(entries) do
     local key = entry.item
     local open = state.expanded[key]
@@ -121,7 +123,7 @@ function items.build(player, parent, ctx)
         else
           local f = model.get(c.source)
           src.add({ type = "sprite", sprite = f and common.factory_sprite(f) or "utility/missing_icon" })
-          src.add({ type = "button", caption = f and f.name or "?", style = "list_box_item", tooltip = L("open-in-editor"),
+          src.add({ type = "button", caption = names[c.source] or "?", style = "list_box_item", tooltip = L("open-in-editor"),
             tags = { fp = "items_open", id = c.source } })
           total_cells(t, ctx, c.count, key, fluid_keys)
           local per_copy = f and (f.kind == "sink" and plan.sink_flow(f)[key] or f.result.net[key]) or 0

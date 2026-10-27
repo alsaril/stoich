@@ -110,7 +110,7 @@ common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
 function common.rate_display(ctx, per_second, key, fluid_keys, opts)
   local text = fp_util.format_rate(per_second, ctx.unit)
   if belts.is_fluid(key, fluid_keys) then
-    return { text = text, belt = "", fill = "", tooltip = L("fluid-no-limit") }
+    return { text = text, belt = "—", fill = "", tooltip = L("fluid-no-limit") }
   end
   local check = belts.tier_for(per_second, ctx.tiers, ctx.max_index, ctx.one_lane)
   if not check then return { text = text, belt = "", fill = "" } end
@@ -133,13 +133,14 @@ function common.rate_display(ctx, per_second, key, fluid_keys, opts)
   end
   return {
     text = text, belt = "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
+    fill_color = check.belts >= 0.9 and YELLOW or nil, -- near capacity
     tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, math.floor(check.belts * 100 + 0.5), lane),
   }
 end
 
 local WHITE = { r = 1, g = 1, b = 1 }
 
-common.RATE_WIDTH, common.BELT_WIDTH, common.FILL_WIDTH = 80, 36, 44
+common.RATE_WIDTH, common.BELT_WIDTH, common.FILL_WIDTH = 96, 36, 44
 
 --- Add three table cells: rate, belt icon, fill. Named prefix_rate/_belt/_fill when a prefix is given.
 function common.rate_cells(parent, ctx, per_second, key, fluid_keys, prefix, rate_width, opts)
@@ -159,11 +160,13 @@ function common.rate_cells(parent, ctx, per_second, key, fluid_keys, prefix, rat
 end
 
 --- Update cells added by rate_cells (by prefix) in place; per_second nil clears them.
-function common.set_rate_cells(parent, prefix, ctx, per_second, key, fluid_keys)
+--- @param icon string? rich text shown before the rate (e.g. the product)
+function common.set_rate_cells(parent, prefix, ctx, per_second, key, fluid_keys, icon)
   local rate, belt, fill = parent[prefix .. "_rate"], parent[prefix .. "_belt"], parent[prefix .. "_fill"]
   if not (rate and belt and fill) then return end
   local d = per_second and common.rate_display(ctx, per_second, key, fluid_keys) or { text = "", belt = "", fill = "" }
-  rate.caption, rate.tooltip, rate.style.font_color = d.text, d.tooltip, d.color or WHITE
+  rate.caption = icon and (icon .. " " .. d.text) or d.text
+  rate.tooltip, rate.style.font_color = d.tooltip, d.color or WHITE
   belt.caption, belt.tooltip = d.belt, d.tooltip
   fill.caption, fill.tooltip, fill.style.font_color = d.fill, d.tooltip, d.fill_color or common.GREY
   return d
@@ -236,6 +239,70 @@ function common.flow_tooltip(ctx, flow, title)
     end
   end
   return parts
+end
+
+-- Display names ----------------------------------------------------------------------------
+
+--- Names for factories, made unique where several share a name: the main
+--- output per copy is appended ("Iron plate · 300/min"), then the id if needed.
+--- @return table<integer, string>
+function common.factory_names(ctx)
+  local groups = {}
+  for _, id in ipairs(model.factory_ids()) do
+    local name = model.get(id).name or ""
+    groups[name] = groups[name] or {}
+    table.insert(groups[name], id)
+  end
+  local names = {}
+  for name, ids in pairs(groups) do
+    if #ids == 1 then
+      names[ids[1]] = name
+    else
+      local used = {}
+      for _, id in ipairs(ids) do
+        local f = model.get(id)
+        local net = f.result and f.result.net or {}
+        local best, best_v = nil, 0
+        for _, key in ipairs(fp_util.sorted_keys(net)) do
+          if math.abs(net[key]) > math.abs(best_v) then best, best_v = key, net[key] end
+        end
+        local caption = name
+        if best then caption = name .. " · " .. fp_util.format_rate(math.abs(best_v), ctx.unit, true) end
+        if used[caption] then caption = caption .. " #" .. id end
+        used[caption] = true
+        names[id] = caption
+      end
+    end
+  end
+  return names
+end
+
+--- Names for the recipe lines of a factory: lines that share a recipe get their
+--- machine's icon appended, then the line id if even that is the same.
+--- @param caption_of function(line) -> LocalisedString
+--- @return table<any, LocalisedString>
+function common.line_names(lines, caption_of)
+  local groups = {}
+  for _, line in ipairs(lines) do
+    local key = (line.recipe or line.resource or line.label or "") .. "|" .. line.kind
+    groups[key] = groups[key] or {}
+    table.insert(groups[key], line)
+  end
+  local names = {}
+  for _, group in pairs(groups) do
+    local machines = {}
+    for _, line in ipairs(group) do machines[line.machine or ""] = (machines[line.machine or ""] or 0) + 1 end
+    for _, line in ipairs(group) do
+      local caption = caption_of(line)
+      if #group > 1 then
+        local suffix = line.machine and ("[entity=" .. line.machine .. "]") or ""
+        if (machines[line.machine or ""] or 0) > 1 then suffix = suffix .. " #" .. line.id end
+        caption = { "", caption, " · ", suffix }
+      end
+      names[line.id] = caption
+    end
+  end
+  return names
 end
 
 -- Status -------------------------------------------------------------------------------------

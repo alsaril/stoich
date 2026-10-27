@@ -15,27 +15,45 @@ local handlers = common.handlers
 
 local factories = {}
 
+-- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
+local MAX_CHIPS = 8
+
 local function outputs_flow(parent, f, ctx)
   local flow = parent.add({ type = "flow", direction = "horizontal" })
   flow.style.horizontal_spacing = 2
+  flow.style.vertical_align = "center"
   local net = f.result and f.result.net or {}
-  local keys = fp_util.sorted_keys(net)
-  table.sort(keys, function(a, b)
-    if (net[a] > 0) ~= (net[b] > 0) then return net[a] > 0 end
+  local inputs, outputs = {}, {}
+  for _, key in ipairs(fp_util.sorted_keys(net)) do
+    table.insert(net[key] > 0 and outputs or inputs, key)
+  end
+  local function by_size(a, b)
     if math.abs(net[a]) ~= math.abs(net[b]) then return math.abs(net[a]) > math.abs(net[b]) end
     return a < b
-  end)
-  for i, key in ipairs(keys) do
-    if i > 8 then break end
+  end
+  table.sort(inputs, by_size)
+  table.sort(outputs, by_size)
+  local shown = 0
+  local function chip(key)
     local v = net[key]
     local b = flow.add({
-      type = "sprite-button", style = v > 0 and "slot_button" or "red_slot_button", sprite = common.key_sprite(key),
+      type = "sprite-button", style = "slot_button", sprite = common.key_sprite(key),
       number = math.abs(common.from_per_second(ctx, v)),
       tooltip = { "", fp_util.localised(key), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) },
-      ignored_by_interaction = false,
     })
     b.style.size = 32
+    shown = shown + 1
   end
+  -- keep room for the outputs: inputs get what's left of the slots
+  local out_slots = math.min(#outputs, MAX_CHIPS)
+  local in_slots = math.min(#inputs, MAX_CHIPS - out_slots)
+  for i = 1, in_slots do chip(inputs[i]) end
+  if #inputs > 0 and #outputs > 0 then
+    flow.add({ type = "label", caption = "→", style = "bold_label" }).style.horizontal_align = "center"
+  end
+  for i = 1, out_slots do chip(outputs[i]) end
+  local hidden = #inputs + #outputs - shown
+  if hidden > 0 then flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = L("more-flows-tooltip", hidden) }) end
 end
 
 function factories.build(player, parent, ctx)
@@ -77,8 +95,10 @@ function factories.build(player, parent, ctx)
   t.style.vertical_spacing = 4
   for _, h in ipairs(heads) do
     if h == "" then t.add({ type = "empty-widget" }) else
+      local caption = L(h)
+      if h == "col-net-flow" then caption = { "", L(h), " (", common.unit_suffix(ctx), ")" } end
       -- stretchable headers: the data columns share the spare width (invisible spacing)
-      t.add({ type = "label", caption = L(h), style = "bold_label" }).style.horizontally_stretchable = true
+      t.add({ type = "label", caption = caption, style = "bold_label" }).style.horizontally_stretchable = true
     end
   end
   -- sinks first, then factories, each by name
@@ -88,12 +108,13 @@ function factories.build(player, parent, ctx)
     if fa.name ~= fb.name then return fa.name < fb.name end
     return a < b
   end)
+  local names = common.factory_names(ctx)
   for _, id in ipairs(ids) do
     local f = model.get(id)
     t.add({ type = "sprite", sprite = common.factory_sprite(f) })
     local name_cell = t.add({ type = "flow", direction = "horizontal" })
     name_cell.style.vertical_align = "center"
-    local name = name_cell.add({ type = "label", caption = f.name })
+    local name = name_cell.add({ type = "label", caption = names[id] })
     name.style.maximal_width = 220
     if f.invalid then
       name.style.font_color = common.RED
@@ -104,7 +125,9 @@ function factories.build(player, parent, ctx)
     end
     if f.kind == "sink" then
       -- sinks have no lines; mark them here instead of in the name
-      t.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+      local mark = t.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+      mark.style.single_line = true
+      mark.style.minimal_width = 36
     else
       t.add({ type = "label", caption = tostring(#f.lines) })
     end
@@ -127,7 +150,7 @@ function factories.build(player, parent, ctx)
       buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/export", tooltip = L("export"),
         tags = { fp = "fac_export", id = id } })
     end
-    t.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
+    t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
       tags = { fp = "fac_delete", id = id } })
   end
 end

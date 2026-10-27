@@ -151,6 +151,7 @@ local ITEM_GROUPS = {
   { key = "inputs", caption = "items-inputs", tooltip = "items-inputs-tooltip" },
   { key = "outputs", caption = "items-outputs", tooltip = "items-outputs-tooltip" },
   { key = "inside", caption = "items-inside", tooltip = "items-inside-tooltip" },
+  { key = "unused", caption = "items-not-used", tooltip = "items-not-used-tooltip", optional = true },
 }
 
 local function render_items(box, player, d, ctx)
@@ -158,44 +159,62 @@ local function render_items(box, player, d, ctx)
   local f = d.factory
   local r = f.result
   local fluid_keys = plan.fluid_keys(f)
-  local groups = { inputs = {}, outputs = {}, inside = {} }
+  local groups = { inputs = {}, outputs = {}, inside = {}, unused = {} }
   for _, entry in ipairs(r.flow) do
     local net = r.net[entry.item]
-    local g = (net == nil) and "inside" or (net > 0 and "outputs" or "inputs")
+    local g
+    if net then
+      g = net > 0 and "outputs" or "inputs"
+    elseif entry.total <= 1e-9 then
+      g = "unused" -- nothing makes or uses it at this split (e.g. a recipe at 0%)
+    else
+      g = "inside"
+    end
     table.insert(groups[g], entry.item)
   end
-  local row = box.add({ type = "flow", name = "fp_items_groups", direction = "horizontal" })
-  row.style.horizontal_spacing = 24
+  -- large window: groups stacked in the right column; compact: side by side
+  local wide = box.tags.wide
+  local row = box.add({ type = "flow", name = "fp_items_groups", direction = wide and "vertical" or "horizontal" })
+  -- a flow only has the spacing of its own direction
+  if wide then row.style.vertical_spacing = 10 else row.style.horizontal_spacing = 24 end
   for _, group in ipairs(ITEM_GROUPS) do
-    local col = row.add({ type = "flow", direction = "vertical" })
-    col.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "bold_label",
-      tooltip = L(group.tooltip) })
-    -- icon, name, rate, belt, fill, external
-    local t = col.add({ type = "table", column_count = 6 })
-    t.style.horizontal_spacing = 6
-    for _, key in ipairs(groups[group.key]) do
-      t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
-      local name = t.add({ type = "label", caption = fp_util.localised(key) })
-      name.style.maximal_width = 130
-      local net = r.net[key]
-      if net then
-        common.rate_cells(t, ctx, net, key, fluid_keys, nil, 64)
-      else
-        local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
-        dash.style.width = 64
-        dash.style.horizontal_align = "right"
-        t.add({ type = "empty-widget" })
-        t.add({ type = "empty-widget" })
+    if not (group.optional and #groups[group.key] == 0) then
+      local col = row.add({ type = "flow", direction = "vertical" })
+      col.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "bold_label",
+        tooltip = L(group.tooltip) })
+      -- icon, name, rate, belt, fill, external ("External" once, as a heading)
+      local t = col.add({ type = "table", column_count = 6 })
+      t.style.horizontal_spacing = 6
+      if #groups[group.key] > 0 then
+        for _ = 1, 5 do t.add({ type = "empty-widget" }) end
+        local head = t.add({ type = "label", caption = L("col-external"), style = "info_label", tooltip = L("col-external-tooltip") })
+        head.style.single_line = true
+        head.style.minimal_width = 60 -- single-line labels would otherwise shrink to "Exte…"
       end
-      local suggested = r.suggested_external[key]
-      t.add({
-        type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
-        caption = L("col-external"),
-        tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
-        tags = { fp = "editor_external", item = key },
-      })
+      for _, key in ipairs(groups[group.key]) do
+        t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
+        local name = t.add({ type = "label", caption = fp_util.localised(key) })
+        name.style.maximal_width = 130
+        local net = r.net[key]
+        if net then
+          common.rate_cells(t, ctx, net, key, fluid_keys, nil, 64)
+        else
+          local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+          dash.style.width = 64
+          dash.style.horizontal_align = "right"
+          t.add({ type = "empty-widget" })
+          t.add({ type = "empty-widget" })
+        end
+        local suggested = r.suggested_external[key]
+        local ext = t.add({
+          type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
+          tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
+          tags = { fp = "editor_external", item = key },
+        })
+        ext.style.left_margin = 12
+      end
+      if #groups[group.key] == 0 then col.add({ type = "label", caption = "—" }) end
     end
-    if #groups[group.key] == 0 then col.add({ type = "label", caption = "—" }) end
   end
 end
 
@@ -213,8 +232,11 @@ function editor.update_results(player, skip_split, skip_line)
     status.caption = L("status-" .. r.status)
     status.style.font_color = common.status_color(r.status)
   end
-  local reason = common.find(root, "fp_reason")
-  if reason then reason.caption = problems.summary(player, "factory", r) end
+  local count = common.find(root, "fp_problem_count")
+  if count then
+    local n = problems.count(r)
+    count.caption = n > 0 and L("status-problems", n) or ""
+  end
 
   local lines_table = common.find(root, "fp_lines")
   if lines_table then
@@ -228,15 +250,18 @@ function editor.update_results(player, skip_split, skip_line)
         if unknown or line.idle then
           diff.caption = ""
         else
+          -- machines still to build; extra machines in grey with a tooltip
           local dv = c - (line.count or 0)
           diff.caption = (dv > 0.005 and "+" or "") .. fp_util.format_count(dv)
           diff.style.font_color = dv > 0.005 and common.YELLOW or common.GREY
+          diff.tooltip = dv < -0.005 and L("more-machines-tooltip", fp_util.format_count(-dv)) or nil
         end
       end
       if lines_table["out_" .. line.id .. "_rate"] then
         local out = main_output(line)
         local rate = (out and c and not unknown) and c * line.flow[out] or nil
-        common.set_rate_cells(lines_table, "out_" .. line.id, ctx, rate, out, line.fluid_keys)
+        -- the product's icon in front: recipes often have several products
+        common.set_rate_cells(lines_table, "out_" .. line.id, ctx, rate, out, line.fluid_keys, rate and fp_util.rich(out) or nil)
       end
     end
   end
@@ -287,10 +312,22 @@ local function build_header(parent, player, d, ctx)
       enabled = ctx.can_edit, tags = { fp = "editor_pinned" } })
   end
   common.spacer(bar)
-  common.status_label(bar, f.result.status, "fp_status")
-  if d.notice then
-    bar.add({ type = "label", caption = d.notice, style = "info_label" })
+  -- a sink is always balanced: no status there
+  if f.kind ~= "sink" then
+    common.status_label(bar, f.result.status, "fp_status")
+    bar.add({ type = "label", name = "fp_problem_count", caption = "" })
   end
+end
+
+--- A notice (idle machines found, recapture in progress…) on its own line under the header.
+local function build_notice(parent, d)
+  if not d.notice then return end
+  local row = parent.add({ type = "flow", direction = "horizontal" })
+  row.style.vertical_align = "center"
+  local icon = row.add({ type = "sprite", sprite = "utility/tip_icon" })
+  icon.style.size = 16
+  icon.style.stretch_image_to_widget_size = true
+  row.add({ type = "label", caption = d.notice, style = "info_label" })
 end
 
 local function build_lines(parent, player, d, ctx)
@@ -303,7 +340,9 @@ local function build_lines(parent, player, d, ctx)
   local heads = { "", "col-line", "col-machine", "col-scanned", "col-anchor", "", "col-solved", "col-diff", "col-output", "col-belt", "col-fill", "", "" }
   for _, h in ipairs(heads) do
     if h == "" then t.add({ type = "empty-widget" }) else
-      local head = t.add({ type = "label", caption = L(h), style = "bold_label", tooltip = L(h .. "-tooltip") })
+      local caption = L(h)
+      if h == "col-output" then caption = { "", L(h), " (", common.unit_suffix(ctx), ")" } end
+      local head = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = L(h .. "-tooltip") })
       if h == "col-anchor" then head.style.left_margin = 16 end
     end
   end
@@ -328,7 +367,12 @@ local function build_lines(parent, player, d, ctx)
             filters[#filters + 1] = { filter = "category", category = cat }
           end
         end
-        local picker = t.add({ type = "choose-elem-button", elem_type = "recipe", elem_filters = filters, enabled = ctx.can_edit,
+        -- labelled, so it doesn't read as another empty field
+        local assign = t.add({ type = "flow", direction = "horizontal" })
+        assign.style.vertical_align = "center"
+        assign.style.left_margin = 16
+        assign.add({ type = "label", caption = L("assign-recipe-label") })
+        local picker = assign.add({ type = "choose-elem-button", elem_type = "recipe", elem_filters = filters, enabled = ctx.can_edit,
           tooltip = L("assign-recipe"), tags = { fp = "editor_assign_recipe", line = id } })
         picker.style.size = 28
       else
@@ -337,6 +381,7 @@ local function build_lines(parent, player, d, ctx)
       for _ = 1, 7 do t.add({ type = "empty-widget" }) end
     else
       t.add({ type = "sprite", sprite = common.line_sprite(line), tooltip = common.flow_tooltip(ctx, line.flow, { "", line_name(line), " ", L("per-machine") }) })
+      -- the Machine column already tells same-recipe lines apart; split cards use the suffixed names
       local name = t.add({ type = "label", caption = line_name(line), tooltip = common.flow_tooltip(ctx, line.flow, L("per-machine")) })
       name.style.maximal_width = 200
       if line.invalid then name.style.font_color = common.RED end
@@ -354,8 +399,13 @@ local function build_lines(parent, player, d, ctx)
       a.style.left_margin = 16
       a.add({ type = "checkbox", state = anchored, enabled = ctx.can_edit, tooltip = L("col-anchor-tooltip"),
         tags = { fp = "editor_anchor", line = id } })
-      common.number_field(a, anchored and f.anchors[id] or nil, { fp = "editor_anchor_value", line = id },
-        { enabled = ctx.can_edit and anchored, width = 56, name = "anchor_" .. id })
+      -- the count field only on anchored lines; a same-width gap keeps the columns aligned
+      if anchored then
+        common.number_field(a, f.anchors[id], { fp = "editor_anchor_value", line = id },
+          { enabled = ctx.can_edit, width = 56, name = "anchor_" .. id })
+      else
+        a.add({ type = "empty-widget" }).style.width = 56
+      end
       t.add({ type = "empty-widget" })
       t.add({ type = "label", name = "solved_" .. id, caption = "" })
       t.add({ type = "label", name = "diff_" .. id, caption = "" })
@@ -363,7 +413,7 @@ local function build_lines(parent, player, d, ctx)
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", enabled = ctx.can_edit,
         tooltip = L("edit-flow"), tags = { fp = "editor_edit_flow", line = id } })
     end
-    t.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", enabled = ctx.can_edit,
+    t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", enabled = ctx.can_edit,
       tooltip = L("delete-line"), tags = { fp = "editor_delete_line", line = id } })
   end
   if #f.lines == 0 then parent.add({ type = "label", caption = L("no-lines") }) end
@@ -373,7 +423,7 @@ local function build_splits(parent, player, d)
   local f = d.factory
   if #f.splits == 0 then return end
   parent.add({ type = "label", caption = L("section-splits"), style = "caption_label" })
-  local box = parent.add({ type = "table", name = "fp_splits_box", column_count = 3 })
+  local box = parent.add({ type = "table", name = "fp_splits_box", column_count = 2 })
   box.style.horizontal_spacing = 8
   box.style.vertical_spacing = 8
   for i, split in ipairs(f.splits) do splits.build_card(box, player, "factory", i, split) end
@@ -404,25 +454,35 @@ function editor.build(player, parent, ctx)
   local f = d.factory
   if not f.result then plan.balance_factory(f) end
   build_header(parent, player, d, ctx)
-  local reason = parent.add({ type = "label", name = "fp_reason", caption = "" })
-  reason.style.single_line = false
+  build_notice(parent, d)
+  -- problems right under the header: they are what needs doing
+  parent.add({ type = "flow", name = "fp_problems_box", direction = "vertical" })
 
   local scroll = parent.add({ type = "scroll-pane", style = "scroll_pane" })
   scroll.style.vertically_stretchable = true
   scroll.style.horizontally_stretchable = true
-  -- spacing is a flow property, so the content sits in a vertical flow
-  local pane = scroll.add({ type = "flow", direction = "vertical" })
-  pane.style.vertical_spacing = 6
   if f.kind == "sink" then
-    pane.add({ type = "label", caption = L("sink-explain"), style = "info_label" })
+    local pane = scroll.add({ type = "flow", direction = "vertical" })
+    pane.style.vertical_spacing = 6
+    local explain = pane.add({ type = "label", caption = L("sink-explain"), style = "info_label" })
+    explain.style.single_line = false
+    explain.style.maximal_width = 700
     rows.build(pane, player, "sink", ctx, ctx.can_edit)
   else
-    build_lines(pane, player, d, ctx)
-    build_splits(pane, player, d)
-    pane.add({ type = "label", caption = L("section-items"), style = "caption_label" })
-    pane.add({ type = "flow", name = "fp_items_box", direction = "vertical" })
+    -- large window: recipe lines and splits on the left, the items on the right;
+    -- compact window: one column
+    local wide = not model.player(player.index).compact
+    local body = scroll.add({ type = "flow", direction = wide and "horizontal" or "vertical" })
+    if wide then body.style.horizontal_spacing = 24 else body.style.vertical_spacing = 6 end
+    local left = body.add({ type = "flow", direction = "vertical" })
+    left.style.vertical_spacing = 6
+    build_lines(left, player, d, ctx)
+    build_splits(left, player, d)
+    local right = body.add({ type = "flow", direction = "vertical" })
+    right.style.vertical_spacing = 6
+    right.add({ type = "label", caption = L("section-items", common.unit_suffix(ctx)), style = "caption_label" })
+    right.add({ type = "flow", name = "fp_items_box", direction = "vertical", tags = { wide = wide } })
   end
-  pane.add({ type = "flow", name = "fp_problems_box", direction = "vertical" })
   build_actions(parent, player, d, ctx)
   editor.update_results(player)
 end
@@ -434,8 +494,7 @@ splits.targets.factory = {
   units = function(player) return plan.solvable_lines(get_draft(player).factory) end,
   counts = function(player) return get_draft(player).factory.result.counts end,
   name_of = function(player, id)
-    local line = find_line(get_draft(player), id)
-    return line and line_name(line) or tostring(id)
+    return common.line_names(get_draft(player).factory.lines, line_name)[id] or tostring(id)
   end,
   sprite_of = function(player, id)
     local line = find_line(get_draft(player), id)
@@ -557,12 +616,7 @@ handlers.editor_anchor = function(player, element)
     draft.set_anchor(d.factory, line.id, nil)
   end
   rebalance(player)
-  local field = element.parent["anchor_" .. line.id]
-  if field then
-    field.enabled = element.state
-    field.text = element.state and fp_util.format_count(d.factory.anchors[line.id]) or ""
-  end
-  editor.update_results(player)
+  editor.rebuild(player) -- the count field appears / disappears
 end
 
 handlers.editor_anchor_value = function(player, element, event)
