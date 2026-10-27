@@ -384,3 +384,41 @@ t.test("draft: raising a share shrinks the other shares proportionally", functio
   t.near(s[1] + s[2] + s[3] + s[4], 100)
   t.near(s[4], 60)
 end)
+
+t.test("model: replacing a factory with a new capture keeps its identity", function()
+  fake.reset()
+  local _, old = model.save_factory(draft.from_scan(gear_scan()), {}, 1)
+  model.set_copies(old.id, 4, 1)
+  model.set_pinned(old.id, true, 1)
+  model.plan().splits = { { item = "item/electronic-circuit", shares = { [old.id] = 50, [99] = 50 } } }
+  local rev = model.get(old.id).revision
+  -- a rebuilt block: one more circuit assembler
+  local scan = gear_scan()
+  for _, l in ipairs(scan.lines) do if l.recipe == "electronic-circuit" then l.count = 3 end end
+  local new = draft.from_scan(scan)
+  new.name = "Captured name"
+  local ok, saved = model.replace_factory(new, old.id, rev, 2, false, true)
+  t.truthy(ok)
+  t.eq(saved.id, old.id)
+  t.eq(saved.copies, 4)
+  t.eq(saved.pinned, true)
+  t.eq(saved.name, old.name, "name kept")
+  t.eq(saved.revision, rev + 1)
+  local circuit
+  for _, l in ipairs(saved.lines) do if l.recipe == "electronic-circuit" then circuit = l end end
+  t.eq(circuit.count, 3)
+  t.near(model.plan().splits[1].shares[old.id], 50, 1e-9)
+  t.eq(storage.log[#storage.log].action[1], "fp.log-replaced")
+  -- a typed name is used instead
+  local _, renamed = model.replace_factory(new, old.id, saved.revision, 2, false, false)
+  t.eq(renamed.name, "Captured name")
+  -- someone edited the target meanwhile: conflict
+  local ok2, conflict = model.replace_factory(new, old.id, rev, 2, false, true)
+  t.eq(ok2, false)
+  t.eq(conflict.modified_by, 2)
+  -- the target was deleted meanwhile
+  model.delete_factory(old.id, 1)
+  local ok3, gone = model.replace_factory(new, old.id, renamed.revision, 2, false, true)
+  t.eq(ok3, false)
+  t.truthy(gone.deleted)
+end)

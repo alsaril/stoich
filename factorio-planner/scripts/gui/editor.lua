@@ -394,7 +394,43 @@ local function build_actions(parent, player, d, ctx)
   end
   common.spacer(bar)
   bar.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "editor_cancel" } })
-  bar.add({ type = "button", name = "fp_save", caption = L("save"), style = "confirm_button", tags = { fp = "editor_save" } })
+  -- a new factory can be saved as new or replace an existing one (e.g. a rebuilt block)
+  if not f.id and f.kind ~= "sink" then
+    local ids = {}
+    for _, id in ipairs(model.factory_ids()) do
+      if model.get(id).kind ~= "sink" then ids[#ids + 1] = id end
+    end
+    table.sort(ids, function(a, b)
+      local na, nb = model.get(a).name, model.get(b).name
+      if na ~= nb then return na < nb end
+      return a < b
+    end)
+    if #ids > 0 then
+      local items, selected = { L("save-as-new") }, 1
+      for i, id in ipairs(ids) do
+        local target = model.get(id)
+        items[i + 1] = L("replace-with", "[img=" .. common.factory_sprite(target) .. "]", target.name, id)
+        if id == d.replace_id then selected = i + 1 end
+      end
+      local dd = bar.add({ type = "drop-down", items = items, selected_index = selected, enabled = ctx.can_edit,
+        tooltip = L("replace-tooltip"), tags = { fp = "editor_replace", ids = ids } })
+      dd.style.width = 260
+    end
+  end
+  bar.add({ type = "button", name = "fp_save", caption = L(d.replace_id and "replace" or "save"), style = "confirm_button",
+    tags = { fp = "editor_save" } })
+end
+
+handlers.editor_replace = function(player, element, event)
+  if event.name ~= defines.events.on_gui_selection_state_changed then return end
+  local d = get_draft(player)
+  if not d then return end
+  local id = element.tags.ids[element.selected_index - 1]
+  local target = id and model.get(id)
+  d.replace_id = target and id or nil
+  d.replace_revision = target and target.revision or nil
+  local save = common.find(element.parent, "fp_save")
+  if save then save.caption = L(d.replace_id and "replace" or "save") end
 end
 
 function editor.build(player, parent, ctx)
@@ -520,6 +556,7 @@ handlers.editor_name = function(player, element, event)
   local d = get_draft(player)
   if not d then return end
   d.name_auto = false
+  d.name_typed = true
   d.factory.name = element.text
   editor.update_results(player)
 end
@@ -699,7 +736,12 @@ local function do_save(player, force)
     player.print(why)
     return
   end
-  local saved, result = model.save_factory(d.factory, d.base, player.index, force)
+  local saved, result
+  if d.replace_id then
+    saved, result = model.replace_factory(d.factory, d.replace_id, d.replace_revision, player.index, force, not d.name_typed)
+  else
+    saved, result = model.save_factory(d.factory, d.base, player.index, force)
+  end
   if not saved then
     editor.conflict_dialog(player, result)
     return
@@ -725,7 +767,8 @@ function editor.conflict_dialog(player, conflict)
   local buttons = common.dialog_buttons(frame)
   buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
   common.spacer(buttons)
-  if not conflict.deleted then
+  local d = get_draft(player)
+  if not conflict.deleted and d and d.factory.id then
     buttons.add({ type = "button", caption = L("reload"), tooltip = L("reload-tooltip"), tags = { fp = "conflict_reload" } })
   end
   buttons.add({ type = "button", caption = L(conflict.deleted and "save-again" or "overwrite"), style = "red_confirm_button", tags = { fp = "conflict_overwrite" } })
