@@ -1,0 +1,320 @@
+-- Shared GUI helpers: event dispatch by element tags, display context
+-- (unit, belt tiers), rate labels, sprites, small dialogs.
+
+local fp_util = require("scripts.util")
+local belts = require("scripts.belts")
+local model = require("scripts.model")
+
+local common = {}
+
+--- Handlers by action name. Elements carry tags = { fp = action, ... }.
+--- handler(player, element, event)
+common.handlers = {}
+
+function common.L(key, ...)
+  return { "fp." .. key, ... }
+end
+local L = common.L
+
+function common.dispatch(event)
+  local element = event.element
+  if not (element and element.valid) then return end
+  local tags = element.tags
+  local action = tags and tags.fp
+  if not action then return end
+  -- Only our own elements: another mod could use the same tag name.
+  if element.get_mod() ~= script.mod_name then return end
+  -- Clicking a checkbox, dropdown, textfield, slider or picker also raises
+  -- on_gui_click; only buttons act on clicks, the rest on their own event.
+  if event.name == defines.events.on_gui_click and element.type ~= "button" and element.type ~= "sprite-button" then return end
+  local handler = common.handlers[action]
+  if not handler then return end
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  handler(player, element, event)
+end
+
+--- Depth-first search for a named descendant.
+function common.find(element, name)
+  if not (element and element.valid) then return nil end
+  for _, child in pairs(element.children) do
+    if child.name == name then return child end
+    local found = common.find(child, name)
+    if found then return found end
+  end
+  return nil
+end
+
+-- Display context --------------------------------------------------------------------
+
+--- Belts the force has researched (recipe enabled, or no recipe at all).
+local function best_researched(tiers, force)
+  local best = 1
+  for i, tier in ipairs(tiers) do
+    local recipe = force.recipes[tier.name]
+    if recipe == nil or recipe.enabled then best = i end
+  end
+  return best
+end
+
+--- Per-player view settings: unit, belt tiers and the highest allowed tier.
+function common.ctx(player)
+  local unit = player.mod_settings["fp-rate-unit"].value
+  local tiers = belts.read_tiers(player.force)
+  local chosen = settings.global["fp-max-belt"].value
+  local max_index = chosen ~= "" and belts.index_of(tiers, chosen) or best_researched(tiers, player.force)
+  return {
+    player = player,
+    unit = unit,
+    tiers = tiers,
+    max_index = max_index,
+    one_lane = settings.global["fp-one-lane"].value,
+    can_edit = model.can_edit(player),
+  }
+end
+
+function common.unit_suffix(ctx)
+  return fp_util.UNITS[ctx.unit].suffix
+end
+
+--- Convert a typed rate in the display unit to per second.
+function common.to_per_second(ctx, v)
+  return v / fp_util.UNITS[ctx.unit].factor
+end
+
+function common.from_per_second(ctx, v)
+  return v * fp_util.UNITS[ctx.unit].factor
+end
+
+--- Localised name of an entity prototype (its own localised_name, which mods may customise).
+function common.entity_name(name)
+  local p = prototypes.entity[name]
+  return p and p.localised_name or name
+end
+
+local RED = { r = 1, g = 0.35, b = 0.3 }
+local GREEN = { r = 0.4, g = 0.9, b = 0.4 }
+local YELLOW = { r = 1, g = 0.85, b = 0.3 }
+local GREY = { r = 0.6, g = 0.6, b = 0.6 }
+common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
+
+--- Caption, colour and tooltip for a rate with its belt tier.
+--- @param per_second number
+--- @param key string item key
+--- @param fluid_keys table? custom keys marked fluid
+function common.rate_display(ctx, per_second, key, fluid_keys)
+  local text = fp_util.format_rate(per_second, ctx.unit)
+  if belts.is_fluid(key, fluid_keys) then
+    return { caption = text, tooltip = L("fluid-no-limit") } -- fluids: plain, never coloured
+  end
+  local check = belts.tier_for(per_second, ctx.tiers, ctx.max_index, ctx.one_lane)
+  if not check then return { caption = text } end
+  local belt = "[entity=" .. check.tier.name .. "]"
+  if check.exceeds then
+    return {
+      caption = text .. " " .. fp_util.format_count(check.belts) .. "×" .. belt,
+      color = RED,
+      tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(check.tier.name)),
+      exceeds = true,
+    }
+  end
+  return { caption = text .. " " .. belt, color = check.tier.color, tooltip = common.entity_name(check.tier.name) }
+end
+
+--- Add a label showing a rate with its belt colour.
+function common.rate_label(parent, ctx, per_second, key, fluid_keys, name)
+  local d = common.rate_display(ctx, per_second, key, fluid_keys)
+  local label = parent.add({ type = "label", name = name, caption = d.caption, tooltip = d.tooltip })
+  if d.color then label.style.font_color = d.color end
+  return label, d
+end
+
+function common.set_rate_label(label, ctx, per_second, key, fluid_keys)
+  local d = common.rate_display(ctx, per_second, key, fluid_keys)
+  label.caption = d.caption
+  label.tooltip = d.tooltip
+  label.style.font_color = d.color or { r = 1, g = 1, b = 1 }
+  return d
+end
+
+-- Sprites -------------------------------------------------------------------------------
+
+local function valid_sprite(path)
+  if path and helpers.is_valid_sprite_path(path) then return path end
+  return "utility/missing_icon"
+end
+common.valid_sprite = valid_sprite
+
+function common.key_sprite(key)
+  return valid_sprite(fp_util.sprite(key))
+end
+
+function common.icon_sprite(icon)
+  if not (icon and icon.name) then return "utility/missing_icon" end
+  local t = icon.type or "item"
+  if t == "virtual" then t = "virtual-signal" end
+  return valid_sprite(t .. "/" .. icon.name)
+end
+
+function common.factory_sprite(f)
+  if f.icon then return common.icon_sprite(f.icon) end
+  if f.kind == "sink" then return "utility/custom_tag_icon" end
+  return "utility/missing_icon"
+end
+
+--- Recipe or resource sprite of a line.
+function common.line_sprite(line)
+  if line.kind == "recipe" and line.recipe then return valid_sprite("recipe/" .. line.recipe) end
+  if line.kind == "mining" and line.resource then return valid_sprite("entity/" .. line.resource) end
+  if line.kind == "pump" and line.resource then return valid_sprite("fluid/" .. line.resource) end
+  return "utility/custom_tag_icon"
+end
+
+function common.machine_sprite(line)
+  if line.machine then return valid_sprite("entity/" .. line.machine) end
+  return nil
+end
+
+function common.line_caption(line)
+  if line.kind == "recipe" and line.recipe then
+    local p = prototypes.recipe[line.recipe]
+    return p and p.localised_name or line.recipe
+  end
+  if line.kind == "mining" and line.resource then
+    local p = prototypes.entity[line.resource]
+    return p and p.localised_name or line.resource
+  end
+  if line.kind == "pump" and line.resource then
+    local p = prototypes.fluid[line.resource]
+    return p and p.localised_name or line.resource
+  end
+  return line.label or "custom"
+end
+
+--- Tooltip: flow per machine.
+function common.flow_tooltip(ctx, flow, title)
+  local parts = { "", title or "", "\n" }
+  local n = 0
+  for _, key in ipairs(fp_util.sorted_keys(flow)) do
+    local v = flow[key]
+    -- LocalisedString concatenation is limited to 20 parameters; keep it compact.
+    if n < 16 then
+      parts[#parts + 1] = (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) .. " " .. fp_util.rich(key) .. "\n"
+      n = n + 1
+    end
+  end
+  return parts
+end
+
+-- Status -------------------------------------------------------------------------------------
+
+local STATUS_COLOR = {
+  EXACT = GREEN, NEEDS_SPLIT = YELLOW, CONFLICT = RED, NEGATIVE = RED, INVALID = RED,
+}
+
+function common.status_color(status)
+  return STATUS_COLOR[status] or GREY
+end
+
+function common.status_label(parent, status, name)
+  local label = parent.add({ type = "label", name = name, caption = L("status-" .. status), style = "bold_label" })
+  label.style.font_color = common.status_color(status)
+  return label
+end
+
+function common.player_name(index)
+  local p = index and game.get_player(index)
+  if not p then return "?" end
+  -- single-player games can have an empty user name
+  if p.name == "" then return "player " .. p.index end
+  return p.name
+end
+
+function common.time_ago(tick)
+  if not tick then return "?" end
+  local s = math.floor((game.tick - tick) / 60)
+  if s < 60 then return L("ago-seconds", s) end
+  local m = math.floor(s / 60)
+  if m < 60 then return L("ago-minutes", m) end
+  return L("ago-hours", math.floor(m / 60))
+end
+
+-- Layout bits ---------------------------------------------------------------------------------------
+
+function common.spacer(parent)
+  local s = parent.add({ type = "empty-widget" })
+  s.style.horizontally_stretchable = true
+  return s
+end
+
+function common.titlebar(frame, caption, close_action, extra)
+  local bar = frame.add({ type = "flow", name = "fp_titlebar", direction = "horizontal" })
+  bar.drag_target = frame
+  bar.add({ type = "label", caption = caption, style = "frame_title", ignored_by_interaction = true })
+  local filler = bar.add({ type = "empty-widget", style = "draggable_space_header", ignored_by_interaction = true })
+  filler.style.height = 24
+  filler.style.horizontally_stretchable = true
+  filler.style.right_margin = 4
+  for _, b in ipairs(extra or {}) do bar.add(b) end
+  bar.add({
+    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
+    tooltip = { "gui.close-instruction" }, tags = { fp = close_action },
+  })
+  return bar
+end
+
+function common.number_field(parent, value, tags, opts)
+  opts = opts or {}
+  local f = parent.add({
+    type = "textfield",
+    name = opts.name,
+    text = value ~= nil and fp_util.format_count(value) or "",
+    numeric = true, allow_decimal = true, allow_negative = opts.negative or false,
+    lose_focus_on_confirm = true,
+    tags = tags,
+    tooltip = opts.tooltip,
+    enabled = opts.enabled ~= false,
+  })
+  f.style.width = opts.width or 60
+  return f
+end
+
+--- Precise text for an editable number (more digits than the 2-decimal display).
+function common.precise(v)
+  if v == nil then return "" end
+  local s = string.format("%.4f", v)
+  s = s:gsub("0+$", ""):gsub("%.$", "")
+  return s
+end
+
+-- Dialogs -----------------------------------------------------------------------------------------------
+
+--- One dialog per player, centred, on top of the main window. It is not made
+--- player.opened (that would close the main window); Esc closes both.
+function common.open_dialog(player, name, caption)
+  common.close_dialog(player)
+  local frame = player.gui.screen.add({ type = "frame", name = "fp_dialog", direction = "vertical", tags = { dialog = name } })
+  common.titlebar(frame, caption, "dialog_close")
+  frame.auto_center = true
+  frame.bring_to_front()
+  return frame
+end
+
+function common.close_dialog(player)
+  local d = player.gui.screen.fp_dialog
+  if d and d.valid then d.destroy() end
+  local state = storage.players[player.index]
+  if state then state.dialog = nil end
+end
+
+common.handlers.dialog_close = function(player)
+  common.close_dialog(player)
+end
+
+function common.dialog_buttons(frame)
+  local flow = frame.add({ type = "flow", name = "fp_buttons", style = "dialog_buttons_horizontal_flow" })
+  flow.style.horizontal_spacing = 8
+  return flow
+end
+
+return common

@@ -1,0 +1,6029 @@
+{
+  "version": "eea4eb0d-2370-432c-8e1e-9eecc5a8373d",
+  "factories": {
+    "iron ore": {
+      "factory": {
+        "name": "iron ore",
+        "recipes": {
+          "miner": {
+            "iron ore": 3159.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "iron ore"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "iron ore": 3159.0
+          }
+        }
+      },
+      "summary": {
+        "iron ore": 3159.0
+      },
+      "flow": {
+        "iron ore": {
+          "flow": 3159.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 3159.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3159.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "copper ore": {
+      "factory": {
+        "name": "copper ore",
+        "recipes": {
+          "miner": {
+            "copper ore": 3653.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "copper ore"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "copper ore": 3653.0
+          }
+        }
+      },
+      "summary": {
+        "copper ore": 3653.0
+      },
+      "flow": {
+        "copper ore": {
+          "flow": 3653.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 3653.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3653.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "coal": {
+      "factory": {
+        "name": "coal",
+        "recipes": {
+          "miner": {
+            "coal": 3199.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "coal"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "coal": 3199.0
+          }
+        }
+      },
+      "summary": {
+        "coal": 3199.0
+      },
+      "flow": {
+        "coal": {
+          "flow": 3199.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 3199.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3199.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "stone": {
+      "factory": {
+        "name": "stone",
+        "recipes": {
+          "miner": {
+            "stone": 3100.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "stone"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "stone": 3100.0
+          }
+        }
+      },
+      "summary": {
+        "stone": 3100.0
+      },
+      "flow": {
+        "stone": {
+          "flow": 3100.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 3100.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3100.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "mineral water": {
+      "factory": {
+        "name": "mineral water",
+        "recipes": {
+          "pump": {
+            "mineral water": 25700.0
+          }
+        },
+        "anchors": {
+          "pump": 1.0
+        },
+        "external": [
+          "mineral water"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "pump": {
+          "multiplier": 1.0,
+          "flow": {
+            "mineral water": 25700.0
+          }
+        }
+      },
+      "summary": {
+        "mineral water": 25700.0
+      },
+      "flow": {
+        "mineral water": {
+          "flow": 25700.0,
+          "components": [
+            {
+              "source": "pump",
+              "virtual": false,
+              "count": 25700.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -25700.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "oil": {
+      "factory": {
+        "name": "oil",
+        "recipes": {
+          "pump": {
+            "oil": 17900.0
+          }
+        },
+        "anchors": {
+          "pump": 1.0
+        },
+        "external": [
+          "oil"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "pump": {
+          "multiplier": 1.0,
+          "flow": {
+            "oil": 17900.0
+          }
+        }
+      },
+      "summary": {
+        "oil": 17900.0
+      },
+      "flow": {
+        "oil": {
+          "flow": 17900.0,
+          "components": [
+            {
+              "source": "pump",
+              "virtual": false,
+              "count": 17900.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -17900.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "oil refinery": {
+      "factory": {
+        "name": "oil refinery",
+        "recipes": {
+          "refinery": {
+            "oil": -7380.0,
+            "gas": 5277.0,
+            "light oil": 4317.0,
+            "heavy oil": 2398.0
+          }
+        },
+        "anchors": {
+          "refinery": 1.0
+        },
+        "external": [
+          "oil",
+          "gas",
+          "light oil",
+          "heavy oil"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "refinery": {
+          "multiplier": 1.0,
+          "flow": {
+            "oil": -7380.0,
+            "gas": 5277.0,
+            "light oil": 4317.0,
+            "heavy oil": 2398.0
+          }
+        }
+      },
+      "summary": {
+        "oil": -7380.0,
+        "gas": 5277.0,
+        "light oil": 4317.0,
+        "heavy oil": 2398.0
+      },
+      "flow": {
+        "oil": {
+          "flow": 7380.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 7380.0,
+              "percent": 1.0
+            },
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": -7380.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gas": {
+          "flow": 5277.0,
+          "components": [
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": 5277.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -5277.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "light oil": {
+          "flow": 4317.0,
+          "components": [
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": 4317.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -4317.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "heavy oil": {
+          "flow": 2398.0,
+          "components": [
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": 2398.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -2398.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "heavy oil cracking": {
+      "factory": {
+        "name": "heavy oil cracking",
+        "recipes": {
+          "plant": {
+            "light oil": 2398.0,
+            "heavy oil": -2460.0
+          }
+        },
+        "anchors": {
+          "plant": 1.0
+        },
+        "external": [
+          "light oil",
+          "heavy oil"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "plant": {
+          "multiplier": 1.0,
+          "flow": {
+            "light oil": 2398.0,
+            "heavy oil": -2460.0
+          }
+        }
+      },
+      "summary": {
+        "light oil": 2398.0,
+        "heavy oil": -2460.0
+      },
+      "flow": {
+        "heavy oil": {
+          "flow": 2460.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2460.0,
+              "percent": 1.0
+            },
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": -2460.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "light oil": {
+          "flow": 2398.0,
+          "components": [
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": 2398.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -2398.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "light oil cracking": {
+      "factory": {
+        "name": "light oil cracking",
+        "recipes": {
+          "plant": {
+            "light oil": -5535.0,
+            "gas": 4797.0
+          }
+        },
+        "anchors": {
+          "plant": 1.0
+        },
+        "external": [
+          "light oil",
+          "gas"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "plant": {
+          "multiplier": 1.0,
+          "flow": {
+            "light oil": -5535.0,
+            "gas": 4797.0
+          }
+        }
+      },
+      "summary": {
+        "light oil": -5535.0,
+        "gas": 4797.0
+      },
+      "flow": {
+        "light oil": {
+          "flow": 5535.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 5535.0,
+              "percent": 1.0
+            },
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": -5535.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gas": {
+          "flow": 4797.0,
+          "components": [
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": 4797.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -4797.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "lubricant": {
+      "factory": {
+        "name": "lubricant",
+        "recipes": {
+          "plant": {
+            "heavy oil": -1602.0,
+            "lubricant": 2083.0
+          }
+        },
+        "anchors": {
+          "plant": 1.0
+        },
+        "external": [
+          "heavy oil",
+          "lubricant"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "plant": {
+          "multiplier": 1.0,
+          "flow": {
+            "heavy oil": -1602.0,
+            "lubricant": 2083.0
+          }
+        }
+      },
+      "summary": {
+        "heavy oil": -1602.0,
+        "lubricant": 2083.0
+      },
+      "flow": {
+        "lubricant": {
+          "flow": 2083.0,
+          "components": [
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": 2083.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -2083.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "heavy oil": {
+          "flow": 1602.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1602.0,
+              "percent": 1.0
+            },
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": -1602.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "acid": {
+      "factory": {
+        "name": "acid",
+        "recipes": {
+          "sulfur": {
+            "gas": -3690.0,
+            "sulfur": 319.8
+          },
+          "acid": {
+            "sulfur": -615.0,
+            "iron": -123.0,
+            "acid": 7995.0
+          }
+        },
+        "anchors": {
+          "acid": 1.0
+        },
+        "external": [
+          "acid",
+          "gas",
+          "iron"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "sulfur": {
+          "multiplier": 1.92,
+          "flow": {
+            "gas": -7096.15,
+            "sulfur": 615.0
+          }
+        },
+        "acid": {
+          "multiplier": 1.0,
+          "flow": {
+            "sulfur": -615.0,
+            "iron": -123.0,
+            "acid": 7995.0
+          }
+        }
+      },
+      "summary": {
+        "gas": -7096.15,
+        "iron": -123.0,
+        "acid": 7995.0
+      },
+      "flow": {
+        "acid": {
+          "flow": 7995.0,
+          "components": [
+            {
+              "source": "acid",
+              "virtual": false,
+              "count": 7995.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -7995.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gas": {
+          "flow": 7096.15,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 7096.15,
+              "percent": 1.0
+            },
+            {
+              "source": "sulfur",
+              "virtual": false,
+              "count": -7096.15,
+              "percent": -1.0
+            }
+          ]
+        },
+        "sulfur": {
+          "flow": 615.0,
+          "components": [
+            {
+              "source": "sulfur",
+              "virtual": false,
+              "count": 615.0,
+              "percent": 1.0
+            },
+            {
+              "source": "acid",
+              "virtual": false,
+              "count": -615.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 123.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 123.0,
+              "percent": 1.0
+            },
+            {
+              "source": "acid",
+              "virtual": false,
+              "count": -123.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "iron smelting": {
+      "factory": {
+        "name": "iron smelting",
+        "recipes": {
+          "pulverizer": {
+            "iron ore": -369.0,
+            "acid": -123.0,
+            "enriched iron": 319.8
+          },
+          "furnace": {
+            "enriched iron": -82.5,
+            "iron": 99.0
+          }
+        },
+        "anchors": {
+          "pulverizer": 8.0
+        },
+        "external": [
+          "acid",
+          "iron ore",
+          "iron"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "pulverizer": {
+          "multiplier": 8.0,
+          "flow": {
+            "iron ore": -2952.0,
+            "acid": -984.0,
+            "enriched iron": 2558.4
+          }
+        },
+        "furnace": {
+          "multiplier": 31.01,
+          "flow": {
+            "enriched iron": -2558.4,
+            "iron": 3070.08
+          }
+        }
+      },
+      "summary": {
+        "iron ore": -2952.0,
+        "acid": -984.0,
+        "iron": 3070.08
+      },
+      "flow": {
+        "iron": {
+          "flow": 3070.08,
+          "components": [
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": 3070.08,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3070.08,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron ore": {
+          "flow": 2952.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2952.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -2952.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "enriched iron": {
+          "flow": 2558.4,
+          "components": [
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": 2558.4,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -2558.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "acid": {
+          "flow": 984.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 984.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -984.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "copper smelting": {
+      "factory": {
+        "name": "copper smelting",
+        "recipes": {
+          "pulverizer": {
+            "copper ore": -369.0,
+            "acid": -123.0,
+            "enriched copper": 319.8
+          },
+          "furnace": {
+            "enriched copper": -82.5,
+            "copper": 99.0
+          }
+        },
+        "anchors": {
+          "pulverizer": 8.0
+        },
+        "external": [
+          "acid",
+          "copper ore",
+          "copper"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "pulverizer": {
+          "multiplier": 8.0,
+          "flow": {
+            "copper ore": -2952.0,
+            "acid": -984.0,
+            "enriched copper": 2558.4
+          }
+        },
+        "furnace": {
+          "multiplier": 31.01,
+          "flow": {
+            "enriched copper": -2558.4,
+            "copper": 3070.08
+          }
+        }
+      },
+      "summary": {
+        "copper ore": -2952.0,
+        "acid": -984.0,
+        "copper": 3070.08
+      },
+      "flow": {
+        "copper": {
+          "flow": 3070.08,
+          "components": [
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": 3070.08,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3070.08,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper ore": {
+          "flow": 2952.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2952.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -2952.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "enriched copper": {
+          "flow": 2558.4,
+          "components": [
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": 2558.4,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -2558.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "acid": {
+          "flow": 984.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 984.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -984.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "plastic": {
+      "factory": {
+        "name": "plastic",
+        "recipes": {
+          "plant": {
+            "gas": -14700.0,
+            "coal": -738.0,
+            "plastic": 1919.0
+          }
+        },
+        "anchors": {
+          "plant": 1.0
+        },
+        "external": [
+          "gas",
+          "coal",
+          "plastic"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "plant": {
+          "multiplier": 1.0,
+          "flow": {
+            "gas": -14700.0,
+            "coal": -738.0,
+            "plastic": 1919.0
+          }
+        }
+      },
+      "summary": {
+        "gas": -14700.0,
+        "coal": -738.0,
+        "plastic": 1919.0
+      },
+      "flow": {
+        "gas": {
+          "flow": 14700.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 14700.0,
+              "percent": 1.0
+            },
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": -14700.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "plastic": {
+          "flow": 1919.0,
+          "components": [
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": 1919.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1919.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "coal": {
+          "flow": 738.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 738.0,
+              "percent": 1.0
+            },
+            {
+              "source": "plant",
+              "virtual": false,
+              "count": -738.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "stone crushing": {
+      "factory": {
+        "name": "stone crushing",
+        "recipes": {
+          "crusher": {
+            "stone": -2052.0,
+            "sand": 7182.0
+          }
+        },
+        "anchors": {
+          "crusher": 1.0
+        },
+        "external": [
+          "stone",
+          "sand"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "crusher": {
+          "multiplier": 1.0,
+          "flow": {
+            "stone": -2052.0,
+            "sand": 7182.0
+          }
+        }
+      },
+      "summary": {
+        "stone": -2052.0,
+        "sand": 7182.0
+      },
+      "flow": {
+        "sand": {
+          "flow": 7182.0,
+          "components": [
+            {
+              "source": "crusher",
+              "virtual": false,
+              "count": 7182.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -7182.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "stone": {
+          "flow": 2052.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2052.0,
+              "percent": 1.0
+            },
+            {
+              "source": "crusher",
+              "virtual": false,
+              "count": -2052.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "rare metals ore": {
+      "factory": {
+        "name": "rare metals ore",
+        "recipes": {
+          "miner": {
+            "rare metals ore": 1107.0,
+            "chlorine": -1537.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "rare metals ore",
+          "chlorine"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "rare metals ore": 1107.0,
+            "chlorine": -1537.0
+          }
+        }
+      },
+      "summary": {
+        "rare metals ore": 1107.0,
+        "chlorine": -1537.0
+      },
+      "flow": {
+        "chlorine": {
+          "flow": 1537.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1537.0,
+              "percent": 1.0
+            },
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": -1537.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals ore": {
+          "flow": 1107.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 1107.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1107.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "steel": {
+      "factory": {
+        "name": "steel",
+        "recipes": {
+          "furnace": {
+            "iron": -165.0,
+            "coke": -33.0,
+            "steel": 99.0
+          },
+          "coke": {
+            "wood": -99.0,
+            "coal": -99.0,
+            "coke": 118.8
+          },
+          "greenhouse": {
+            "wood": 40.0
+          }
+        },
+        "anchors": {
+          "furnace": 6.0
+        },
+        "external": [
+          "iron",
+          "coal",
+          "steel"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "furnace": {
+          "multiplier": 6.0,
+          "flow": {
+            "iron": -990.0,
+            "coke": -198.0,
+            "steel": 594.0
+          }
+        },
+        "coke": {
+          "multiplier": 1.67,
+          "flow": {
+            "wood": -165.0,
+            "coal": -165.0,
+            "coke": 198.0
+          }
+        },
+        "greenhouse": {
+          "multiplier": 4.13,
+          "flow": {
+            "wood": 165.0
+          }
+        }
+      },
+      "summary": {
+        "iron": -990.0,
+        "steel": 594.0,
+        "coal": -165.0
+      },
+      "flow": {
+        "iron": {
+          "flow": 990.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 990.0,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -990.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "steel": {
+          "flow": 594.0,
+          "components": [
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": 594.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -594.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "coke": {
+          "flow": 198.0,
+          "components": [
+            {
+              "source": "coke",
+              "virtual": false,
+              "count": 198.0,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -198.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wood": {
+          "flow": 165.0,
+          "components": [
+            {
+              "source": "greenhouse",
+              "virtual": false,
+              "count": 165.0,
+              "percent": 1.0
+            },
+            {
+              "source": "coke",
+              "virtual": false,
+              "count": -165.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "coal": {
+          "flow": 165.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 165.0,
+              "percent": 1.0
+            },
+            {
+              "source": "coke",
+              "virtual": false,
+              "count": -165.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "lds": {
+      "factory": {
+        "name": "lds",
+        "recipes": {
+          "lds": {
+            "copper": -95.0,
+            "plastic": -47.5,
+            "steel": -19.0,
+            "lds": 13.3
+          }
+        },
+        "anchors": {
+          "lds": 12.0
+        },
+        "external": [
+          "copper",
+          "plastic",
+          "steel",
+          "lds"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "lds": {
+          "multiplier": 12.0,
+          "flow": {
+            "copper": -1140.0,
+            "plastic": -570.0,
+            "steel": -228.0,
+            "lds": 159.6
+          }
+        }
+      },
+      "summary": {
+        "copper": -1140.0,
+        "plastic": -570.0,
+        "steel": -228.0,
+        "lds": 159.6
+      },
+      "flow": {
+        "copper": {
+          "flow": 1140.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1140.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lds",
+              "virtual": false,
+              "count": -1140.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "plastic": {
+          "flow": 570.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 570.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lds",
+              "virtual": false,
+              "count": -570.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "steel": {
+          "flow": 228.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 228.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lds",
+              "virtual": false,
+              "count": -228.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lds": {
+          "flow": 159.6,
+          "components": [
+            {
+              "source": "lds",
+              "virtual": false,
+              "count": 159.6,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -159.6,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "green circuits": {
+      "factory": {
+        "name": "green circuits",
+        "recipes": {
+          "greenhouse": {
+            "wood": 40.0
+          },
+          "wire": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "green circuits": {
+            "wire": -285.0,
+            "iron": -71.25,
+            "wood": -71.25,
+            "green circuit": 199.5
+          }
+        },
+        "anchors": {
+          "green circuits": 1.0
+        },
+        "external": [
+          "copper",
+          "iron",
+          "green circuit"
+        ],
+        "multiplier": 4.0,
+        "final": false
+      },
+      "recipes": {
+        "greenhouse": {
+          "multiplier": 1.78,
+          "flow": {
+            "wood": 71.25
+          }
+        },
+        "wire": {
+          "multiplier": 0.36,
+          "flow": {
+            "copper": -101.79,
+            "wire": 285.0
+          }
+        },
+        "green circuits": {
+          "multiplier": 1.0,
+          "flow": {
+            "wire": -285.0,
+            "iron": -71.25,
+            "wood": -71.25,
+            "green circuit": 199.5
+          }
+        }
+      },
+      "summary": {
+        "copper": -101.79,
+        "iron": -71.25,
+        "green circuit": 199.5
+      },
+      "flow": {
+        "wire": {
+          "flow": 285.0,
+          "components": [
+            {
+              "source": "wire",
+              "virtual": false,
+              "count": 285.0,
+              "percent": 1.0
+            },
+            {
+              "source": "green circuits",
+              "virtual": false,
+              "count": -285.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "green circuit": {
+          "flow": 199.5,
+          "components": [
+            {
+              "source": "green circuits",
+              "virtual": false,
+              "count": 199.5,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -199.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 101.79,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 101.79,
+              "percent": 1.0
+            },
+            {
+              "source": "wire",
+              "virtual": false,
+              "count": -101.79,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wood": {
+          "flow": 71.25,
+          "components": [
+            {
+              "source": "greenhouse",
+              "virtual": false,
+              "count": 71.25,
+              "percent": 1.0
+            },
+            {
+              "source": "green circuits",
+              "virtual": false,
+              "count": -71.25,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 71.25,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 71.25,
+              "percent": 1.0
+            },
+            {
+              "source": "green circuits",
+              "virtual": false,
+              "count": -71.25,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "electronic components": {
+      "factory": {
+        "name": "electronic components",
+        "recipes": {
+          "filtration": {
+            "sand": -628.6,
+            "quartz": 452.6
+          },
+          "glass": {
+            "sand": -264.0,
+            "glass": 158.4
+          },
+          "silicon": {
+            "quartz": -297.0,
+            "silicon": 178.2
+          },
+          "electronic components": {
+            "glass": -71.25,
+            "silicon": -71.25,
+            "plastic": -71.25,
+            "electronic components": 199.5
+          }
+        },
+        "anchors": {
+          "electronic components": 3.0
+        },
+        "external": [
+          "plastic",
+          "sand",
+          "electronic components"
+        ],
+        "multiplier": 3.0,
+        "final": false
+      },
+      "recipes": {
+        "filtration": {
+          "multiplier": 0.79,
+          "flow": {
+            "sand": -494.78,
+            "quartz": 356.25
+          }
+        },
+        "glass": {
+          "multiplier": 1.35,
+          "flow": {
+            "sand": -356.25,
+            "glass": 213.75
+          }
+        },
+        "silicon": {
+          "multiplier": 1.2,
+          "flow": {
+            "quartz": -356.25,
+            "silicon": 213.75
+          }
+        },
+        "electronic components": {
+          "multiplier": 3.0,
+          "flow": {
+            "glass": -213.75,
+            "silicon": -213.75,
+            "plastic": -213.75,
+            "electronic components": 598.5
+          }
+        }
+      },
+      "summary": {
+        "sand": -851.03,
+        "plastic": -213.75,
+        "electronic components": 598.5
+      },
+      "flow": {
+        "sand": {
+          "flow": 851.03,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 851.03,
+              "percent": 1.0
+            },
+            {
+              "source": "filtration",
+              "virtual": false,
+              "count": -494.78,
+              "percent": -0.58
+            },
+            {
+              "source": "glass",
+              "virtual": false,
+              "count": -356.25,
+              "percent": -0.42
+            }
+          ]
+        },
+        "electronic components": {
+          "flow": 598.5,
+          "components": [
+            {
+              "source": "electronic components",
+              "virtual": false,
+              "count": 598.5,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -598.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "quartz": {
+          "flow": 356.25,
+          "components": [
+            {
+              "source": "filtration",
+              "virtual": false,
+              "count": 356.25,
+              "percent": 1.0
+            },
+            {
+              "source": "silicon",
+              "virtual": false,
+              "count": -356.25,
+              "percent": -1.0
+            }
+          ]
+        },
+        "glass": {
+          "flow": 213.75,
+          "components": [
+            {
+              "source": "glass",
+              "virtual": false,
+              "count": 213.75,
+              "percent": 1.0
+            },
+            {
+              "source": "electronic components",
+              "virtual": false,
+              "count": -213.75,
+              "percent": -1.0
+            }
+          ]
+        },
+        "silicon": {
+          "flow": 213.75,
+          "components": [
+            {
+              "source": "silicon",
+              "virtual": false,
+              "count": 213.75,
+              "percent": 1.0
+            },
+            {
+              "source": "electronic components",
+              "virtual": false,
+              "count": -213.75,
+              "percent": -1.0
+            }
+          ]
+        },
+        "plastic": {
+          "flow": 213.75,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 213.75,
+              "percent": 1.0
+            },
+            {
+              "source": "electronic components",
+              "virtual": false,
+              "count": -213.75,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "red circuits": {
+      "factory": {
+        "name": "red circuits",
+        "recipes": {
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "red circuits": {
+            "wire": -142.5,
+            "green circuit": -142.5,
+            "electronic components": -71.25,
+            "red circuit": 99.75
+          }
+        },
+        "anchors": {
+          "red circuits": 11.0
+        },
+        "external": [
+          "electronic components",
+          "copper",
+          "red circuit",
+          "green circuit"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "wires": {
+          "multiplier": 1.96,
+          "flow": {
+            "copper": -559.82,
+            "wire": 1567.5
+          }
+        },
+        "red circuits": {
+          "multiplier": 11.0,
+          "flow": {
+            "wire": -1567.5,
+            "green circuit": -1567.5,
+            "electronic components": -783.75,
+            "red circuit": 1097.25
+          }
+        }
+      },
+      "summary": {
+        "copper": -559.82,
+        "green circuit": -1567.5,
+        "electronic components": -783.75,
+        "red circuit": 1097.25
+      },
+      "flow": {
+        "wire": {
+          "flow": 1567.5,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 1567.5,
+              "percent": 1.0
+            },
+            {
+              "source": "red circuits",
+              "virtual": false,
+              "count": -1567.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "green circuit": {
+          "flow": 1567.5,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1567.5,
+              "percent": 1.0
+            },
+            {
+              "source": "red circuits",
+              "virtual": false,
+              "count": -1567.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "red circuit": {
+          "flow": 1097.25,
+          "components": [
+            {
+              "source": "red circuits",
+              "virtual": false,
+              "count": 1097.25,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1097.25,
+              "percent": -1.0
+            }
+          ]
+        },
+        "electronic components": {
+          "flow": 783.75,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 783.75,
+              "percent": 1.0
+            },
+            {
+              "source": "red circuits",
+              "virtual": false,
+              "count": -783.75,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 559.82,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 559.82,
+              "percent": 1.0
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -559.82,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "uranium processing": {
+      "factory": {
+        "name": "uranium processing",
+        "recipes": {
+          "centrifuge": {
+            "uranium ore": -580.0,
+            "u238": 69.11
+          }
+        },
+        "anchors": {
+          "centrifuge": 8.0
+        },
+        "external": [
+          "uranium ore",
+          "u238"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "centrifuge": {
+          "multiplier": 8.0,
+          "flow": {
+            "uranium ore": -4640.0,
+            "u238": 552.88
+          }
+        }
+      },
+      "summary": {
+        "uranium ore": -4640.0,
+        "u238": 552.88
+      },
+      "flow": {
+        "uranium ore": {
+          "flow": 4640.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 4640.0,
+              "percent": 1.0
+            },
+            {
+              "source": "centrifuge",
+              "virtual": false,
+              "count": -4640.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "u238": {
+          "flow": 552.88,
+          "components": [
+            {
+              "source": "centrifuge",
+              "virtual": false,
+              "count": 552.88,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -552.88,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "production card": {
+      "factory": {
+        "name": "production card",
+        "recipes": {
+          "server": {
+            "blank card": -66.0,
+            "red belt": -66.0,
+            "u238": -33.0,
+            "productivity module": -33.0,
+            "production card": 39.6
+          },
+          "red belt": {
+            "gear": -600.0,
+            "belt": -150.0,
+            "red belt": 150.0
+          },
+          "belt": {
+            "gear": -150.0,
+            "iron": -150.0,
+            "belt": 300.0
+          },
+          "gear": {
+            "iron": -285.0,
+            "gear": 399.0
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "productivity module": {
+            "electronic components": -125.0,
+            "green circuit": -62.5,
+            "productivity module": 12.5
+          }
+        },
+        "anchors": {
+          "server": 4.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "electronic components",
+          "u238",
+          "green circuit",
+          "production card"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "server": {
+          "multiplier": 4.0,
+          "flow": {
+            "blank card": -264.0,
+            "red belt": -264.0,
+            "u238": -132.0,
+            "productivity module": -132.0,
+            "production card": 158.4
+          }
+        },
+        "red belt": {
+          "multiplier": 1.76,
+          "flow": {
+            "gear": -1056.0,
+            "belt": -264.0,
+            "red belt": 264.0
+          }
+        },
+        "belt": {
+          "multiplier": 0.88,
+          "flow": {
+            "gear": -132.0,
+            "iron": -132.0,
+            "belt": 264.0
+          }
+        },
+        "gear": {
+          "multiplier": 2.98,
+          "flow": {
+            "iron": -848.57,
+            "gear": 1188.0
+          }
+        },
+        "blank card": {
+          "multiplier": 0.53,
+          "flow": {
+            "iron": -75.44,
+            "wire": -75.44,
+            "blank card": 264.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.09,
+          "flow": {
+            "copper": -26.94,
+            "wire": 75.44
+          }
+        },
+        "productivity module": {
+          "multiplier": 10.56,
+          "flow": {
+            "electronic components": -1320.0,
+            "green circuit": -660.0,
+            "productivity module": 132.0
+          }
+        }
+      },
+      "summary": {
+        "u238": -132.0,
+        "production card": 158.4,
+        "iron": -1056.01,
+        "copper": -26.94,
+        "electronic components": -1320.0,
+        "green circuit": -660.0
+      },
+      "flow": {
+        "electronic components": {
+          "flow": 1320.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1320.0,
+              "percent": 1.0
+            },
+            {
+              "source": "productivity module",
+              "virtual": false,
+              "count": -1320.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gear": {
+          "flow": 1188.0,
+          "components": [
+            {
+              "source": "gear",
+              "virtual": false,
+              "count": 1188.0,
+              "percent": 1.0
+            },
+            {
+              "source": "red belt",
+              "virtual": false,
+              "count": -1056.0,
+              "percent": -0.89
+            },
+            {
+              "source": "belt",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -0.11
+            }
+          ]
+        },
+        "iron": {
+          "flow": 1056.01,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1056.01,
+              "percent": 1.0
+            },
+            {
+              "source": "gear",
+              "virtual": false,
+              "count": -848.57,
+              "percent": -0.8
+            },
+            {
+              "source": "belt",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -0.12
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -75.44,
+              "percent": -0.07
+            }
+          ]
+        },
+        "green circuit": {
+          "flow": 660.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 660.0,
+              "percent": 1.0
+            },
+            {
+              "source": "productivity module",
+              "virtual": false,
+              "count": -660.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blank card": {
+          "flow": 264.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 264.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -264.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "red belt": {
+          "flow": 264.0,
+          "components": [
+            {
+              "source": "red belt",
+              "virtual": false,
+              "count": 264.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -264.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "belt": {
+          "flow": 264.0,
+          "components": [
+            {
+              "source": "belt",
+              "virtual": false,
+              "count": 264.0,
+              "percent": 1.0
+            },
+            {
+              "source": "red belt",
+              "virtual": false,
+              "count": -264.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "production card": {
+          "flow": 158.4,
+          "components": [
+            {
+              "source": "server",
+              "virtual": false,
+              "count": 158.4,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -158.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "u238": {
+          "flow": 132.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 132.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "productivity module": {
+          "flow": 132.0,
+          "components": [
+            {
+              "source": "productivity module",
+              "virtual": false,
+              "count": 132.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wire": {
+          "flow": 75.44,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 75.44,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -75.44,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 26.94,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 26.94,
+              "percent": 1.0
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -26.94,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "uranium ore": {
+      "factory": {
+        "name": "uranium ore",
+        "recipes": {
+          "miner": {
+            "acid": -448.0,
+            "uranium ore": 1004.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "uranium ore",
+          "acid"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "acid": -448.0,
+            "uranium ore": 1004.0
+          }
+        }
+      },
+      "summary": {
+        "acid": -448.0,
+        "uranium ore": 1004.0
+      },
+      "flow": {
+        "uranium ore": {
+          "flow": 1004.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 1004.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1004.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "acid": {
+          "flow": 448.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 448.0,
+              "percent": 1.0
+            },
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": -448.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "rocket fuel": {
+      "factory": {
+        "name": "rocket fuel",
+        "recipes": {
+          "refinery": {
+            "oxygen": -384.4,
+            "ammonia": -384.4,
+            "iron": -7.687,
+            "rocket fuel": 9.994
+          },
+          "electrolyzer": {
+            "hydrogen": 1500.0,
+            "oxygen": 1000.0
+          },
+          "hydrogen vent": {
+            "hydrogen": -3000.0
+          },
+          "condenser": {
+            "nitrogen": 360.0
+          },
+          "chemical plant": {
+            "hydrogen": -1230.0,
+            "nitrogen": -1230.0,
+            "ammonia": 1599.0
+          }
+        },
+        "anchors": {
+          "refinery": 36.0
+        },
+        "external": [
+          "iron",
+          "rocket fuel"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "refinery": {
+          "multiplier": 36.0,
+          "flow": {
+            "oxygen": -13838.4,
+            "ammonia": -13838.4,
+            "iron": -276.73,
+            "rocket fuel": 359.78
+          }
+        },
+        "electrolyzer": {
+          "multiplier": 13.84,
+          "flow": {
+            "hydrogen": 20757.6,
+            "oxygen": 13838.4
+          }
+        },
+        "hydrogen vent": {
+          "multiplier": 3.37,
+          "flow": {
+            "hydrogen": -10112.68
+          }
+        },
+        "condenser": {
+          "multiplier": 29.57,
+          "flow": {
+            "nitrogen": 10644.92
+          }
+        },
+        "chemical plant": {
+          "multiplier": 8.65,
+          "flow": {
+            "hydrogen": -10644.92,
+            "nitrogen": -10644.92,
+            "ammonia": 13838.4
+          }
+        }
+      },
+      "summary": {
+        "iron": -276.73,
+        "rocket fuel": 359.78
+      },
+      "flow": {
+        "hydrogen": {
+          "flow": 20757.6,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 20757.6,
+              "percent": 1.0
+            },
+            {
+              "source": "chemical plant",
+              "virtual": false,
+              "count": -10644.92,
+              "percent": -0.51
+            },
+            {
+              "source": "hydrogen vent",
+              "virtual": false,
+              "count": -10112.68,
+              "percent": -0.49
+            }
+          ]
+        },
+        "ammonia": {
+          "flow": 13838.4,
+          "components": [
+            {
+              "source": "chemical plant",
+              "virtual": false,
+              "count": 13838.4,
+              "percent": 1.0
+            },
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": -13838.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "oxygen": {
+          "flow": 13838.4,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 13838.4,
+              "percent": 1.0
+            },
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": -13838.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "nitrogen": {
+          "flow": 10644.92,
+          "components": [
+            {
+              "source": "condenser",
+              "virtual": false,
+              "count": 10644.92,
+              "percent": 1.0
+            },
+            {
+              "source": "chemical plant",
+              "virtual": false,
+              "count": -10644.92,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rocket fuel": {
+          "flow": 359.78,
+          "components": [
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": 359.78,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -359.78,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 276.73,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 276.73,
+              "percent": 1.0
+            },
+            {
+              "source": "refinery",
+              "virtual": false,
+              "count": -276.73,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "lab": {
+      "factory": {
+        "name": "lab",
+        "recipes": {
+          "lab": {
+            "production card": -1.0,
+            "utility card": -1.0,
+            "matter card": -1.0,
+            "optimization card": -1.0,
+            "advanced card": -1.0,
+            "singularity card": -1.0
+          }
+        },
+        "anchors": {
+          "lab": 150.0
+        },
+        "external": [
+          "production card",
+          "utility card",
+          "matter card",
+          "optimization card",
+          "advanced card",
+          "singularity card"
+        ],
+        "multiplier": 1.0,
+        "final": true
+      },
+      "recipes": {
+        "lab": {
+          "multiplier": 150.0,
+          "flow": {
+            "production card": -150.0,
+            "utility card": -150.0,
+            "matter card": -150.0,
+            "optimization card": -150.0,
+            "advanced card": -150.0,
+            "singularity card": -150.0
+          }
+        }
+      },
+      "summary": {
+        "production card": -150.0,
+        "utility card": -150.0,
+        "matter card": -150.0,
+        "optimization card": -150.0,
+        "advanced card": -150.0,
+        "singularity card": -150.0
+      },
+      "flow": {
+        "production card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "utility card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "matter card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "optimization card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "advanced card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "singularity card": {
+          "flow": 150.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 150.0,
+              "percent": 1.0
+            },
+            {
+              "source": "lab",
+              "virtual": false,
+              "count": -150.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "chlorine": {
+      "factory": {
+        "name": "chlorine",
+        "recipes": {
+          "electrolyzer": {
+            "sand": -500.0,
+            "hydrogen": 1500.0,
+            "chlorine": 1000.0
+          }
+        },
+        "anchors": {
+          "electrolyzer": 6.0
+        },
+        "external": [
+          "sand",
+          "hydrogen",
+          "chlorine"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "electrolyzer": {
+          "multiplier": 6.0,
+          "flow": {
+            "sand": -3000.0,
+            "hydrogen": 9000.0,
+            "chlorine": 6000.0
+          }
+        }
+      },
+      "summary": {
+        "sand": -3000.0,
+        "hydrogen": 9000.0,
+        "chlorine": 6000.0
+      },
+      "flow": {
+        "hydrogen": {
+          "flow": 9000.0,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 9000.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -9000.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "chlorine": {
+          "flow": 6000.0,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 6000.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -6000.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "sand": {
+          "flow": 3000.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3000.0,
+              "percent": 1.0
+            },
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": -3000.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "hcl": {
+      "factory": {
+        "name": "hcl",
+        "recipes": {
+          "hcl": {
+            "hydrogen": -1230.0,
+            "chlorine": -1230.0,
+            "hcl": 1599.0
+          }
+        },
+        "anchors": {
+          "hcl": 3.0
+        },
+        "external": [
+          "hcl",
+          "hydrogen",
+          "chlorine"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "hcl": {
+          "multiplier": 3.0,
+          "flow": {
+            "hydrogen": -3690.0,
+            "chlorine": -3690.0,
+            "hcl": 4797.0
+          }
+        }
+      },
+      "summary": {
+        "hydrogen": -3690.0,
+        "chlorine": -3690.0,
+        "hcl": 4797.0
+      },
+      "flow": {
+        "hcl": {
+          "flow": 4797.0,
+          "components": [
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": 4797.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -4797.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "hydrogen": {
+          "flow": 3690.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3690.0,
+              "percent": 1.0
+            },
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": -3690.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "chlorine": {
+          "flow": 3690.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3690.0,
+              "percent": 1.0
+            },
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": -3690.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "hydrogen flare": {
+      "factory": {
+        "name": "hydrogen flare",
+        "recipes": {
+          "hydrogen flare": {
+            "hydrogen": -3000.0
+          }
+        },
+        "anchors": {
+          "hydrogen flare": 1.0
+        },
+        "external": [
+          "hydrogen"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "hydrogen flare": {
+          "multiplier": 1.0,
+          "flow": {
+            "hydrogen": -3000.0
+          }
+        }
+      },
+      "summary": {
+        "hydrogen": -3000.0
+      },
+      "flow": {
+        "hydrogen": {
+          "flow": 3000.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3000.0,
+              "percent": 1.0
+            },
+            {
+              "source": "hydrogen flare",
+              "virtual": false,
+              "count": -3000.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "lithium": {
+      "factory": {
+        "name": "lithium",
+        "recipes": {
+          "electrolyzer": {
+            "lithium chloride": -26.4,
+            "lithium": 31.68,
+            "chlorine": 63.36
+          },
+          "lithium chloride": {
+            "mineral water": -1230.0,
+            "hcl": -246.0,
+            "lithium chloride": 159.9
+          },
+          "hcl": {
+            "hydrogen": -1230.0,
+            "chlorine": -1230.0,
+            "hcl": 1599.0
+          },
+          "hydrogen": {
+            "hydrogen": 600.0
+          }
+        },
+        "anchors": {
+          "electrolyzer": 12.0
+        },
+        "external": [
+          "mineral water",
+          "lithium",
+          "chlorine"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "electrolyzer": {
+          "multiplier": 12.0,
+          "flow": {
+            "lithium chloride": -316.8,
+            "lithium": 380.16,
+            "chlorine": 760.32
+          }
+        },
+        "lithium chloride": {
+          "multiplier": 1.98,
+          "flow": {
+            "mineral water": -2436.92,
+            "hcl": -487.38,
+            "lithium chloride": 316.8
+          }
+        },
+        "hcl": {
+          "multiplier": 0.3,
+          "flow": {
+            "hydrogen": -374.91,
+            "chlorine": -374.91,
+            "hcl": 487.38
+          }
+        },
+        "hydrogen": {
+          "multiplier": 0.62,
+          "flow": {
+            "hydrogen": 374.91
+          }
+        }
+      },
+      "summary": {
+        "lithium": 380.16,
+        "chlorine": 385.41,
+        "mineral water": -2436.92
+      },
+      "flow": {
+        "mineral water": {
+          "flow": 2436.92,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2436.92,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium chloride",
+              "virtual": false,
+              "count": -2436.92,
+              "percent": -1.0
+            }
+          ]
+        },
+        "chlorine": {
+          "flow": 760.32,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 760.32,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -385.41,
+              "percent": -0.51
+            },
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": -374.91,
+              "percent": -0.49
+            }
+          ]
+        },
+        "hcl": {
+          "flow": 487.38,
+          "components": [
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": 487.38,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium chloride",
+              "virtual": false,
+              "count": -487.38,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lithium": {
+          "flow": 380.16,
+          "components": [
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": 380.16,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -380.16,
+              "percent": -1.0
+            }
+          ]
+        },
+        "hydrogen": {
+          "flow": 374.91,
+          "components": [
+            {
+              "source": "hydrogen",
+              "virtual": false,
+              "count": 374.91,
+              "percent": 1.0
+            },
+            {
+              "source": "hcl",
+              "virtual": false,
+              "count": -374.91,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lithium chloride": {
+          "flow": 316.8,
+          "components": [
+            {
+              "source": "lithium chloride",
+              "virtual": false,
+              "count": 316.8,
+              "percent": 1.0
+            },
+            {
+              "source": "electrolyzer",
+              "virtual": false,
+              "count": -316.8,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "blue circuits": {
+      "factory": {
+        "name": "blue circuits",
+        "recipes": {
+          "blue circuits": {
+            "acid": -118.7,
+            "red circuit": -71.25,
+            "rare metals": -35.62,
+            "blue circuit": 33.25
+          }
+        },
+        "anchors": {
+          "blue circuits": 6.0
+        },
+        "external": [
+          "acid",
+          "red circuit",
+          "rare metals",
+          "blue circuit"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "blue circuits": {
+          "multiplier": 6.0,
+          "flow": {
+            "acid": -712.2,
+            "red circuit": -427.5,
+            "rare metals": -213.72,
+            "blue circuit": 199.5
+          }
+        }
+      },
+      "summary": {
+        "acid": -712.2,
+        "red circuit": -427.5,
+        "rare metals": -213.72,
+        "blue circuit": 199.5
+      },
+      "flow": {
+        "acid": {
+          "flow": 712.2,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 712.2,
+              "percent": 1.0
+            },
+            {
+              "source": "blue circuits",
+              "virtual": false,
+              "count": -712.2,
+              "percent": -1.0
+            }
+          ]
+        },
+        "red circuit": {
+          "flow": 427.5,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 427.5,
+              "percent": 1.0
+            },
+            {
+              "source": "blue circuits",
+              "virtual": false,
+              "count": -427.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals": {
+          "flow": 213.72,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 213.72,
+              "percent": 1.0
+            },
+            {
+              "source": "blue circuits",
+              "virtual": false,
+              "count": -213.72,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blue circuit": {
+          "flow": 199.5,
+          "components": [
+            {
+              "source": "blue circuits",
+              "virtual": false,
+              "count": 199.5,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -199.5,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "rare metals smelting": {
+      "factory": {
+        "name": "rare metals smelting",
+        "recipes": {
+          "pulverizer": {
+            "rare metals ore": -369.0,
+            "hcl": -410.0,
+            "enriched rare metals": 319.8
+          },
+          "furnace": {
+            "enriched rare metals": -82.5,
+            "rare metals": 99.0
+          }
+        },
+        "anchors": {
+          "pulverizer": 8.0
+        },
+        "external": [
+          "hcl",
+          "rare metals ore",
+          "rare metals"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "pulverizer": {
+          "multiplier": 8.0,
+          "flow": {
+            "rare metals ore": -2952.0,
+            "hcl": -3280.0,
+            "enriched rare metals": 2558.4
+          }
+        },
+        "furnace": {
+          "multiplier": 31.01,
+          "flow": {
+            "enriched rare metals": -2558.4,
+            "rare metals": 3070.08
+          }
+        }
+      },
+      "summary": {
+        "rare metals ore": -2952.0,
+        "hcl": -3280.0,
+        "rare metals": 3070.08
+      },
+      "flow": {
+        "hcl": {
+          "flow": 3280.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3280.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -3280.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals": {
+          "flow": 3070.08,
+          "components": [
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": 3070.08,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -3070.08,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals ore": {
+          "flow": 2952.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 2952.0,
+              "percent": 1.0
+            },
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": -2952.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "enriched rare metals": {
+          "flow": 2558.4,
+          "components": [
+            {
+              "source": "pulverizer",
+              "virtual": false,
+              "count": 2558.4,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -2558.4,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "hno3": {
+      "factory": {
+        "name": "hno3",
+        "recipes": {
+          "hno3": {
+            "mineral water": -615.0,
+            "rare metals": -24.6,
+            "hno3": 1599.0
+          }
+        },
+        "anchors": {
+          "hno3": 1.0
+        },
+        "external": [
+          "mineral water",
+          "rare metals",
+          "hno3"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "hno3": {
+          "multiplier": 1.0,
+          "flow": {
+            "mineral water": -615.0,
+            "rare metals": -24.6,
+            "hno3": 1599.0
+          }
+        }
+      },
+      "summary": {
+        "mineral water": -615.0,
+        "rare metals": -24.6,
+        "hno3": 1599.0
+      },
+      "flow": {
+        "hno3": {
+          "flow": 1599.0,
+          "components": [
+            {
+              "source": "hno3",
+              "virtual": false,
+              "count": 1599.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1599.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "mineral water": {
+          "flow": 615.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 615.0,
+              "percent": 1.0
+            },
+            {
+              "source": "hno3",
+              "virtual": false,
+              "count": -615.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals": {
+          "flow": 24.6,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 24.6,
+              "percent": 1.0
+            },
+            {
+              "source": "hno3",
+              "virtual": false,
+              "count": -24.6,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "imersite": {
+      "factory": {
+        "name": "imersite",
+        "recipes": {
+          "miner": {
+            "imersite": 1122.0
+          }
+        },
+        "anchors": {
+          "miner": 1.0
+        },
+        "external": [
+          "imersite"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "miner": {
+          "multiplier": 1.0,
+          "flow": {
+            "imersite": 1122.0
+          }
+        }
+      },
+      "summary": {
+        "imersite": 1122.0
+      },
+      "flow": {
+        "imersite": {
+          "flow": 1122.0,
+          "components": [
+            {
+              "source": "miner",
+              "virtual": false,
+              "count": 1122.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1122.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "imersium plate": {
+      "factory": {
+        "name": "imersium plate",
+        "recipes": {
+          "furnace": {
+            "imersite powder": -1114.0,
+            "rare metals": -742.5,
+            "imersium plate": 445.5
+          }
+        },
+        "anchors": {
+          "furnace": 1.0
+        },
+        "external": [
+          "imersium plate",
+          "rare metals",
+          "imersite powder"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "furnace": {
+          "multiplier": 1.0,
+          "flow": {
+            "imersite powder": -1114.0,
+            "rare metals": -742.5,
+            "imersium plate": 445.5
+          }
+        }
+      },
+      "summary": {
+        "imersite powder": -1114.0,
+        "rare metals": -742.5,
+        "imersium plate": 445.5
+      },
+      "flow": {
+        "imersite powder": {
+          "flow": 1114.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1114.0,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -1114.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals": {
+          "flow": 742.5,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 742.5,
+              "percent": 1.0
+            },
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": -742.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersium plate": {
+          "flow": 445.5,
+          "components": [
+            {
+              "source": "furnace",
+              "virtual": false,
+              "count": 445.5,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -445.5,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "utility card": {
+      "factory": {
+        "name": "utility card",
+        "recipes": {
+          "server": {
+            "blank card": -66.0,
+            "lds": -33.0,
+            "rocket fuel": -33.0,
+            "blue circuit": -33.0,
+            "utility card": 39.6
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          }
+        },
+        "anchors": {
+          "server": 4.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "lds",
+          "rocket fuel",
+          "blue circuit",
+          "utility card"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "server": {
+          "multiplier": 4.0,
+          "flow": {
+            "blank card": -264.0,
+            "lds": -132.0,
+            "rocket fuel": -132.0,
+            "blue circuit": -132.0,
+            "utility card": 158.4
+          }
+        },
+        "blank card": {
+          "multiplier": 0.53,
+          "flow": {
+            "iron": -75.44,
+            "wire": -75.44,
+            "blank card": 264.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.09,
+          "flow": {
+            "copper": -26.94,
+            "wire": 75.44
+          }
+        }
+      },
+      "summary": {
+        "lds": -132.0,
+        "rocket fuel": -132.0,
+        "blue circuit": -132.0,
+        "utility card": 158.4,
+        "iron": -75.44,
+        "copper": -26.94
+      },
+      "flow": {
+        "blank card": {
+          "flow": 264.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 264.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -264.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "utility card": {
+          "flow": 158.4,
+          "components": [
+            {
+              "source": "server",
+              "virtual": false,
+              "count": 158.4,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -158.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lds": {
+          "flow": 132.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 132.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rocket fuel": {
+          "flow": 132.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 132.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blue circuit": {
+          "flow": 132.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 132.0,
+              "percent": 1.0
+            },
+            {
+              "source": "server",
+              "virtual": false,
+              "count": -132.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wire": {
+          "flow": 75.44,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 75.44,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -75.44,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 75.44,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 75.44,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -75.44,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 26.94,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 26.94,
+              "percent": 1.0
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -26.94,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "matter card": {
+      "factory": {
+        "name": "matter card",
+        "recipes": {
+          "computer": {
+            "blank card": -175.5,
+            "blue circuit": -58.5,
+            "matter data": -58.5,
+            "matter card": 81.9
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "matter data": {
+            "plastic": -58.5,
+            "lithium": -58.5,
+            "rare metals": -58.5,
+            "imersite crystal": -58.5,
+            "matter data": 81.9
+          }
+        },
+        "anchors": {
+          "computer": 2.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "blue circuit",
+          "plastic",
+          "lithium",
+          "rare metals",
+          "imersite crystal",
+          "matter card"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "computer": {
+          "multiplier": 2.0,
+          "flow": {
+            "blank card": -351.0,
+            "blue circuit": -117.0,
+            "matter data": -117.0,
+            "matter card": 163.8
+          }
+        },
+        "blank card": {
+          "multiplier": 0.7,
+          "flow": {
+            "iron": -100.3,
+            "wire": -100.3,
+            "blank card": 351.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.13,
+          "flow": {
+            "copper": -35.82,
+            "wire": 100.3
+          }
+        },
+        "matter data": {
+          "multiplier": 1.43,
+          "flow": {
+            "plastic": -83.57,
+            "lithium": -83.57,
+            "rare metals": -83.57,
+            "imersite crystal": -83.57,
+            "matter data": 117.0
+          }
+        }
+      },
+      "summary": {
+        "blue circuit": -117.0,
+        "matter card": 163.8,
+        "iron": -100.3,
+        "copper": -35.82,
+        "plastic": -83.57,
+        "lithium": -83.57,
+        "rare metals": -83.57,
+        "imersite crystal": -83.57
+      },
+      "flow": {
+        "blank card": {
+          "flow": 351.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 351.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -351.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "matter card": {
+          "flow": 163.8,
+          "components": [
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": 163.8,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -163.8,
+              "percent": -1.0
+            }
+          ]
+        },
+        "matter data": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "matter data",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blue circuit": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 100.3,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 100.3,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wire": {
+          "flow": 100.3,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 100.3,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -1.0
+            }
+          ]
+        },
+        "plastic": {
+          "flow": 83.57,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 83.57,
+              "percent": 1.0
+            },
+            {
+              "source": "matter data",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lithium": {
+          "flow": 83.57,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 83.57,
+              "percent": 1.0
+            },
+            {
+              "source": "matter data",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rare metals": {
+          "flow": 83.57,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 83.57,
+              "percent": 1.0
+            },
+            {
+              "source": "matter data",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersite crystal": {
+          "flow": 83.57,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 83.57,
+              "percent": 1.0
+            },
+            {
+              "source": "matter data",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 35.82,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 35.82,
+              "percent": 1.0
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -35.82,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "imersite crystal": {
+      "factory": {
+        "name": "imersite crystal",
+        "recipes": {
+          "imersite crystal": {
+            "imersite powder": -590.4,
+            "acid": -984.0,
+            "hno3": -984.0,
+            "imersite crystal": 127.9
+          }
+        },
+        "anchors": {
+          "imersite crystal": 1.0
+        },
+        "external": [
+          "imersite crystal",
+          "imersite powder",
+          "acid",
+          "hno3"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "imersite crystal": {
+          "multiplier": 1.0,
+          "flow": {
+            "imersite powder": -590.4,
+            "acid": -984.0,
+            "hno3": -984.0,
+            "imersite crystal": 127.9
+          }
+        }
+      },
+      "summary": {
+        "imersite powder": -590.4,
+        "acid": -984.0,
+        "hno3": -984.0,
+        "imersite crystal": 127.9
+      },
+      "flow": {
+        "acid": {
+          "flow": 984.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 984.0,
+              "percent": 1.0
+            },
+            {
+              "source": "imersite crystal",
+              "virtual": false,
+              "count": -984.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "hno3": {
+          "flow": 984.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 984.0,
+              "percent": 1.0
+            },
+            {
+              "source": "imersite crystal",
+              "virtual": false,
+              "count": -984.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersite powder": {
+          "flow": 590.4,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 590.4,
+              "percent": 1.0
+            },
+            {
+              "source": "imersite crystal",
+              "virtual": false,
+              "count": -590.4,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersite crystal": {
+          "flow": 127.9,
+          "components": [
+            {
+              "source": "imersite crystal",
+              "virtual": false,
+              "count": 127.9,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -127.9,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "optimization card": {
+      "factory": {
+        "name": "optimization card",
+        "recipes": {
+          "computer": {
+            "blank card": -117.0,
+            "space data": -58.5,
+            "optimization card": 81.9
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "space data": {
+            "rocket": -1.0,
+            "satellite": -1.0,
+            "space data": 1000.0
+          },
+          "rocket": {
+            "rocket part": -100.0,
+            "rocket": 1.0
+          },
+          "rocket parts": {
+            "blue circuit": -80.0,
+            "lds": -80.0,
+            "rocket fuel": -80.0,
+            "rocket part": 11.2
+          },
+          "satellite": {
+            "blue circuit": -1500.0,
+            "accumulator": -1500.0,
+            "lds": -1500.0,
+            "solar panel": -1500.0,
+            "rocket fuel": -750.0,
+            "radar": -75.0,
+            "satellite": 15.0
+          },
+          "radar": {
+            "iron": -1500.0,
+            "gear": -750.0,
+            "green circuit": -750.0,
+            "radar": 150.0
+          },
+          "gears": {
+            "iron": -285.0,
+            "gear": 399.0
+          },
+          "accumulators": {
+            "battery": -93.75,
+            "iron": -37.5,
+            "accumulator": 18.75
+          },
+          "batteries": {
+            "acid": -615.0,
+            "copper": -30.75,
+            "iron": -30.75,
+            "battery": 39.97
+          },
+          "solar panels": {
+            "glass": -187.5,
+            "green circuit": -187.5,
+            "silicon": -93.75,
+            "steel": -93.75,
+            "iron beam": -75.0,
+            "solar panel": 18.75
+          },
+          "iron beam": {
+            "iron": -142.5,
+            "iron beam": 99.75
+          },
+          "glass": {
+            "sand": -264.0,
+            "glass": 158.4
+          },
+          "quartz": {
+            "sand": -200.0,
+            "quartz": 144.0
+          },
+          "silicon": {
+            "quartz": -94.5,
+            "silicon": 56.7
+          }
+        },
+        "anchors": {
+          "computer": 2.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "blue circuit",
+          "lds",
+          "rocket fuel",
+          "green circuit",
+          "acid",
+          "steel",
+          "sand",
+          "optimization card"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "computer": {
+          "multiplier": 2.0,
+          "flow": {
+            "blank card": -234.0,
+            "space data": -117.0,
+            "optimization card": 163.8
+          }
+        },
+        "blank card": {
+          "multiplier": 0.47,
+          "flow": {
+            "iron": -66.86,
+            "wire": -66.86,
+            "blank card": 234.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.08,
+          "flow": {
+            "copper": -23.88,
+            "wire": 66.86
+          }
+        },
+        "space data": {
+          "multiplier": 0.12,
+          "flow": {
+            "rocket": -0.12,
+            "satellite": -0.12,
+            "space data": 117.0
+          }
+        },
+        "rocket": {
+          "multiplier": 0.12,
+          "flow": {
+            "rocket part": -11.7,
+            "rocket": 0.12
+          }
+        },
+        "rocket parts": {
+          "multiplier": 1.04,
+          "flow": {
+            "blue circuit": -83.57,
+            "lds": -83.57,
+            "rocket fuel": -83.57,
+            "rocket part": 11.7
+          }
+        },
+        "satellite": {
+          "multiplier": 0.01,
+          "flow": {
+            "blue circuit": -11.7,
+            "accumulator": -11.7,
+            "lds": -11.7,
+            "solar panel": -11.7,
+            "rocket fuel": -5.85,
+            "radar": -0.59,
+            "satellite": 0.12
+          }
+        },
+        "radar": {
+          "multiplier": 0.0,
+          "flow": {
+            "iron": -5.85,
+            "gear": -2.93,
+            "green circuit": -2.93,
+            "radar": 0.59
+          }
+        },
+        "gears": {
+          "multiplier": 0.01,
+          "flow": {
+            "iron": -2.09,
+            "gear": 2.93
+          }
+        },
+        "accumulators": {
+          "multiplier": 0.62,
+          "flow": {
+            "battery": -58.5,
+            "iron": -23.4,
+            "accumulator": 11.7
+          }
+        },
+        "batteries": {
+          "multiplier": 1.46,
+          "flow": {
+            "acid": -900.11,
+            "copper": -45.01,
+            "iron": -45.01,
+            "battery": 58.5
+          }
+        },
+        "solar panels": {
+          "multiplier": 0.62,
+          "flow": {
+            "glass": -117.0,
+            "green circuit": -117.0,
+            "silicon": -58.5,
+            "steel": -58.5,
+            "iron beam": -46.8,
+            "solar panel": 11.7
+          }
+        },
+        "iron beam": {
+          "multiplier": 0.47,
+          "flow": {
+            "iron": -66.86,
+            "iron beam": 46.8
+          }
+        },
+        "glass": {
+          "multiplier": 0.74,
+          "flow": {
+            "sand": -195.0,
+            "glass": 117.0
+          }
+        },
+        "quartz": {
+          "multiplier": 0.68,
+          "flow": {
+            "sand": -135.42,
+            "quartz": 97.5
+          }
+        },
+        "silicon": {
+          "multiplier": 1.03,
+          "flow": {
+            "quartz": -97.5,
+            "silicon": 58.5
+          }
+        }
+      },
+      "summary": {
+        "optimization card": 163.8,
+        "iron": -210.07,
+        "copper": -68.89,
+        "blue circuit": -95.27,
+        "lds": -95.27,
+        "rocket fuel": -89.42,
+        "green circuit": -119.93,
+        "acid": -900.11,
+        "steel": -58.5,
+        "sand": -330.42
+      },
+      "flow": {
+        "acid": {
+          "flow": 900.11,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 900.11,
+              "percent": 1.0
+            },
+            {
+              "source": "batteries",
+              "virtual": false,
+              "count": -900.11,
+              "percent": -1.0
+            }
+          ]
+        },
+        "sand": {
+          "flow": 330.42,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 330.42,
+              "percent": 1.0
+            },
+            {
+              "source": "glass",
+              "virtual": false,
+              "count": -195.0,
+              "percent": -0.59
+            },
+            {
+              "source": "quartz",
+              "virtual": false,
+              "count": -135.42,
+              "percent": -0.41
+            }
+          ]
+        },
+        "blank card": {
+          "flow": 234.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 234.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -234.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 210.07,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 210.07,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -66.86,
+              "percent": -0.32
+            },
+            {
+              "source": "iron beam",
+              "virtual": false,
+              "count": -66.86,
+              "percent": -0.32
+            },
+            {
+              "source": "batteries",
+              "virtual": false,
+              "count": -45.01,
+              "percent": -0.21
+            },
+            {
+              "source": "accumulators",
+              "virtual": false,
+              "count": -23.4,
+              "percent": -0.11
+            },
+            {
+              "source": "radar",
+              "virtual": false,
+              "count": -5.85,
+              "percent": -0.03
+            },
+            {
+              "source": "gears",
+              "virtual": false,
+              "count": -2.09,
+              "percent": -0.01
+            }
+          ]
+        },
+        "optimization card": {
+          "flow": 163.8,
+          "components": [
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": 163.8,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -163.8,
+              "percent": -1.0
+            }
+          ]
+        },
+        "green circuit": {
+          "flow": 119.93,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 119.93,
+              "percent": 1.0
+            },
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -0.98
+            },
+            {
+              "source": "radar",
+              "virtual": false,
+              "count": -2.93,
+              "percent": -0.02
+            }
+          ]
+        },
+        "glass": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "glass",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "space data": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "space data",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "quartz": {
+          "flow": 97.5,
+          "components": [
+            {
+              "source": "quartz",
+              "virtual": false,
+              "count": 97.5,
+              "percent": 1.0
+            },
+            {
+              "source": "silicon",
+              "virtual": false,
+              "count": -97.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blue circuit": {
+          "flow": 95.27,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 95.27,
+              "percent": 1.0
+            },
+            {
+              "source": "rocket parts",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -0.88
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -11.7,
+              "percent": -0.12
+            }
+          ]
+        },
+        "lds": {
+          "flow": 95.27,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 95.27,
+              "percent": 1.0
+            },
+            {
+              "source": "rocket parts",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -0.88
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -11.7,
+              "percent": -0.12
+            }
+          ]
+        },
+        "rocket fuel": {
+          "flow": 89.42,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 89.42,
+              "percent": 1.0
+            },
+            {
+              "source": "rocket parts",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -0.93
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -5.85,
+              "percent": -0.07
+            }
+          ]
+        },
+        "copper": {
+          "flow": 68.89,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 68.89,
+              "percent": 1.0
+            },
+            {
+              "source": "batteries",
+              "virtual": false,
+              "count": -45.01,
+              "percent": -0.65
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -23.88,
+              "percent": -0.35
+            }
+          ]
+        },
+        "wire": {
+          "flow": 66.86,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 66.86,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -66.86,
+              "percent": -1.0
+            }
+          ]
+        },
+        "silicon": {
+          "flow": 58.5,
+          "components": [
+            {
+              "source": "silicon",
+              "virtual": false,
+              "count": 58.5,
+              "percent": 1.0
+            },
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": -58.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "steel": {
+          "flow": 58.5,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 58.5,
+              "percent": 1.0
+            },
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": -58.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "battery": {
+          "flow": 58.5,
+          "components": [
+            {
+              "source": "batteries",
+              "virtual": false,
+              "count": 58.5,
+              "percent": 1.0
+            },
+            {
+              "source": "accumulators",
+              "virtual": false,
+              "count": -58.5,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron beam": {
+          "flow": 46.8,
+          "components": [
+            {
+              "source": "iron beam",
+              "virtual": false,
+              "count": 46.8,
+              "percent": 1.0
+            },
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": -46.8,
+              "percent": -1.0
+            }
+          ]
+        },
+        "solar panel": {
+          "flow": 11.7,
+          "components": [
+            {
+              "source": "solar panels",
+              "virtual": false,
+              "count": 11.7,
+              "percent": 1.0
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -11.7,
+              "percent": -1.0
+            }
+          ]
+        },
+        "accumulator": {
+          "flow": 11.7,
+          "components": [
+            {
+              "source": "accumulators",
+              "virtual": false,
+              "count": 11.7,
+              "percent": 1.0
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -11.7,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rocket part": {
+          "flow": 11.7,
+          "components": [
+            {
+              "source": "rocket parts",
+              "virtual": false,
+              "count": 11.7,
+              "percent": 1.0
+            },
+            {
+              "source": "rocket",
+              "virtual": false,
+              "count": -11.7,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gear": {
+          "flow": 2.93,
+          "components": [
+            {
+              "source": "gears",
+              "virtual": false,
+              "count": 2.93,
+              "percent": 1.0
+            },
+            {
+              "source": "radar",
+              "virtual": false,
+              "count": -2.93,
+              "percent": -1.0
+            }
+          ]
+        },
+        "radar": {
+          "flow": 0.59,
+          "components": [
+            {
+              "source": "radar",
+              "virtual": false,
+              "count": 0.59,
+              "percent": 1.0
+            },
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": -0.59,
+              "percent": -1.0
+            }
+          ]
+        },
+        "satellite": {
+          "flow": 0.12,
+          "components": [
+            {
+              "source": "satellite",
+              "virtual": false,
+              "count": 0.12,
+              "percent": 1.0
+            },
+            {
+              "source": "space data",
+              "virtual": false,
+              "count": -0.12,
+              "percent": -1.0
+            }
+          ]
+        },
+        "rocket": {
+          "flow": 0.12,
+          "components": [
+            {
+              "source": "rocket",
+              "virtual": false,
+              "count": 0.12,
+              "percent": 1.0
+            },
+            {
+              "source": "space data",
+              "virtual": false,
+              "count": -0.12,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "advanced card": {
+      "factory": {
+        "name": "advanced card",
+        "recipes": {
+          "computer": {
+            "blank card": -175.5,
+            "imersium gear": -234.0,
+            "lithium battery": -117.0,
+            "electric engine": -58.5,
+            "advanced card": 81.9
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "lithium battery": {
+            "acid": -307.5,
+            "lithium": -30.75,
+            "copper": -30.75,
+            "lithium battery": 39.97
+          },
+          "imersium gear": {
+            "imersium plate": -285.0,
+            "imersium gear": 399.0
+          },
+          "electric engine": {
+            "lubricant": -213.7,
+            "green circuit": -28.5,
+            "engine": -14.25,
+            "electric engine": 19.95
+          },
+          "engine": {
+            "pipe": -28.5,
+            "gear": -14.25,
+            "iron": -14.25,
+            "engine": 19.95
+          },
+          "pipe": {
+            "iron": -150.0,
+            "pipe": 150.0
+          },
+          "gear": {
+            "iron": -60.0,
+            "gear": 84.0
+          }
+        },
+        "anchors": {
+          "computer": 2.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "advanced card",
+          "acid",
+          "lithium",
+          "imersium plate",
+          "lubricant",
+          "green circuit"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "computer": {
+          "multiplier": 2.0,
+          "flow": {
+            "blank card": -351.0,
+            "imersium gear": -468.0,
+            "lithium battery": -234.0,
+            "electric engine": -117.0,
+            "advanced card": 163.8
+          }
+        },
+        "blank card": {
+          "multiplier": 0.7,
+          "flow": {
+            "iron": -100.3,
+            "wire": -100.3,
+            "blank card": 351.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.13,
+          "flow": {
+            "copper": -35.82,
+            "wire": 100.3
+          }
+        },
+        "lithium battery": {
+          "multiplier": 5.85,
+          "flow": {
+            "acid": -1800.23,
+            "lithium": -180.02,
+            "copper": -180.02,
+            "lithium battery": 234.0
+          }
+        },
+        "imersium gear": {
+          "multiplier": 1.17,
+          "flow": {
+            "imersium plate": -334.29,
+            "imersium gear": 468.0
+          }
+        },
+        "electric engine": {
+          "multiplier": 5.86,
+          "flow": {
+            "lubricant": -1253.28,
+            "green circuit": -167.14,
+            "engine": -83.57,
+            "electric engine": 117.0
+          }
+        },
+        "engine": {
+          "multiplier": 4.19,
+          "flow": {
+            "pipe": -119.39,
+            "gear": -59.69,
+            "iron": -59.69,
+            "engine": 83.57
+          }
+        },
+        "pipe": {
+          "multiplier": 0.8,
+          "flow": {
+            "iron": -119.39,
+            "pipe": 119.39
+          }
+        },
+        "gear": {
+          "multiplier": 0.71,
+          "flow": {
+            "iron": -42.64,
+            "gear": 59.69
+          }
+        }
+      },
+      "summary": {
+        "advanced card": 163.8,
+        "iron": -322.02,
+        "copper": -215.84,
+        "acid": -1800.23,
+        "lithium": -180.02,
+        "imersium plate": -334.29,
+        "lubricant": -1253.28,
+        "green circuit": -167.14
+      },
+      "flow": {
+        "acid": {
+          "flow": 1800.23,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1800.23,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -1800.23,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lubricant": {
+          "flow": 1253.28,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1253.28,
+              "percent": 1.0
+            },
+            {
+              "source": "electric engine",
+              "virtual": false,
+              "count": -1253.28,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersium gear": {
+          "flow": 468.0,
+          "components": [
+            {
+              "source": "imersium gear",
+              "virtual": false,
+              "count": 468.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -468.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blank card": {
+          "flow": 351.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 351.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -351.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersium plate": {
+          "flow": 334.29,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 334.29,
+              "percent": 1.0
+            },
+            {
+              "source": "imersium gear",
+              "virtual": false,
+              "count": -334.29,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 322.02,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 322.02,
+              "percent": 1.0
+            },
+            {
+              "source": "pipe",
+              "virtual": false,
+              "count": -119.39,
+              "percent": -0.37
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -0.31
+            },
+            {
+              "source": "engine",
+              "virtual": false,
+              "count": -59.69,
+              "percent": -0.19
+            },
+            {
+              "source": "gear",
+              "virtual": false,
+              "count": -42.64,
+              "percent": -0.13
+            }
+          ]
+        },
+        "lithium battery": {
+          "flow": 234.0,
+          "components": [
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": 234.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -234.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 215.84,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 215.84,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -180.02,
+              "percent": -0.83
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -35.82,
+              "percent": -0.17
+            }
+          ]
+        },
+        "lithium": {
+          "flow": 180.02,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 180.02,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -180.02,
+              "percent": -1.0
+            }
+          ]
+        },
+        "green circuit": {
+          "flow": 167.14,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 167.14,
+              "percent": 1.0
+            },
+            {
+              "source": "electric engine",
+              "virtual": false,
+              "count": -167.14,
+              "percent": -1.0
+            }
+          ]
+        },
+        "advanced card": {
+          "flow": 163.8,
+          "components": [
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": 163.8,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -163.8,
+              "percent": -1.0
+            }
+          ]
+        },
+        "pipe": {
+          "flow": 119.39,
+          "components": [
+            {
+              "source": "pipe",
+              "virtual": false,
+              "count": 119.39,
+              "percent": 1.0
+            },
+            {
+              "source": "engine",
+              "virtual": false,
+              "count": -119.39,
+              "percent": -1.0
+            }
+          ]
+        },
+        "electric engine": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "electric engine",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wire": {
+          "flow": 100.3,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 100.3,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -1.0
+            }
+          ]
+        },
+        "engine": {
+          "flow": 83.57,
+          "components": [
+            {
+              "source": "engine",
+              "virtual": false,
+              "count": 83.57,
+              "percent": 1.0
+            },
+            {
+              "source": "electric engine",
+              "virtual": false,
+              "count": -83.57,
+              "percent": -1.0
+            }
+          ]
+        },
+        "gear": {
+          "flow": 59.69,
+          "components": [
+            {
+              "source": "gear",
+              "virtual": false,
+              "count": 59.69,
+              "percent": 1.0
+            },
+            {
+              "source": "engine",
+              "virtual": false,
+              "count": -59.69,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "singularity card": {
+      "factory": {
+        "name": "singularity card",
+        "recipes": {
+          "computer": {
+            "blank card": -175.5,
+            "matter stabilizer": -58.5,
+            "ai core": -58.5,
+            "singularity card": 81.9
+          },
+          "blank card": {
+            "iron": -142.5,
+            "wire": -142.5,
+            "blank card": 498.7
+          },
+          "wires": {
+            "copper": -285.0,
+            "wire": 798.0
+          },
+          "ai core": {
+            "hno3": -89.6,
+            "imersite crystal": -17.81,
+            "blue circuit": -17.81,
+            "ai core": 24.94
+          },
+          "matter stabilizer": {
+            "imersium plate": -171.0,
+            "blue circuit": -85.5,
+            "ecu": -85.5,
+            "matter stabilizer": 39.9
+          },
+          "ecu": {
+            "electronic components": -513.0,
+            "lds": -342.0,
+            "lithium battery": -171.0,
+            "imersite crystal": -171.0,
+            "ecu": 79.8
+          },
+          "lithium battery": {
+            "acid": -2280.0,
+            "lithium": -228.0,
+            "copper": -228.0,
+            "lithium battery": 319.2
+          }
+        },
+        "anchors": {
+          "computer": 2.0
+        },
+        "external": [
+          "iron",
+          "copper",
+          "singularity card",
+          "hno3",
+          "imersite crystal",
+          "blue circuit",
+          "imersium plate",
+          "electronic components",
+          "lds",
+          "acid",
+          "lithium"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "computer": {
+          "multiplier": 2.0,
+          "flow": {
+            "blank card": -351.0,
+            "matter stabilizer": -117.0,
+            "ai core": -117.0,
+            "singularity card": 163.8
+          }
+        },
+        "blank card": {
+          "multiplier": 0.7,
+          "flow": {
+            "iron": -100.3,
+            "wire": -100.3,
+            "blank card": 351.0
+          }
+        },
+        "wires": {
+          "multiplier": 0.13,
+          "flow": {
+            "copper": -35.82,
+            "wire": 100.3
+          }
+        },
+        "ai core": {
+          "multiplier": 4.69,
+          "flow": {
+            "hno3": -420.34,
+            "imersite crystal": -83.55,
+            "blue circuit": -83.55,
+            "ai core": 117.0
+          }
+        },
+        "matter stabilizer": {
+          "multiplier": 2.93,
+          "flow": {
+            "imersium plate": -501.43,
+            "blue circuit": -250.71,
+            "ecu": -250.71,
+            "matter stabilizer": 117.0
+          }
+        },
+        "ecu": {
+          "multiplier": 3.14,
+          "flow": {
+            "electronic components": -1611.73,
+            "lds": -1074.49,
+            "lithium battery": -537.24,
+            "imersite crystal": -537.24,
+            "ecu": 250.71
+          }
+        },
+        "lithium battery": {
+          "multiplier": 1.68,
+          "flow": {
+            "acid": -3837.46,
+            "lithium": -383.75,
+            "copper": -383.75,
+            "lithium battery": 537.24
+          }
+        }
+      },
+      "summary": {
+        "singularity card": 163.8,
+        "iron": -100.3,
+        "copper": -419.57,
+        "hno3": -420.34,
+        "imersite crystal": -620.8,
+        "blue circuit": -334.27,
+        "imersium plate": -501.43,
+        "electronic components": -1611.73,
+        "lds": -1074.49,
+        "acid": -3837.46,
+        "lithium": -383.75
+      },
+      "flow": {
+        "acid": {
+          "flow": 3837.46,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 3837.46,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -3837.46,
+              "percent": -1.0
+            }
+          ]
+        },
+        "electronic components": {
+          "flow": 1611.73,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1611.73,
+              "percent": 1.0
+            },
+            {
+              "source": "ecu",
+              "virtual": false,
+              "count": -1611.73,
+              "percent": -1.0
+            }
+          ]
+        },
+        "lds": {
+          "flow": 1074.49,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 1074.49,
+              "percent": 1.0
+            },
+            {
+              "source": "ecu",
+              "virtual": false,
+              "count": -1074.49,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersite crystal": {
+          "flow": 620.8,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 620.8,
+              "percent": 1.0
+            },
+            {
+              "source": "ecu",
+              "virtual": false,
+              "count": -537.24,
+              "percent": -0.87
+            },
+            {
+              "source": "ai core",
+              "virtual": false,
+              "count": -83.55,
+              "percent": -0.13
+            }
+          ]
+        },
+        "lithium battery": {
+          "flow": 537.24,
+          "components": [
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": 537.24,
+              "percent": 1.0
+            },
+            {
+              "source": "ecu",
+              "virtual": false,
+              "count": -537.24,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersium plate": {
+          "flow": 501.43,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 501.43,
+              "percent": 1.0
+            },
+            {
+              "source": "matter stabilizer",
+              "virtual": false,
+              "count": -501.43,
+              "percent": -1.0
+            }
+          ]
+        },
+        "hno3": {
+          "flow": 420.34,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 420.34,
+              "percent": 1.0
+            },
+            {
+              "source": "ai core",
+              "virtual": false,
+              "count": -420.34,
+              "percent": -1.0
+            }
+          ]
+        },
+        "copper": {
+          "flow": 419.57,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 419.57,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -383.75,
+              "percent": -0.91
+            },
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": -35.82,
+              "percent": -0.09
+            }
+          ]
+        },
+        "lithium": {
+          "flow": 383.75,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 383.75,
+              "percent": 1.0
+            },
+            {
+              "source": "lithium battery",
+              "virtual": false,
+              "count": -383.75,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blank card": {
+          "flow": 351.0,
+          "components": [
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": 351.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -351.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "blue circuit": {
+          "flow": 334.27,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 334.27,
+              "percent": 1.0
+            },
+            {
+              "source": "matter stabilizer",
+              "virtual": false,
+              "count": -250.71,
+              "percent": -0.75
+            },
+            {
+              "source": "ai core",
+              "virtual": false,
+              "count": -83.55,
+              "percent": -0.25
+            }
+          ]
+        },
+        "ecu": {
+          "flow": 250.71,
+          "components": [
+            {
+              "source": "ecu",
+              "virtual": false,
+              "count": 250.71,
+              "percent": 1.0
+            },
+            {
+              "source": "matter stabilizer",
+              "virtual": false,
+              "count": -250.71,
+              "percent": -1.0
+            }
+          ]
+        },
+        "singularity card": {
+          "flow": 163.8,
+          "components": [
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": 163.8,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -163.8,
+              "percent": -1.0
+            }
+          ]
+        },
+        "matter stabilizer": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "matter stabilizer",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "ai core": {
+          "flow": 117.0,
+          "components": [
+            {
+              "source": "ai core",
+              "virtual": false,
+              "count": 117.0,
+              "percent": 1.0
+            },
+            {
+              "source": "computer",
+              "virtual": false,
+              "count": -117.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "iron": {
+          "flow": 100.3,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 100.3,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -1.0
+            }
+          ]
+        },
+        "wire": {
+          "flow": 100.3,
+          "components": [
+            {
+              "source": "wires",
+              "virtual": false,
+              "count": 100.3,
+              "percent": 1.0
+            },
+            {
+              "source": "blank card",
+              "virtual": false,
+              "count": -100.3,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    },
+    "imersite crushing": {
+      "factory": {
+        "name": "imersite crushing",
+        "recipes": {
+          "crusher": {
+            "imersite": -912.0,
+            "imersite powder": 1277.0,
+            "sand": 1277.0
+          }
+        },
+        "anchors": {
+          "crusher": 1.0
+        },
+        "external": [
+          "imersite",
+          "imersite powder",
+          "sand"
+        ],
+        "multiplier": 1.0,
+        "final": false
+      },
+      "recipes": {
+        "crusher": {
+          "multiplier": 1.0,
+          "flow": {
+            "imersite": -912.0,
+            "imersite powder": 1277.0,
+            "sand": 1277.0
+          }
+        }
+      },
+      "summary": {
+        "imersite": -912.0,
+        "imersite powder": 1277.0,
+        "sand": 1277.0
+      },
+      "flow": {
+        "imersite powder": {
+          "flow": 1277.0,
+          "components": [
+            {
+              "source": "crusher",
+              "virtual": false,
+              "count": 1277.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1277.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "sand": {
+          "flow": 1277.0,
+          "components": [
+            {
+              "source": "crusher",
+              "virtual": false,
+              "count": 1277.0,
+              "percent": 1.0
+            },
+            {
+              "source": "output",
+              "virtual": true,
+              "count": -1277.0,
+              "percent": -1.0
+            }
+          ]
+        },
+        "imersite": {
+          "flow": 912.0,
+          "components": [
+            {
+              "source": "input",
+              "virtual": true,
+              "count": 912.0,
+              "percent": 1.0
+            },
+            {
+              "source": "crusher",
+              "virtual": false,
+              "count": -912.0,
+              "percent": -1.0
+            }
+          ]
+        }
+      },
+      "type": "EXACT",
+      "inconsistencies": []
+    }
+  },
+  "groups": {}
+}

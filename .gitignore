@@ -1,0 +1,5 @@
+.DS_Store
+# local test world, screenshots and the old calculator archive are kept out of the repo
+test-world/
+calculator.zip
+.idea/
