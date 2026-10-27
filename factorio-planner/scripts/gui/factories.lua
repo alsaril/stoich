@@ -93,7 +93,7 @@ function factories.build(player, parent, ctx)
     t.add({ type = "sprite", sprite = common.factory_sprite(f) })
     local name_cell = t.add({ type = "flow", direction = "horizontal" })
     name_cell.style.vertical_align = "center"
-    local name = name_cell.add({ type = "label", caption = f.kind == "sink" and { "", f.name, " ", L("sink-mark") } or f.name })
+    local name = name_cell.add({ type = "label", caption = f.name })
     name.style.maximal_width = 220
     if f.invalid then
       name.style.font_color = common.RED
@@ -102,7 +102,12 @@ function factories.build(player, parent, ctx)
       warn.style.size = 16
       warn.style.stretch_image_to_widget_size = true
     end
-    t.add({ type = "label", caption = f.kind == "sink" and "" or tostring(#f.lines) })
+    if f.kind == "sink" then
+      -- sinks have no lines; mark them here instead of in the name
+      t.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+    else
+      t.add({ type = "label", caption = tostring(#f.lines) })
+    end
     outputs_flow(t, f, ctx)
     if details then
       t.add({ type = "label", caption = { "", common.player_name(f.modified_by), " ", common.time_ago(f.modified_tick) } })
@@ -153,7 +158,7 @@ handlers.fac_new_sink = function(player)
   if not check_edit(player) then return end
   local f = draft.new_sink()
   f.sink_items[1] = {}
-  editor.open_factory(player, f)
+  editor.open_factory(player, f, { auto_name = true })
 end
 
 function factories.give_tool(player)

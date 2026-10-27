@@ -796,6 +796,32 @@ t.test("gui: one rate unit selector, in the settings dialog", function()
   t.eq(mock.named(dialog(p), "fp_unit").selected_index, 1)
 end)
 
+t.test("gui: a new sink is named after its first item; the list marks sinks without renaming them", function()
+  local p = boot()
+  open(p)
+  tab(p, 2)
+  click(p, "fac_new_sink")
+  local d = draft_of(p)
+  mock.pick(p, mock.find(win(p), "row_signal", { mode = "sink", i = 1 }), { type = "item", name = "coal" })
+  t.eq(d.factory.name, "Coal")
+  t.eq(mock.named(win(p), "fp_name").text, "Coal")
+  local id = #p.translations
+  mock.fire("on_string_translated", { player_index = 1, id = id, translated = true, result = "Coal (localised)", localised_string = p.translations[id] })
+  t.eq(d.factory.name, "Coal (localised)")
+  -- a typed name wins over later picks
+  mock.type_text(p, mock.find(win(p), "editor_name"), "Boilers")
+  mock.pick(p, mock.find(win(p), "row_signal", { mode = "sink", i = 1 }), { type = "item", name = "iron-plate" })
+  t.eq(d.factory.name, "Boilers")
+  mock.type_text(p, mock.find(win(p), "row_rate", { mode = "sink", i = 1 }), "30")
+  mock.click(p, mock.named(win(p), "fp_save"))
+  local name_label
+  for _, e in ipairs(mock.all(win(p))) do
+    if e.type == "label" and e.caption == "Boilers" then name_label = e end
+  end
+  t.truthy(name_label, "name shown as is, no suffix")
+  t.truthy(mock.text(win(p)):find("<fp.sink-mark>", 1, true), "marked in its own column")
+end)
+
 t.test("gui: every handler is reached by some scenario", function()
   local f = assert(io.open(TEST_ROOT .. "/scripts/gui/common.lua"))
   f:close()

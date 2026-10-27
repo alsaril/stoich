@@ -313,7 +313,7 @@ problems.actions.plan = {
     local t, n = fp_util.parse_key(item)
     if t == "item" or t == "fluid" then f.icon = { type = t, name = n } end
     draft.sync_sink(f)
-    editor.open_factory(player, f)
+    editor.open_factory(player, f, { translate = item })
   end,
   add_split = function(player, item)
     local list = units()

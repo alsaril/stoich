@@ -55,6 +55,8 @@ local function really_open(player, factory, opts)
   if opts and opts.translate then
     d.name_auto = true
     d.name_request = player.request_translation(fp_util.localised(opts.translate))
+  elseif opts and opts.auto_name then
+    d.name_auto = true -- named after the first item picked, unless the player types a name
   end
   show_editor(player)
 end
@@ -491,6 +493,15 @@ rows.targets.sink = {
   changed = function(player, structural)
     local d = get_draft(player)
     draft.sync_sink(d.factory)
+    -- a new sink is named after its first item until the player types a name
+    local first = d.factory.sink_items[1]
+    if d.name_auto and first and first.key and first.key ~= d.name_key then
+      d.name_key = first.key
+      local _, n = fp_util.parse_key(first.key)
+      d.factory.name = fp_util.pretty_name(n)
+      d.name_request = player.request_translation(fp_util.localised(first.key))
+      editor.set_name_field(player, d.factory.name)
+    end
     rebalance(player)
     if structural then editor.rebuild(player) else editor.update_results(player) end
   end,
