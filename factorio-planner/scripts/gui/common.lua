@@ -105,23 +105,32 @@ common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
 function common.rate_display(ctx, per_second, key, fluid_keys)
   local text = fp_util.format_rate(per_second, ctx.unit)
   if belts.is_fluid(key, fluid_keys) then
-    return { caption = text, tooltip = L("fluid-no-limit") } -- fluids: plain, never coloured
+    return { caption = text, tooltip = L("fluid-no-limit") } -- fluids: plain, never limited
   end
   local check = belts.tier_for(per_second, ctx.tiers, ctx.max_index, ctx.one_lane)
   if not check then return { caption = text } end
-  local belt = "[entity=" .. check.tier.name .. "]"
+  local tier = check.tier
+  local belt = "[entity=" .. tier.name .. "]"
+  local capacity = fp_util.format_rate(tier.capacity * (ctx.one_lane and 0.5 or 1), ctx.unit, true)
+  local lane = ctx.one_lane and L("belt-one-lane") or ""
   if check.exceeds then
+    -- the only red: more than the highest allowed belt carries
     return {
-      caption = text .. " " .. fp_util.format_count(check.belts) .. "×" .. belt,
+      caption = "[img=utility/warning_icon] " .. text .. "  " .. fp_util.format_count(check.belts) .. "×" .. belt,
       color = RED,
-      tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(check.tier.name)),
+      tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(tier.name), capacity, lane),
       exceeds = true,
     }
   end
-  return { caption = text .. " " .. belt, color = check.tier.color, tooltip = common.entity_name(check.tier.name) }
+  -- the number stays plain; the icon is the slowest belt that carries it, with how full it is
+  local fill = math.floor(check.belts * 100 + 0.5)
+  return {
+    caption = text .. "  " .. belt .. "[font=default-small]" .. fill .. "%[/font]",
+    tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, fill, lane),
+  }
 end
 
---- Add a label showing a rate with its belt colour.
+--- Add a label showing a rate with the belt it needs.
 function common.rate_label(parent, ctx, per_second, key, fluid_keys, name)
   local d = common.rate_display(ctx, per_second, key, fluid_keys)
   local label = parent.add({ type = "label", name = name, caption = d.caption, tooltip = d.tooltip })
