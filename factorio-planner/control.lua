@@ -231,8 +231,9 @@ remote.add_interface("factorio-planner", {
 })
 
 -- Test driver ----------------------------------------------------------------------------------------
--- Lets a scenario or helper mod drive the mod like a player (scripts can't raise
--- GUI events). Used to take screenshots; harmless in normal games.
+-- Lets a helper mod drive the mod like a player (scripts can't raise GUI events),
+-- to take screenshots. Only registered when the hidden startup setting
+-- fp-debug-interface is on; the test helper mod turns it on, normal installs don't.
 
 local EVENT_FOR = {
   ["button"] = "on_gui_click", ["sprite-button"] = "on_gui_click", ["checkbox"] = "on_gui_checked_state_changed",
@@ -256,44 +257,47 @@ local function find_action(element, action, match)
   end
 end
 
-remote.add_interface("factorio-planner-debug", {
-  open = function(player_index, tab)
-    local player = game.get_player(player_index)
-    window.open(player, tab)
-    if tab then window.select_tab(player, tab) end
-  end,
-  --- Capture an area as if the player dragged the tool over it.
-  capture = function(player_index, area)
-    local player = game.get_player(player_index)
-    local types = {}
-    for _, t in ipairs(scanner.PRODUCTION_TYPES) do types[#types + 1] = t end
-    for _, t in ipairs(scanner.GENERATOR_TYPES) do types[#types + 1] = t end
-    local entities = player.surface.find_entities_filtered({ area = area, type = types, force = player.force })
-    capture({ player_index = player_index, item = TOOL, entities = entities, area = area, surface = player.surface })
-  end,
-  --- Operate one of the mod's GUI elements, found by its action tag.
-  --- value: new state/text/slider value/index/elem value depending on the element type.
-  act = function(player_index, action, match, value)
-    local player = game.get_player(player_index)
-    local element = find_action(player.gui.screen, action, match)
-    if not element then return false end
-    local t = element.type
-    if t == "checkbox" then element.state = (value == nil) and not element.state or value
-    elseif t == "textfield" or t == "text-box" then element.text = tostring(value)
-    elseif t == "slider" then element.slider_value = value
-    elseif t == "drop-down" then element.selected_index = value
-    elseif t == "choose-elem-button" then element.elem_value = value
-    elseif t == "tabbed-pane" then element.selected_tab_index = value end
-    common.dispatch({ name = defines.events[EVENT_FOR[t]], element = element, player_index = player_index, tick = game.tick })
-    if (t == "textfield") and element.valid then
-      common.dispatch({ name = defines.events.on_gui_confirmed, element = element, player_index = player_index, tick = game.tick })
-    end
-    return true
-  end,
-  draft = function(player_index)
-    return draft.get(player_index)
-  end,
-  factories = function()
-    return model.plan().factories
-  end,
-})
+local debug_setting = settings.startup["fp-debug-interface"]
+if debug_setting and debug_setting.value then
+  remote.add_interface("factorio-planner-debug", {
+    open = function(player_index, tab)
+      local player = game.get_player(player_index)
+      window.open(player, tab)
+      if tab then window.select_tab(player, tab) end
+    end,
+    --- Capture an area as if the player dragged the tool over it.
+    capture = function(player_index, area)
+      local player = game.get_player(player_index)
+      local types = {}
+      for _, t in ipairs(scanner.PRODUCTION_TYPES) do types[#types + 1] = t end
+      for _, t in ipairs(scanner.GENERATOR_TYPES) do types[#types + 1] = t end
+      local entities = player.surface.find_entities_filtered({ area = area, type = types, force = player.force })
+      capture({ player_index = player_index, item = TOOL, entities = entities, area = area, surface = player.surface })
+    end,
+    --- Operate one of the mod's GUI elements, found by its action tag.
+    --- value: new state/text/slider value/index/elem value depending on the element type.
+    act = function(player_index, action, match, value)
+      local player = game.get_player(player_index)
+      local element = find_action(player.gui.screen, action, match)
+      if not element then return false end
+      local t = element.type
+      if t == "checkbox" then element.state = (value == nil) and not element.state or value
+      elseif t == "textfield" or t == "text-box" then element.text = tostring(value)
+      elseif t == "slider" then element.slider_value = value
+      elseif t == "drop-down" then element.selected_index = value
+      elseif t == "choose-elem-button" then element.elem_value = value
+      elseif t == "tabbed-pane" then element.selected_tab_index = value end
+      common.dispatch({ name = defines.events[EVENT_FOR[t]], element = element, player_index = player_index, tick = game.tick })
+      if (t == "textfield") and element.valid then
+        common.dispatch({ name = defines.events.on_gui_confirmed, element = element, player_index = player_index, tick = game.tick })
+      end
+      return true
+    end,
+    draft = function(player_index)
+      return draft.get(player_index)
+    end,
+    factories = function()
+      return model.plan().factories
+    end,
+  })
+end

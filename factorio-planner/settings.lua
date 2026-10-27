@@ -25,6 +25,16 @@ data:extend({
     order = "c",
   },
   {
+    -- Test tooling only: exposes the "factorio-planner-debug" remote interface.
+    -- Hidden; the screenshot helper mod switches it on in its settings-updates.
+    type = "bool-setting",
+    name = "fp-debug-interface",
+    setting_type = "startup",
+    default_value = false,
+    hidden = true,
+    order = "z",
+  },
+  {
     type = "bool-setting",
     name = "fp-one-lane",
     setting_type = "runtime-global",

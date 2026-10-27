@@ -467,6 +467,7 @@ function mock.reset(opts)
     ["fp-one-lane"] = { value = false },
   }
   settings = {
+    startup = { ["fp-debug-interface"] = { value = opts.debug_interface or false } },
     global = setmetatable({}, {
       __index = global_settings,
       __newindex = function(_, k, v)
@@ -535,7 +536,8 @@ function mock.reset(opts)
   }
   mock.commands = {}
   commands = { add_command = function(name, help, fn) mock.check_localised(help, "command help") mock.commands[name] = fn end }
-  remote = { add_interface = function() end }
+  mock.interfaces = {}
+  remote = { add_interface = function(name, functions) mock.interfaces[name] = functions end }
   script = {
     mod_name = "factorio-planner",
     on_init = function(fn) mock.init.on_init = fn end,

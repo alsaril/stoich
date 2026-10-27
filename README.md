@@ -94,3 +94,7 @@ See [`Factory Block Balancer — mod spec.md`](Factory%20Block%20Balancer%20—%
 for the original spec. Changes made while building it: the old Kotlin JSON importer was
 dropped, plan splits have their own tab, and shortage is shown as copies still to build
 (never below 0).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
