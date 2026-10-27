@@ -70,23 +70,32 @@ local function build_sinks(parent, player, ctx)
   end
   if #ids == 0 then return end
   parent.add({ type = "label", caption = { "", L("section-sinks"), " (", common.unit_suffix(ctx), ")" }, style = "caption_label" })
-  local t = parent.add({ type = "table", column_count = 4 })
+  -- top-aligned rows: a sink whose rates wrap keeps its name next to the first row
+  local t = parent.add({ type = "table", column_count = 4, vertical_centering = false })
   t.style.horizontal_spacing = 10
+  t.style.vertical_spacing = 6
   for _, id in ipairs(ids) do
     local f = model.get(id)
-    t.add({ type = "sprite", sprite = common.factory_sprite(f) })
+    -- nudged down to the centre line of the first row of rate fields
+    local icon = t.add({ type = "sprite", sprite = common.factory_sprite(f) })
+    icon.style.top_margin = 2
     local name = t.add({ type = "label", caption = f.name, style = "bold_label" })
     name.style.minimal_width = 120
-    -- icon + rate pairs that wrap onto more rows, so a long sink doesn't widen the window
+    name.style.top_margin = 4
+    -- each item is one unit (icon + rate), with a clear gap between units; they wrap
+    -- onto more rows so a long sink doesn't widen the window
     local per_row = model.player(player.index).compact and 4 or 8
-    local flow = t.add({ type = "table", column_count = per_row * 2 })
-    flow.style.horizontal_spacing = 4
-    flow.style.vertical_spacing = 4
+    local grid = t.add({ type = "table", column_count = per_row })
+    grid.style.horizontal_spacing = 16
+    grid.style.vertical_spacing = 4
     for i, row in ipairs(f.sink_items or {}) do
       if row.key then
-        flow.add({ type = "sprite", sprite = common.key_sprite(row.key), tooltip = fp_util.localised(row.key) })
-        common.number_field(flow, common.from_per_second(ctx, row.rate or 0), { fp = "plan_sink_rate", id = id, i = i },
-          { width = 64, enabled = ctx.can_edit, tooltip = L("sink-rate-tooltip", common.unit_suffix(ctx)) })
+        local unit = grid.add({ type = "flow", direction = "horizontal" })
+        unit.style.vertical_align = "center"
+        unit.style.horizontal_spacing = 4
+        unit.add({ type = "sprite", sprite = common.key_sprite(row.key), tooltip = fp_util.localised(row.key) })
+        common.number_field(unit, common.from_per_second(ctx, row.rate or 0), { fp = "plan_sink_rate", id = id, i = i },
+          { width = 64, enabled = ctx.can_edit, tooltip = { "", fp_util.localised(row.key), "\n", L("sink-rate-tooltip", common.unit_suffix(ctx)) } })
       end
     end
     local buttons = t.add({ type = "flow", direction = "horizontal" })
