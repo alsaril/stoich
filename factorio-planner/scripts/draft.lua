@@ -375,6 +375,22 @@ function draft.apply_rescan(f, scan)
   return stats
 end
 
+--- Replace a factory's contents with a fresh capture, keeping what identifies it:
+--- id, name, icon, copies, Fixed flag, revision. Lines, anchors, splits, externals
+--- and the captured area come from the new capture.
+function draft.recapture(f, captured)
+  f.lines = captured.lines
+  f.anchors = captured.anchors
+  f.splits = captured.splits
+  f.external = captured.external
+  f.source = captured.source
+  f.next_line_id = captured.next_line_id
+  f.main_product = captured.main_product
+  f.removed_keys = nil
+  if not f.icon then f.icon = captured.icon end
+  return f
+end
+
 -- Manual and custom lines -------------------------------------------------------------------------
 
 function draft.add_custom_line(f, label, rows)

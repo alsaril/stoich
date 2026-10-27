@@ -822,6 +822,58 @@ t.test("gui: a new sink is named after its first item; the list marks sinks with
   t.truthy(mock.text(win(p)):find("<fp.sink-mark>", 1, true), "marked in its own column")
 end)
 
+local function gear_build(x0)
+  local list = {}
+  for i = 1, 3 do list[#list + 1] = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", x0 + i * 4, 40) end
+  for i = 1, 2 do list[#list + 1] = mock.crafter("assembling-machine", "assembling-machine-2", "electronic-circuit", x0 + i * 4, 44) end
+  return list
+end
+
+t.test("gui: recapture area replaces the open factory's contents", function()
+  local p = boot()
+  local id = saved_oil(p)
+  tab(p, 1)
+  click(p, "plan_copies", { id = id, delta = 1 })
+  tab(p, 2)
+  click(p, "fac_edit", { id = id })
+  local d = draft_of(p)
+  local name = d.factory.name
+  click(p, "editor_recapture")
+  t.eq(p.cursor, TOOL)
+  t.eq(storage.players[1].recapture, true)
+  -- select a different build: it replaces the lines in the open editor, no new factory, no question
+  mock.fire("on_player_selected_area", { player_index = 1, item = TOOL, entities = gear_build(200), area = AREA, surface = mock.surface })
+  t.eq(dialog(p), nil)
+  t.truthy(draft_of(p) == d, "same draft")
+  t.eq(d.factory.id, id)
+  t.eq(d.factory.name, name, "name kept")
+  local recipes = {}
+  for _, l in ipairs(d.factory.lines) do recipes[l.recipe or "?"] = true end
+  t.truthy(recipes["electronic-circuit"] and not recipes["plastic-bar"], "new contents")
+  t.eq(storage.players[1].recapture, nil)
+  t.eq(d.factory.result.status, "EXACT")
+  mock.click(p, mock.named(win(p), "fp_save"))
+  local n = 0
+  for _ in pairs(storage.plans.main.factories) do n = n + 1 end
+  t.eq(n, 1, "replaced in place")
+  t.eq(storage.plans.main.factories[id].copies, 2, "copies kept")
+end)
+
+t.test("gui: dropping the tool cancels a recapture", function()
+  local p = boot()
+  local id = saved_oil(p)
+  tab(p, 2)
+  click(p, "fac_edit", { id = id })
+  click(p, "editor_recapture")
+  t.eq(storage.players[1].recapture, true)
+  p.clear_cursor() -- Q
+  t.eq(storage.players[1].recapture, nil)
+  click(p, "editor_cancel")
+  -- a later capture opens a new factory as usual
+  capture(p, gear_build(300))
+  t.eq(draft_of(p).factory.id, nil)
+end)
+
 t.test("gui: every handler is reached by some scenario", function()
   local f = assert(io.open(TEST_ROOT .. "/scripts/gui/common.lua"))
   f:close()

@@ -345,12 +345,30 @@ function mock.new_player(index, opts)
     force = mock.force,
     opened = nil,
     printed = {},
-    cursor_stack = { set_stack = function(stack) p.cursor = stack.name return true end },
+    cursor_stack = setmetatable({}, { __index = function(_, k)
+      if k == "valid_for_read" then return p.cursor ~= nil end
+      if k == "name" then
+        if not p.cursor then error("LuaItemStack: not valid for read", 2) end
+        return p.cursor
+      end
+      if k == "set_stack" then
+        return function(stack)
+          p.cursor = stack.name
+          mock.fire("on_player_cursor_stack_changed", { player_index = index })
+          return true
+        end
+      end
+    end }),
     controller = nil,
     display_resolution = { width = 2560, height = 1440 }, display_scale = 1,
   }
   function p.print(msg) mock.check_localised(msg, "print") p.printed[#p.printed + 1] = msg end
-  function p.clear_cursor() p.cursor = nil return true end
+  function p.clear_cursor()
+    local had = p.cursor ~= nil
+    p.cursor = nil
+    if had then mock.fire("on_player_cursor_stack_changed", { player_index = index }) end
+    return true
+  end
   p.translations = {}
   function p.request_translation(ls)
     mock.check_localised(ls, "request_translation")

@@ -144,10 +144,22 @@ local function capture(event)
     player.print(L("no-permission"))
     return
   end
+  -- read before clear_cursor below, which ends a pending recapture
+  local state = model.player(player.index)
+  local recapture = state.recapture and draft.get(player.index) ~= nil
+  state.recapture = nil
   local scan = scanner.scan_entities(event.entities, player.force)
   local area = { left_top = { x = event.area.left_top.x, y = event.area.left_top.y }, right_bottom = { x = event.area.right_bottom.x, y = event.area.right_bottom.y } }
   local source = { surface_index = event.surface.index, areas = { area } }
   player.clear_cursor()
+  if recapture then
+    if scan.production == 0 then
+      player.print(L("nothing-selected"))
+    else
+      editor.recapture(player, draft.from_scan(scan, source))
+    end
+    return
+  end
   if scan.production == 0 then
     if next(scan.generators) then
       local f = draft.sink_from_generators(scan.generators)
@@ -170,6 +182,15 @@ script.on_event(defines.events.on_string_translated, function(event)
   d.name_auto = false
   local player = game.get_player(event.player_index)
   editor.set_name_field(player, event.result)
+end)
+
+script.on_event(defines.events.on_player_cursor_stack_changed, function(event)
+  local state = storage.players[event.player_index]
+  if not (state and state.recapture) then return end
+  local player = game.get_player(event.player_index)
+  local stack = player and player.cursor_stack
+  if stack and stack.valid_for_read and stack.name == TOOL then return end
+  editor.cancel_recapture(player)
 end)
 
 script.on_event(defines.events.on_player_selected_area, capture)

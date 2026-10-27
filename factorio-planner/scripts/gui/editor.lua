@@ -391,6 +391,8 @@ local function build_actions(parent, player, d, ctx)
     bar.add({ type = "button", caption = L("rescan"), enabled = ctx.can_edit and has_source or false,
       tooltip = has_source and L("rescan-tooltip") or L("no-area"), tags = { fp = "editor_rescan" } })
     bar.add({ type = "button", caption = L("show-on-map"), enabled = has_source or false, tags = { fp = "editor_show_map" } })
+    bar.add({ type = "button", caption = L("recapture"), tooltip = L("recapture-tooltip"), enabled = ctx.can_edit,
+      tags = { fp = "editor_recapture" } })
   end
   common.spacer(bar)
   bar.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "editor_cancel" } })
@@ -683,7 +685,45 @@ handlers.editor_rescan = function(player)
   editor.rebuild(player)
 end
 
+-- Recapture: the next area selected with the tool replaces this draft's contents.
+handlers.editor_recapture = function(player)
+  local d = get_draft(player)
+  if not (d and model.can_edit(player)) then return end
+  local state = model.player(player.index)
+  if player.clear_cursor() then
+    state.recapture = true -- set after clearing, which would cancel it
+    player.cursor_stack.set_stack({ name = "fp-selection-tool", count = 1 })
+    d.notice = L("recapture-notice")
+    editor.rebuild(player)
+  end
+end
+
+--- Put a fresh capture into the open draft (called by the capture handler).
+function editor.recapture(player, captured)
+  local d = get_draft(player)
+  if not d then return false end
+  draft.recapture(d.factory, captured)
+  d.notice = L("recaptured", #d.factory.lines)
+  rebalance(player)
+  show_editor(player)
+  editor.rebuild(player)
+  return true
+end
+
+--- The tool left the cursor without a selection: cancel a pending recapture.
+function editor.cancel_recapture(player)
+  local state = model.player(player.index)
+  if not state.recapture then return end
+  state.recapture = nil
+  local d = get_draft(player)
+  if d then
+    d.notice = nil
+    editor.rebuild(player)
+  end
+end
+
 handlers.editor_cancel = function(player)
+  model.player(player.index).recapture = nil
   draft.close(player.index)
   common.close_dialog(player)
   window.refresh(player)
