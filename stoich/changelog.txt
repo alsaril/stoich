@@ -1,0 +1,8 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-10-28
+  Features:
+    - First release: capture minifactories from the map, balance them exactly, and plan how many copies of each the base needs.
+    - Rates read from the game, including modules, beacons and productivity research.
+    - Plan, Factories, Items and Splits tabs; sinks for fixed demands; belt checks.
+    - Shared live in multiplayer, with private drafts, an edit log and export/import strings.

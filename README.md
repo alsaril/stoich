@@ -88,6 +88,13 @@ game that rejects GUI parameters, styles, sprites and attribute writes the real 
 would reject. Its API data (`tests/fixtures/api.lua`) is generated from a local Factorio
 install by `tests/tools/gen_api.py`.
 
+## Release
+
+Bump `version` in `stoich/info.json`, add its entry to `stoich/changelog.txt`, commit,
+then run `./release.sh`. It stops on uncommitted changes, an existing tag or a missing
+changelog entry, runs the tests, builds `dist/stoich_<version>.zip` from the committed
+code (without `tests/`) and tags `v<version>`. Push the tag yourself.
+
 ## Design
 
 See [`Stoich — mod spec.md`](Stoich%20—%20mod%20spec.md)
