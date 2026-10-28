@@ -63,10 +63,10 @@ function items.build(player, parent, ctx)
     parent.add({ type = "label", caption = L("plan-empty") })
     return
   end
-  local pane = parent.add({ type = "scroll-pane", name = "fp_items_pane", style = "scroll_pane" })
+  local pane = parent.add({ type = "scroll-pane", name = "stoich_items_pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", name = "fp_items_table", column_count = 8 })
+  local t = pane.add({ type = "table", name = "stoich_items_table", column_count = 8 })
   t.style.horizontal_spacing = 12
   t.style.vertical_spacing = 2
   t.add({ type = "empty-widget" }).style.width = W.toggle

@@ -187,7 +187,7 @@ end
 function factories.give_tool(player)
   if not check_edit(player) then return end
   if player.clear_cursor() then
-    player.cursor_stack.set_stack({ name = "fp-selection-tool", count = 1 })
+    player.cursor_stack.set_stack({ name = "stoich-selection-tool", count = 1 })
   end
 end
 
@@ -276,12 +276,12 @@ end
 handlers.fac_import = function(player)
   if not check_edit(player) then return end
   local frame = common.open_dialog(player, "import", L("import"))
-  local box = frame.add({ type = "text-box", name = "fp_import_text", text = "" })
+  local box = frame.add({ type = "text-box", name = "stoich_import_text", text = "" })
   box.style.width = 500
   box.style.height = 200
   box.word_wrap = true
   box.focus()
-  frame.add({ type = "label", name = "fp_import_error", caption = "" }).style.font_color = common.RED
+  frame.add({ type = "label", name = "stoich_import_error", caption = "" }).style.font_color = common.RED
   local buttons = common.dialog_buttons(frame)
   buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
   common.spacer(buttons)
@@ -296,9 +296,9 @@ end
 
 handlers.fac_import_ok = function(player, element)
   if not check_edit(player) then return end
-  local frame = player.gui.screen.fp_dialog
-  local text = frame and common.find(frame, "fp_import_text")
-  local err = frame and common.find(frame, "fp_import_error")
+  local frame = player.gui.screen.stoich_dialog
+  local text = frame and common.find(frame, "stoich_import_text")
+  local err = frame and common.find(frame, "stoich_import_error")
   local data = text and exchange.decode(text.text)
   local unpacked, why = exchange.unpack(data)
   if not unpacked then

@@ -128,7 +128,7 @@ function scanner.group(entries)
     lines[#lines + 1] = {
       kind = g.kind, recipe = g.recipe, resource = g.resource, machine = g.machine,
       count = g.count, flow = flow, idle = g.idle, key = key, overridden = false, fluid_keys = {},
-      -- averages, for the /fp-lines check against machine tooltips
+      -- averages, for the /stoich-lines check against machine tooltips
       speed = g.measured > 0 and g.speed / g.measured or nil,
       productivity = g.measured > 0 and g.productivity / g.measured or nil,
     }

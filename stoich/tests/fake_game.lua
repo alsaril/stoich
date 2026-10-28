@@ -19,7 +19,7 @@ function fake.reset(opts)
     get_player = function(i) return players[i] end,
     print = function() end,
   }
-  settings = { global = { ["fp-edit-permission"] = { value = opts.edit or "everyone" } } }
+  settings = { global = { ["stoich-edit-permission"] = { value = opts.edit or "everyone" } } }
   prototypes = {
     item = proto_table({ "iron-plate", "copper-plate", "iron-gear-wheel", "electronic-circuit", "copper-cable", "coal", "plastic-bar", "iron-ore", "automation-science-pack" }),
     fluid = proto_table({ "water", "steam", "crude-oil", "heavy-oil", "light-oil", "petroleum-gas", "sulfuric-acid" }),

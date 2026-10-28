@@ -60,8 +60,8 @@ function rows.build(parent, player, mode, ctx, enabled)
   for _, row in ipairs(list) do
     if is_custom(rows.key_of(row)) then any_custom = true end
   end
-  local box = parent.add({ type = "flow", name = "fp_rows_" .. mode, direction = "vertical" })
-  local t = box.add({ type = "table", name = "fp_rows_table", column_count = any_custom and 5 or 4 })
+  local box = parent.add({ type = "flow", name = "stoich_rows_" .. mode, direction = "vertical" })
+  local t = box.add({ type = "table", name = "stoich_rows_table", column_count = any_custom and 5 or 4 })
   t.style.horizontal_spacing = 8
   t.add({ type = "label", caption = L("row-item"), style = "bold_label" })
   t.add({ type = "label", caption = L("row-custom"), style = "bold_label", tooltip = L("row-custom-tooltip") })

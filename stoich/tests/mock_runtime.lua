@@ -254,7 +254,7 @@ function methods.add_tab(e, tab, content)
   d.tabs[#d.tabs + 1] = { tab = tab, content = content }
 end
 
-function methods.get_mod() return "factorio-planner" end
+function methods.get_mod() return "stoich" end
 function methods.bring_to_front() end
 function methods.focus() end
 function methods.select_all() end
@@ -331,7 +331,7 @@ end
 function mock.new_player(index, opts)
   opts = opts or {}
   local p
-  local values = { ["fp-rate-unit"] = { value = opts.unit or "min" } }
+  local values = { ["stoich-rate-unit"] = { value = opts.unit or "min" } }
   local mod_settings = setmetatable({}, {
     __index = values,
     __newindex = function(_, k, v)
@@ -462,12 +462,12 @@ function mock.reset(opts)
     print = function(msg) mock.check_localised(msg, "game.print") game.printed[#game.printed + 1] = msg end,
   }
   local global_settings = {
-    ["fp-edit-permission"] = { value = opts.edit or "everyone" },
-    ["fp-max-belt"] = { value = "" },
-    ["fp-one-lane"] = { value = false },
+    ["stoich-edit-permission"] = { value = opts.edit or "everyone" },
+    ["stoich-max-belt"] = { value = "" },
+    ["stoich-one-lane"] = { value = false },
   }
   settings = {
-    startup = { ["fp-debug-interface"] = { value = opts.debug_interface or false } },
+    startup = { ["stoich-debug-interface"] = { value = opts.debug_interface or false } },
     global = setmetatable({}, {
       __index = global_settings,
       __newindex = function(_, k, v)
@@ -539,7 +539,7 @@ function mock.reset(opts)
   mock.interfaces = {}
   remote = { add_interface = function(name, functions) mock.interfaces[name] = functions end }
   script = {
-    mod_name = "factorio-planner",
+    mod_name = "stoich",
     on_init = function(fn) mock.init.on_init = fn end,
     on_load = function(fn) mock.init.on_load = fn end,
     on_configuration_changed = function(fn) mock.init.on_configuration_changed = fn end,

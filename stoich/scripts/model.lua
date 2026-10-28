@@ -118,7 +118,7 @@ end
 -- Permissions ----------------------------------------------------------------
 
 function model.edit_mode()
-  local s = settings.global["fp-edit-permission"]
+  local s = settings.global["stoich-edit-permission"]
   return s and s.value or "everyone"
 end
 
@@ -130,7 +130,7 @@ end
 
 -- Log ------------------------------------------------------------------------
 
---- @param action LocalisedString what happened, e.g. { "fp.log-deleted" }
+--- @param action LocalisedString what happened, e.g. { "stoich.log-deleted" }
 function model.log(player_index, action, factory_name)
   local log = storage.log
   log[#log + 1] = { tick = game.tick, player = player_index, action = action, factory = factory_name }
@@ -172,7 +172,7 @@ function model.save_factory(factory, base, player_index, force)
   saved.modified_by = player_index
   saved.modified_tick = game.tick
   plan.factories[saved.id] = saved
-  model.log(player_index, { "fp.log-" .. action }, saved.name)
+  model.log(player_index, { "stoich.log-" .. action }, saved.name)
   return true, saved
 end
 
@@ -183,7 +183,7 @@ function model.delete_factory(id, player_index)
   plan.factories[id] = nil
   -- Drop this factory from plan splits.
   for _, split in ipairs(plan.splits) do split.shares[id] = nil end
-  model.log(player_index, { "fp.log-deleted" }, f.name)
+  model.log(player_index, { "stoich.log-deleted" }, f.name)
   return true
 end
 
@@ -195,7 +195,7 @@ function model.set_copies(id, copies, player_index)
   f.copies = copies
   f.modified_by = player_index
   f.modified_tick = game.tick
-  model.log(player_index, { "fp.log-copies", fp_util.format_count(copies) }, f.name)
+  model.log(player_index, { "stoich.log-copies", fp_util.format_count(copies) }, f.name)
   return true
 end
 
@@ -203,7 +203,7 @@ function model.set_pinned(id, pinned, player_index)
   local f = model.get(id)
   if not f or f.kind == "sink" then return false end
   f.pinned = pinned and true or false
-  model.log(player_index, { pinned and "fp.log-pinned" or "fp.log-unpinned" }, f.name)
+  model.log(player_index, { pinned and "stoich.log-pinned" or "stoich.log-unpinned" }, f.name)
   return true
 end
 

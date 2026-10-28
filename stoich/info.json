@@ -1,7 +1,7 @@
 {
-  "name": "factorio-planner",
+  "name": "stoich",
   "version": "0.1.0",
-  "title": "Factory Block Balancer",
+  "title": "Stoich",
   "author": "alsaril",
   "homepage": "https://github.com/alsaril/factorio-planner",
   "description": "Capture minifactories from the map, balance them exactly, and see how many copies of each your plan needs. Shared live in multiplayer.",

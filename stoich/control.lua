@@ -13,7 +13,7 @@ require("scripts.gui.plan")
 require("scripts.gui.items")
 
 local L = common.L
-local TOOL = "fp-selection-tool"
+local TOOL = "stoich-selection-tool"
 
 -- Function values are never stored, so this is set again on every load.
 plan.refresh_hook = function(opts) window.refresh_all(opts) end
@@ -80,19 +80,19 @@ local function toggle(player)
 end
 
 script.on_event(defines.events.on_lua_shortcut, function(event)
-  if event.prototype_name ~= "fp-toggle-window" then return end
+  if event.prototype_name ~= "stoich-toggle-window" then return end
   local player = game.get_player(event.player_index)
   if player then toggle(player) end
 end)
 
-script.on_event("fp-toggle-window", function(event)
+script.on_event("stoich-toggle-window", function(event)
   local player = game.get_player(event.player_index)
   if player then toggle(player) end
 end)
 
 script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
-  if element and element.valid and element.name == "fp_window" then
+  if element and element.valid and element.name == "stoich_window" then
     local player = game.get_player(event.player_index)
     if player then window.close(player) end
   end
@@ -108,7 +108,7 @@ script.on_event(defines.events.on_player_display_scale_changed, refit)
 
 script.on_event(defines.events.on_gui_location_changed, function(event)
   local element = event.element
-  if element and element.valid and element.name == "fp_window" then
+  if element and element.valid and element.name == "stoich_window" then
     model.player(event.player_index).location = element.location
   end
 end)
@@ -123,13 +123,13 @@ for _, name in ipairs({
 end
 
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
-  if event.setting == "fp-rate-unit" then
+  if event.setting == "stoich-rate-unit" then
     local player = event.player_index and game.get_player(event.player_index)
     if player and window.is_open(player) then
       window.sync_unit(player)
       window.refresh(player)
     end
-  elseif event.setting == "fp-edit-permission" or event.setting == "fp-max-belt" or event.setting == "fp-one-lane" then
+  elseif event.setting == "stoich-edit-permission" or event.setting == "stoich-max-belt" or event.setting == "stoich-one-lane" then
     window.refresh_all()
   end
 end)
@@ -198,9 +198,9 @@ script.on_event(defines.events.on_player_alt_selected_area, capture)
 
 -- Debug ---------------------------------------------------------------------------------------------
 
---- /fp-lines: print the recipe lines of your open editor draft, with the raw
+--- /stoich-lines: print the recipe lines of your open editor draft, with the raw
 --- values to check against the in-game machine tooltips.
-commands.add_command("fp-lines", { "fp.command-lines" }, function(cmd)
+commands.add_command("stoich-lines", { "stoich.command-lines" }, function(cmd)
   local player = game.get_player(cmd.player_index)
   if not player then return end
   local d = draft.get(player.index)
@@ -225,7 +225,7 @@ commands.add_command("fp-lines", { "fp.command-lines" }, function(cmd)
   end
 end)
 
-remote.add_interface("factorio-planner", {
+remote.add_interface("stoich", {
   --- For other mods / console checks: the cached plan result.
   plan_result = function() return model.plan().result end,
 })
@@ -233,7 +233,7 @@ remote.add_interface("factorio-planner", {
 -- Test driver ----------------------------------------------------------------------------------------
 -- Lets a helper mod drive the mod like a player (scripts can't raise GUI events),
 -- to take screenshots. Only registered when the hidden startup setting
--- fp-debug-interface is on; the test helper mod turns it on, normal installs don't.
+-- stoich-debug-interface is on; the test helper mod turns it on, normal installs don't.
 
 local EVENT_FOR = {
   ["button"] = "on_gui_click", ["sprite-button"] = "on_gui_click", ["checkbox"] = "on_gui_checked_state_changed",
@@ -257,9 +257,9 @@ local function find_action(element, action, match)
   end
 end
 
-local debug_setting = settings.startup["fp-debug-interface"]
+local debug_setting = settings.startup["stoich-debug-interface"]
 if debug_setting and debug_setting.value then
-  remote.add_interface("factorio-planner-debug", {
+  remote.add_interface("stoich-debug", {
     open = function(player_index, tab)
       local player = game.get_player(player_index)
       window.open(player, tab)

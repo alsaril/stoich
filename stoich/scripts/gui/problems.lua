@@ -131,7 +131,7 @@ end
 
 --- Render all problems with their buttons.
 function problems.render(parent, player, mode, result, ctx)
-  local list = parent.add({ type = "flow", name = "fp_problems", direction = "vertical" })
+  local list = parent.add({ type = "flow", name = "stoich_problems", direction = "vertical" })
   list.style.vertical_spacing = 4
   local conflicts, split_involved = conflict_items(result)
   for _, entry in ipairs(conflicts) do conflict_row(list, player, mode, ctx, entry) end
@@ -151,7 +151,7 @@ function problems.render(parent, player, mode, result, ctx)
       if #cands > 1 then
         local items = {}
         for i, key in ipairs(cands) do items[i] = { "", fp_util.rich(key), " ", fp_util.localised(key) } end
-        row.add({ type = "drop-down", name = "fp_cand", items = items, selected_index = 1, enabled = ctx.can_edit,
+        row.add({ type = "drop-down", name = "stoich_cand", items = items, selected_index = 1, enabled = ctx.can_edit,
           tooltip = L("split-candidate-tooltip") })
       end
       row.add({ type = "button", caption = L("choose-split"), enabled = ctx.can_edit,
@@ -194,7 +194,7 @@ handlers.problem_split = function(player, element)
   local a = problems.actions[element.tags.mode]
   if not (a and common.ctx(player).can_edit) then return end
   local item = element.tags.item
-  local choice = element.parent.fp_cand
+  local choice = element.parent.stoich_cand
   if choice then item = element.tags.cands[choice.selected_index] or item end
   a.add_split(player, item)
 end

@@ -38,7 +38,7 @@ end
 
 local function container(player)
   local w = window.get(player)
-  return w and w.fp_inner.fp_tabs.fp_content_factories
+  return w and w.stoich_inner.stoich_tabs.stoich_content_factories
 end
 
 -- Opening ------------------------------------------------------------------------------------
@@ -174,7 +174,7 @@ local function render_items(box, player, d, ctx)
   end
   -- large window: groups stacked in the right column; compact: side by side
   local wide = box.tags.wide
-  local row = box.add({ type = "flow", name = "fp_items_groups", direction = wide and "vertical" or "horizontal" })
+  local row = box.add({ type = "flow", name = "stoich_items_groups", direction = wide and "vertical" or "horizontal" })
   -- a flow only has the spacing of its own direction
   if wide then row.style.vertical_spacing = 10 else row.style.horizontal_spacing = 24 end
   for _, group in ipairs(ITEM_GROUPS) do
@@ -227,18 +227,18 @@ function editor.update_results(player, skip_split, skip_line)
   local f = d.factory
   local r = f.result
 
-  local status = common.find(root, "fp_status")
+  local status = common.find(root, "stoich_status")
   if status then
     status.caption = L("status-" .. r.status)
     status.style.font_color = common.status_color(r.status)
   end
-  local count = common.find(root, "fp_problem_count")
+  local count = common.find(root, "stoich_problem_count")
   if count then
     local n = problems.count(r)
     count.caption = n > 0 and L("status-problems", n) or ""
   end
 
-  local lines_table = common.find(root, "fp_lines")
+  local lines_table = common.find(root, "stoich_lines")
   if lines_table then
     for _, line in ipairs(f.lines) do
       local solved = lines_table["solved_" .. line.id]
@@ -266,20 +266,20 @@ function editor.update_results(player, skip_split, skip_line)
     end
   end
 
-  local items = common.find(root, "fp_items_box")
+  local items = common.find(root, "stoich_items_box")
   if items then render_items(items, player, d, ctx) end
-  local pbox = common.find(root, "fp_problems_box")
+  local pbox = common.find(root, "stoich_problems_box")
   if pbox then
     pbox.clear()
     problems.render(pbox, player, "factory", r, ctx)
   end
-  local splits_box = common.find(root, "fp_splits_box")
+  local splits_box = common.find(root, "stoich_splits_box")
   if splits_box then
     for i in ipairs(f.splits) do
       splits.update_card(splits_box, player, "factory", i, i == skip_split and skip_line or nil)
     end
   end
-  local save = common.find(root, "fp_save")
+  local save = common.find(root, "stoich_save")
   if save then
     local ok, why = save_state(player, d, ctx)
     save.enabled = ok
@@ -301,7 +301,7 @@ local function build_header(parent, player, d, ctx)
   bar.style.height = 44
   bar.style.vertical_align = "center"
   bar.add({ type = "label", caption = L(f.kind == "sink" and "sink-name" or "factory-name") })
-  local name = bar.add({ type = "textfield", name = "fp_name", text = f.name or "", enabled = ctx.can_edit, tags = { fp = "editor_name" } })
+  local name = bar.add({ type = "textfield", name = "stoich_name", text = f.name or "", enabled = ctx.can_edit, tags = { fp = "editor_name" } })
   name.style.width = 180
   bar.add({ type = "choose-elem-button", elem_type = "signal", signal = f.icon and { type = f.icon.type, name = f.icon.name } or nil,
     enabled = ctx.can_edit, tooltip = L("icon"), tags = { fp = "editor_icon" } })
@@ -314,8 +314,8 @@ local function build_header(parent, player, d, ctx)
   common.spacer(bar)
   -- a sink is always balanced: no status there
   if f.kind ~= "sink" then
-    common.status_label(bar, f.result.status, "fp_status")
-    bar.add({ type = "label", name = "fp_problem_count", caption = "" })
+    common.status_label(bar, f.result.status, "stoich_status")
+    bar.add({ type = "label", name = "stoich_problem_count", caption = "" })
   end
 end
 
@@ -333,7 +333,7 @@ end
 local function build_lines(parent, player, d, ctx)
   local f = d.factory
   parent.add({ type = "label", caption = L("section-lines"), style = "caption_label" })
-  local t = parent.add({ type = "table", name = "fp_lines", column_count = 13, draw_horizontal_line_after_headers = true })
+  local t = parent.add({ type = "table", name = "stoich_lines", column_count = 13, draw_horizontal_line_after_headers = true })
   t.style.horizontal_spacing = 10
   -- numbers right-aligned; the anchor (checkbox + count) left-aligned with a gap after "Built"
   for _, i in ipairs({ 4, 7, 8, 9, 11 }) do t.style.column_alignments[i] = "right" end
@@ -423,7 +423,7 @@ local function build_splits(parent, player, d)
   local f = d.factory
   if #f.splits == 0 then return end
   parent.add({ type = "label", caption = L("section-splits"), style = "caption_label" })
-  local box = parent.add({ type = "table", name = "fp_splits_box", column_count = 2 })
+  local box = parent.add({ type = "table", name = "stoich_splits_box", column_count = 2 })
   box.style.horizontal_spacing = 8
   box.style.vertical_spacing = 8
   for i, split in ipairs(f.splits) do splits.build_card(box, player, "factory", i, split) end
@@ -446,7 +446,7 @@ local function build_actions(parent, player, d, ctx)
   end
   common.spacer(bar)
   bar.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "editor_cancel" } })
-  bar.add({ type = "button", name = "fp_save", caption = L("save"), style = "confirm_button", tags = { fp = "editor_save" } })
+  bar.add({ type = "button", name = "stoich_save", caption = L("save"), style = "confirm_button", tags = { fp = "editor_save" } })
 end
 
 function editor.build(player, parent, ctx)
@@ -456,7 +456,7 @@ function editor.build(player, parent, ctx)
   build_header(parent, player, d, ctx)
   build_notice(parent, d)
   -- problems right under the header: they are what needs doing
-  parent.add({ type = "flow", name = "fp_problems_box", direction = "vertical" })
+  parent.add({ type = "flow", name = "stoich_problems_box", direction = "vertical" })
 
   local scroll = parent.add({ type = "scroll-pane", style = "scroll_pane" })
   scroll.style.vertically_stretchable = true
@@ -481,7 +481,7 @@ function editor.build(player, parent, ctx)
     local right = body.add({ type = "flow", direction = "vertical" })
     right.style.vertical_spacing = 6
     right.add({ type = "label", caption = L("section-items", common.unit_suffix(ctx)), style = "caption_label" })
-    right.add({ type = "flow", name = "fp_items_box", direction = "vertical", tags = { wide = wide } })
+    right.add({ type = "flow", name = "stoich_items_box", direction = "vertical", tags = { wide = wide } })
   end
   build_actions(parent, player, d, ctx)
   editor.update_results(player)
@@ -572,7 +572,7 @@ rows.targets.sink = {
 
 function editor.set_name_field(player, text)
   local root = player and container(player)
-  local field = root and root.valid and common.find(root, "fp_name")
+  local field = root and root.valid and common.find(root, "stoich_name")
   if field then field.text = text end
 end
 
@@ -746,7 +746,7 @@ handlers.editor_recapture = function(player)
   local state = model.player(player.index)
   if player.clear_cursor() then
     state.recapture = true -- set after clearing, which would cancel it
-    player.cursor_stack.set_stack({ name = "fp-selection-tool", count = 1 })
+    player.cursor_stack.set_stack({ name = "stoich-selection-tool", count = 1 })
     d.notice = L("recapture-notice")
     editor.rebuild(player)
   end

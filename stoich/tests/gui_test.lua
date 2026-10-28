@@ -3,7 +3,7 @@
 local t = require("tests.t")
 local mock = require("tests.mock_runtime")
 
-local TOOL = "fp-selection-tool"
+local TOOL = "stoich-selection-tool"
 
 local function boot(opts)
   mock.reset(opts)
@@ -14,16 +14,16 @@ local function boot(opts)
   return p1
 end
 
-local function win(p) return p.gui.screen.fp_window end
-local function dialog(p) return p.gui.screen.fp_dialog end
+local function win(p) return p.gui.screen.stoich_window end
+local function dialog(p) return p.gui.screen.stoich_dialog end
 
 local function open(p)
-  if not win(p) then mock.fire("on_lua_shortcut", { player_index = p.index, prototype_name = "fp-toggle-window" }) end
+  if not win(p) then mock.fire("on_lua_shortcut", { player_index = p.index, prototype_name = "stoich-toggle-window" }) end
   t.truthy(win(p), "window open")
 end
 
 local function tab(p, index)
-  mock.select_tab(p, mock.named(win(p), "fp_tabs"), index)
+  mock.select_tab(p, mock.named(win(p), "stoich_tabs"), index)
 end
 
 local function click(p, action, match, root)
@@ -62,14 +62,14 @@ local function draft_of(p) return storage.players[p.index].draft end
 t.test("gui: window opens, tabs switch, hotkey toggles", function()
   local p = boot()
   open(p)
-  t.truthy(mock.text(win(p)):find("<fp.plan-empty>", 1, true), "plan empty message")
+  t.truthy(mock.text(win(p)):find("<stoich.plan-empty>", 1, true), "plan empty message")
   tab(p, 2)
-  t.truthy(mock.text(win(p)):find("<fp.no-factories>", 1, true))
+  t.truthy(mock.text(win(p)):find("<stoich.no-factories>", 1, true))
   tab(p, 3)
   tab(p, 1)
-  mock.fire_custom("fp-toggle-window", 1)
+  mock.fire_custom("stoich-toggle-window", 1)
   t.eq(win(p), nil)
-  mock.fire_custom("fp-toggle-window", 1)
+  mock.fire_custom("stoich-toggle-window", 1)
   t.truthy(win(p))
   -- Esc / E closes it
   mock.fire("on_gui_closed", { player_index = 1, element = win(p) })
@@ -83,7 +83,7 @@ t.test("gui: capture an oil build, balance live, save", function()
   local d = draft_of(p)
   t.eq(d.factory.result.status, "EXACT")
   t.eq(#d.factory.splits, 1)
-  t.truthy(mock.named(win(p), "fp_lines"), "lines table")
+  t.truthy(mock.named(win(p), "stoich_lines"), "lines table")
   t.eq(p.cursor, nil)
 
   -- move the split slider: counts change, the slider element survives (no rebuild)
@@ -116,22 +116,22 @@ t.test("gui: capture an oil build, balance live, save", function()
   local ext = mock.find(win(p), "editor_external", { item = "item/plastic-bar" })
   mock.click(p, ext)
   t.eq(d.factory.result.status, "CONFLICT")
-  t.eq(mock.find(win(p), "fp_save" ) == nil, true) -- save is found by name, not action
-  local save = mock.named(win(p), "fp_save")
+  t.eq(mock.find(win(p), "stoich_save" ) == nil, true) -- save is found by name, not action
+  local save = mock.named(win(p), "stoich_save")
   t.eq(save.enabled, false)
   click(p, "problem_external", { item = "item/plastic-bar" })
   t.eq(draft_of(p).factory.result.status, "EXACT")
-  save = mock.named(win(p), "fp_save")
+  save = mock.named(win(p), "stoich_save")
   t.eq(save.enabled, true)
 
   -- the localised product name arrives and fills the default name
   t.eq(#p.translations, 1)
   mock.fire("on_string_translated", { player_index = 1, id = 1, translated = true, result = "Plastic bar (localised)", localised_string = p.translations[1] })
   t.eq(d.factory.name, "Plastic bar (localised)")
-  t.eq(mock.named(win(p), "fp_name").text, "Plastic bar (localised)")
+  t.eq(mock.named(win(p), "stoich_name").text, "Plastic bar (localised)")
 
-  -- /fp-lines prints the lines
-  mock.commands["fp-lines"]({ player_index = 1 })
+  -- /stoich-lines prints the lines
+  mock.commands["stoich-lines"]({ player_index = 1 })
   t.truthy(#p.printed > 3)
 
   mock.click(p, save)
@@ -146,7 +146,7 @@ end)
 
 local function saved_oil(p)
   capture(p, oil_build())
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   for id in pairs(storage.plans.main.factories) do return id end
 end
 
@@ -159,7 +159,7 @@ local function add_sink(p, item, per_min)
   mock.type_text(p, rate, tostring(per_min))
   mock.type_text(p, mock.find(win(p), "editor_name"), "Demand")
   t.eq(draft_of(p).factory.result.status, "EXACT")
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
 end
 
 t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins", function()
@@ -188,7 +188,7 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   t.eq(storage.plans.main.factories[id].pinned, true)
   -- filter hides rows
   mock.type_text(p, mock.find(win(p), "plan_filter"), "zzz")
-  t.truthy(mock.text(win(p)):find("<fp.plan-filtered>", 1, true))
+  t.truthy(mock.text(win(p)):find("<stoich.plan-filtered>", 1, true))
   mock.type_text(p, mock.find(win(p), "plan_filter"), "")
   -- sink rate edited in place (Enter)
   local rate = mock.find(win(p), "plan_sink_rate")
@@ -238,10 +238,10 @@ t.test("gui: export and import a factory string", function()
   -- duplicate, export and "modified" are behind the Details toggle
   t.eq(mock.find(win(p), "fac_export", { id = id }), nil)
   t.eq(mock.find(win(p), "fac_duplicate", { id = id }), nil)
-  t.eq(mock.text(win(p)):find("<fp.col-modified>", 1, true), nil)
-  t.eq(mock.text(win(p)):find("<fp.col-status>", 1, true), nil, "no status column")
+  t.eq(mock.text(win(p)):find("<stoich.col-modified>", 1, true), nil)
+  t.eq(mock.text(win(p)):find("<stoich.col-status>", 1, true), nil, "no status column")
   click(p, "fac_details")
-  t.truthy(mock.text(win(p)):find("<fp.col-modified>", 1, true))
+  t.truthy(mock.text(win(p)):find("<stoich.col-modified>", 1, true))
   t.truthy(mock.find(win(p), "fac_duplicate", { id = id }))
   click(p, "fac_export", { id = id })
   local text = mock.all(dialog(p))
@@ -251,7 +251,7 @@ t.test("gui: export and import a factory string", function()
   t.truthy(#s > 10)
   click(p, "dialog_close")
   click(p, "fac_import")
-  mock.type_text(p, mock.named(dialog(p), "fp_import_text"), s)
+  mock.type_text(p, mock.named(dialog(p), "stoich_import_text"), s)
   click(p, "fac_import_ok")
   t.eq(dialog(p), nil)
   local n = 0
@@ -262,7 +262,7 @@ t.test("gui: export and import a factory string", function()
   t.eq(n, 2)
   -- garbage shows an error, keeps the dialog
   click(p, "fac_import")
-  mock.type_text(p, mock.named(dialog(p), "fp_import_text"), "nonsense")
+  mock.type_text(p, mock.named(dialog(p), "stoich_import_text"), "nonsense")
   click(p, "fac_import_ok")
   t.truthy(dialog(p))
   t.truthy(mock.text(dialog(p)):find("import-error", 1, true))
@@ -276,7 +276,7 @@ t.test("gui: generators-only selection opens a sink with their fuel", function()
   t.eq(d.factory.sink_items[1].key, "item/coal")
   mock.type_text(p, mock.find(win(p), "row_rate", { mode = "sink" }), "30")
   t.near(d.factory.sink_items[1].rate, 0.5)
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   t.eq(draft_of(p), nil)
 end)
 
@@ -295,7 +295,7 @@ t.test("gui: admins-only mode blocks edits but not viewing", function()
   -- an admin switches to everyone in the settings dialog
   click(p1, "open_settings")
   mock.select(p1, mock.find(dialog(p1), "set_edit_mode"), 1)
-  t.eq(settings.global["fp-edit-permission"].value, "everyone")
+  t.eq(settings.global["stoich-edit-permission"].value, "everyone")
   plus = mock.find(win(p2), "plan_copies", { id = id, delta = 1 })
   t.eq(plus.enabled, true, "p2's window refreshed after the setting changed")
 end)
@@ -311,11 +311,11 @@ t.test("gui: stale save shows the conflict dialog; overwrite and reload work", f
   click(p1, "fac_edit", { id = id })
   click(p2, "fac_edit", { id = id })
   mock.type_text(p2, mock.find(win(p2), "editor_name"), "by p2")
-  mock.click(p2, mock.named(win(p2), "fp_save"))
+  mock.click(p2, mock.named(win(p2), "stoich_save"))
   t.eq(storage.plans.main.factories[id].name, "by p2")
   -- p1's plan tab refreshed live? p1 is in the editor, so only the status refreshes; p2 saved fine.
   mock.type_text(p1, mock.find(win(p1), "editor_name"), "by p1")
-  mock.click(p1, mock.named(win(p1), "fp_save"))
+  mock.click(p1, mock.named(win(p1), "stoich_save"))
   t.truthy(dialog(p1), "conflict dialog")
   t.truthy(mock.text(dialog(p1)):find("player2", 1, true))
   click(p1, "conflict_reload")
@@ -323,8 +323,8 @@ t.test("gui: stale save shows the conflict dialog; overwrite and reload work", f
   mock.type_text(p1, mock.find(win(p1), "editor_name"), "by p1")
   mock.click(p2, mock.find(win(p2), "fac_edit", { id = id }))
   mock.type_text(p2, mock.find(win(p2), "editor_name"), "again p2")
-  mock.click(p2, mock.named(win(p2), "fp_save"))
-  mock.click(p1, mock.named(win(p1), "fp_save"))
+  mock.click(p2, mock.named(win(p2), "stoich_save"))
+  mock.click(p1, mock.named(win(p1), "stoich_save"))
   click(p1, "conflict_overwrite")
   t.eq(storage.plans.main.factories[id].name, "by p1")
 end)
@@ -511,9 +511,9 @@ t.test("gui: remaining controls", function()
   -- settings: belt tier and one lane
   click(p, "open_settings")
   mock.select(p, mock.find(dialog(p), "set_max_belt"), 2)
-  t.eq(settings.global["fp-max-belt"].value, "transport-belt")
+  t.eq(settings.global["stoich-max-belt"].value, "transport-belt")
   click(p, "set_one_lane")
-  t.eq(settings.global["fp-one-lane"].value, true)
+  t.eq(settings.global["stoich-one-lane"].value, true)
   click(p, "dialog_close")
   -- items tab collapse
   tab(p, 3)
@@ -551,7 +551,7 @@ t.test("gui: idle machines get a recipe; add sink fixes surpluses", function()
   click(p, "editor_delete_line", { line = void.id })
   mock.click(p, mock.find(win(p), "editor_external", { item = "item/plastic-bar" }))
   t.eq(draft_of(p).factory.result.status, "EXACT")
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   -- plan mode: a pinned factory's surplus offers a sink for it
   local id
   for fid in pairs(storage.plans.main.factories) do id = fid end
@@ -631,7 +631,7 @@ t.test("gui: an invalid factory is repaired by deleting its broken line", functi
     click(p, "problem_split", { mode = "factory" })
   end
   t.eq(d.factory.result.status, "EXACT")
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   t.eq(storage.plans.main.factories[id].invalid, nil)
   t.eq(storage.plans.main.factories[id].result.status, "EXACT")
 end)
@@ -642,7 +642,7 @@ t.test("gui: split prompt offers every useful item in a dropdown", function()
   click(p, "split_remove", { mode = "factory" })
   local d = draft_of(p)
   t.eq(d.factory.result.status, "NEEDS_SPLIT")
-  local cand = mock.named(win(p), "fp_cand")
+  local cand = mock.named(win(p), "stoich_cand")
   t.truthy(cand, "candidate dropdown")
   local cands = mock.find(win(p), "problem_split", { mode = "factory" }).tags.cands
   t.truthy(#cands > 1)
@@ -671,8 +671,8 @@ t.test("gui: editor groups items; shortage never shows below 0", function()
   local p = boot()
   capture(p, oil_build())
   local text = mock.text(win(p))
-  t.truthy(text:find("<fp.items-inputs>", 1, true) and text:find("<fp.items-outputs>", 1, true) and text:find("<fp.items-inside>", 1, true))
-  mock.click(p, mock.named(win(p), "fp_save"))
+  t.truthy(text:find("<stoich.items-inputs>", 1, true) and text:find("<stoich.items-outputs>", 1, true) and text:find("<stoich.items-inside>", 1, true))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   local id
   for fid in pairs(storage.plans.main.factories) do id = fid end
   add_sink(p, "plastic-bar", 60)
@@ -689,8 +689,8 @@ t.test("gui: editor groups items; shortage never shows below 0", function()
   local found = false
   for _, e in ipairs(mock.all(win(p))) do
     local tip = e.type == "label" and e.tooltip
-    -- { "", { "fp.shortage-tooltip", ... }, "\n", { "fp.surplus-tooltip", ... } }
-    if type(tip) == "table" and type(tip[4]) == "table" and tip[4][1] == "fp.surplus-tooltip" then
+    -- { "", { "stoich.shortage-tooltip", ... }, "\n", { "stoich.surplus-tooltip", ... } }
+    if type(tip) == "table" and type(tip[4]) == "table" and tip[4][1] == "stoich.surplus-tooltip" then
       found = true
       t.eq(e.caption, "0")
       t.eq(e.style.font_color, require("scripts.gui.common").GREEN)
@@ -707,7 +707,7 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   t.eq(d.color, nil, "number not tinted")
   t.eq(d.belt, "[entity=transport-belt]")
   t.eq(d.fill, "67%")
-  t.eq(d.tooltip[1], "fp.belt-tooltip")
+  t.eq(d.tooltip[1], "stoich.belt-tooltip")
   local over = common.rate_display(ctx, 40, "item/iron-plate")
   t.eq(over.exceeds, true)
   t.eq(over.color, common.RED)
@@ -718,13 +718,13 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   t.eq(total.color, nil)
   t.eq(total.fill_color, nil)
   t.eq(total.fill, "1.33×")
-  t.eq(total.tooltip[1], "fp.belt-total-tooltip")
+  t.eq(total.tooltip[1], "stoich.belt-total-tooltip")
   local fluid = common.rate_display(ctx, 400, "fluid/water")
   t.eq(fluid.belt, "—")
   t.eq(fluid.fill, "")
   -- the editor shows them as three columns, updated in place while balancing
   capture(p, oil_build())
-  local lines = mock.named(win(p), "fp_lines")
+  local lines = mock.named(win(p), "stoich_lines")
   local any_rate = false
   for _, e in ipairs(mock.all(lines)) do
     if e.name and e.name:match("^out_%d+_belt$") and e.caption ~= "" then any_rate = true end
@@ -737,10 +737,10 @@ t.test("gui: only the shown tab has content; window size toggle; splits tab", fu
   saved_oil(p)
   open(p)
   tab(p, 2)
-  local tabs = mock.named(win(p), "fp_tabs")
+  local tabs = mock.named(win(p), "stoich_tabs")
   tab(p, 1)
-  t.eq(#tabs.fp_content_factories.children, 0, "factories tab emptied when hidden")
-  t.truthy(#tabs.fp_content_plan.children > 0)
+  t.eq(#tabs.stoich_content_factories.children, 0, "factories tab emptied when hidden")
+  t.truthy(#tabs.stoich_content_plan.children > 0)
   -- window fits the screen, compact toggle
   local big = win(p).style.width
   click(p, "window_size")
@@ -753,7 +753,7 @@ t.test("gui: only the shown tab has content; window size toggle; splits tab", fu
   t.eq(storage.players[1].hide_ok, true)
   -- splits tab: empty message, then a split from the plan problems lands there
   tab(p, 4)
-  t.truthy(mock.text(win(p)):find("<fp.no-plan-splits>", 1, true))
+  t.truthy(mock.text(win(p)):find("<stoich.no-plan-splits>", 1, true))
 end)
 
 t.test("gui: plan split summary links to the splits tab", function()
@@ -775,7 +775,7 @@ t.test("gui: plan split summary links to the splits tab", function()
   t.eq(storage.players[1].tab, "splits", "adding a plan split shows the splits tab")
   local text = mock.text(win(p))
   t.truthy(text:find("#", 1, true), "same-named factories get their id")
-  t.truthy(text:find("<fp.needed-count>", 1, true), "needed copies per factory")
+  t.truthy(text:find("<stoich.needed-count>", 1, true), "needed copies per factory")
   tab(p, 1)
   t.eq(mock.find(win(p), "split_slider", { mode = "plan" }), nil, "no cards in the plan tab")
   click(p, "open_splits_tab")
@@ -793,8 +793,8 @@ t.test("gui: one rate unit selector, in the settings dialog", function()
   local all = mock.find_all(p.gui.screen, "set_unit")
   t.eq(#all, 1, "only the one in settings")
   mock.select(p, all[1], 1)
-  t.eq(p.mod_settings["fp-rate-unit"].value, "s")
-  t.eq(mock.named(dialog(p), "fp_unit").selected_index, 1)
+  t.eq(p.mod_settings["stoich-rate-unit"].value, "s")
+  t.eq(mock.named(dialog(p), "stoich_unit").selected_index, 1)
 end)
 
 t.test("gui: a new sink is named after its first item; the list marks sinks without renaming them", function()
@@ -805,7 +805,7 @@ t.test("gui: a new sink is named after its first item; the list marks sinks with
   local d = draft_of(p)
   mock.pick(p, mock.find(win(p), "row_signal", { mode = "sink", i = 1 }), { type = "item", name = "coal" })
   t.eq(d.factory.name, "Coal")
-  t.eq(mock.named(win(p), "fp_name").text, "Coal")
+  t.eq(mock.named(win(p), "stoich_name").text, "Coal")
   local id = #p.translations
   mock.fire("on_string_translated", { player_index = 1, id = id, translated = true, result = "Coal (localised)", localised_string = p.translations[id] })
   t.eq(d.factory.name, "Coal (localised)")
@@ -814,13 +814,13 @@ t.test("gui: a new sink is named after its first item; the list marks sinks with
   mock.pick(p, mock.find(win(p), "row_signal", { mode = "sink", i = 1 }), { type = "item", name = "iron-plate" })
   t.eq(d.factory.name, "Boilers")
   mock.type_text(p, mock.find(win(p), "row_rate", { mode = "sink", i = 1 }), "30")
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   local name_label
   for _, e in ipairs(mock.all(win(p))) do
     if e.type == "label" and e.caption == "Boilers" then name_label = e end
   end
   t.truthy(name_label, "name shown as is, no suffix")
-  t.truthy(mock.text(win(p)):find("<fp.sink-mark>", 1, true), "marked in its own column")
+  t.truthy(mock.text(win(p)):find("<stoich.sink-mark>", 1, true), "marked in its own column")
 end)
 
 local function gear_build(x0)
@@ -853,7 +853,7 @@ t.test("gui: recapture area replaces the open factory's contents", function()
   t.truthy(recipes["electronic-circuit"] and not recipes["plastic-bar"], "new contents")
   t.eq(storage.players[1].recapture, nil)
   t.eq(d.factory.result.status, "EXACT")
-  mock.click(p, mock.named(win(p), "fp_save"))
+  mock.click(p, mock.named(win(p), "stoich_save"))
   local n = 0
   for _ in pairs(storage.plans.main.factories) do n = n + 1 end
   t.eq(n, 1, "replaced in place")
@@ -898,18 +898,18 @@ t.test("gui: the editor builds in both window sizes", function()
   open(p)
   click(p, "window_size") -- compact: one column
   capture(p, oil_build())
-  t.truthy(mock.named(win(p), "fp_lines"))
-  t.eq(mock.named(win(p), "fp_items_groups").direction, "horizontal")
+  t.truthy(mock.named(win(p), "stoich_lines"))
+  t.eq(mock.named(win(p), "stoich_items_groups").direction, "horizontal")
   click(p, "window_size") -- large: two columns, item groups stacked
-  t.eq(mock.named(win(p), "fp_items_groups").direction, "vertical")
+  t.eq(mock.named(win(p), "stoich_items_groups").direction, "vertical")
 end)
 
 t.test("gui: the debug interface only exists when its hidden setting is on", function()
   boot()
-  t.truthy(mock.interfaces["factorio-planner"])
-  t.eq(mock.interfaces["factorio-planner-debug"], nil)
+  t.truthy(mock.interfaces["stoich"])
+  t.eq(mock.interfaces["stoich-debug"], nil)
   boot({ debug_interface = true })
-  t.truthy(mock.interfaces["factorio-planner-debug"])
+  t.truthy(mock.interfaces["stoich-debug"])
 end)
 
 t.test("gui: every handler is reached by some scenario", function()

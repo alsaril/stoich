@@ -15,7 +15,7 @@ window.TABS = { "plan", "factories", "items", "splits" }
 window.builders = {}
 
 local function get(player)
-  local w = player.gui.screen.fp_window
+  local w = player.gui.screen.stoich_window
   if w and w.valid then return w end
   return nil
 end
@@ -41,7 +41,7 @@ function window.open(player, tab)
     window.select_tab(player, state.tab)
     return w
   end
-  w = player.gui.screen.add({ type = "frame", name = "fp_window", direction = "vertical" })
+  w = player.gui.screen.add({ type = "frame", name = "stoich_window", direction = "vertical" })
   local size = window.size(player)
   w.style.width = size.width
   w.style.height = size.height
@@ -51,15 +51,15 @@ function window.open(player, tab)
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/clock", tooltip = L("log"), tags = { fp = "open_log" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/preset", tooltip = L("settings"), tags = { fp = "open_settings" } },
   })
-  local inner = w.add({ type = "frame", name = "fp_inner", style = "inside_deep_frame", direction = "vertical" })
+  local inner = w.add({ type = "frame", name = "stoich_inner", style = "inside_deep_frame", direction = "vertical" })
   inner.style.vertically_stretchable = true
   inner.style.horizontally_stretchable = true
-  local tabs = inner.add({ type = "tabbed-pane", name = "fp_tabs", style = "tabbed_pane_with_no_side_padding", tags = { fp = "tab_changed" } })
+  local tabs = inner.add({ type = "tabbed-pane", name = "stoich_tabs", style = "tabbed_pane_with_no_side_padding", tags = { fp = "tab_changed" } })
   tabs.style.vertically_stretchable = true
   tabs.style.horizontally_stretchable = true
   for _, name in ipairs(window.TABS) do
-    local tab = tabs.add({ type = "tab", name = "fp_tab_" .. name, caption = L("tab-" .. name) })
-    local content = tabs.add({ type = "flow", name = "fp_content_" .. name, direction = "vertical" })
+    local tab = tabs.add({ type = "tab", name = "stoich_tab_" .. name, caption = L("tab-" .. name) })
+    local content = tabs.add({ type = "flow", name = "stoich_content_" .. name, direction = "vertical" })
     content.style.padding = 8
     content.style.vertical_spacing = 6
     -- the content fills the window; scroll panes inside take the remaining height
@@ -93,7 +93,7 @@ function window.select_tab(player, name)
   state.tab = name
   local w = get(player)
   if not w then return end
-  local tabs = w.fp_inner.fp_tabs
+  local tabs = w.stoich_inner.stoich_tabs
   tabs.selected_tab_index = tab_index(name)
   window.refresh(player)
 end
@@ -116,17 +116,17 @@ function window.refresh(player)
   local w = get(player)
   if not w then return end
   local state = model.player(player.index)
-  local tabs = w.fp_inner.fp_tabs
+  local tabs = w.stoich_inner.stoich_tabs
   for _, name in ipairs(window.TABS) do
-    local other = tabs["fp_content_" .. name]
+    local other = tabs["stoich_content_" .. name]
     if other and name ~= state.tab then other.clear() end
   end
-  local splits_tab = tabs.fp_tab_splits
+  local splits_tab = tabs.stoich_tab_splits
   if splits_tab then
     local n = #model.plan().splits
     splits_tab.badge_text = n > 0 and tostring(n) or "" -- nil would show as "nil"
   end
-  local container = tabs["fp_content_" .. state.tab]
+  local container = tabs["stoich_content_" .. state.tab]
   if not container then return end
   local builder = window.builders[state.tab]
   container.clear()
@@ -135,10 +135,10 @@ end
 
 --- Show the current rate unit in an open settings dialog (it can also change in the game's mod settings).
 function window.sync_unit(player)
-  local d = player.gui.screen.fp_dialog
-  local dd = d and d.valid and common.find(d, "fp_unit")
+  local d = player.gui.screen.stoich_dialog
+  local dd = d and d.valid and common.find(d, "stoich_unit")
   if not dd then return end
-  local unit = player.mod_settings["fp-rate-unit"].value
+  local unit = player.mod_settings["stoich-rate-unit"].value
   for i, u in ipairs(fp_util.UNIT_ORDER) do
     if u == unit then dd.selected_index = i end
   end
@@ -205,7 +205,7 @@ local function settings_dialog(player)
     units[i] = fp_util.UNITS[u].suffix
     if u == ctx.unit then selected = i end
   end
-  t.add({ type = "drop-down", name = "fp_unit", items = units, selected_index = selected, tags = { fp = "set_unit" } })
+  t.add({ type = "drop-down", name = "stoich_unit", items = units, selected_index = selected, tags = { fp = "set_unit" } })
 
   t.add({ type = "label", caption = L("setting-edit"), tooltip = L("setting-edit-tooltip") })
   t.add({
@@ -216,7 +216,7 @@ local function settings_dialog(player)
 
   t.add({ type = "label", caption = L("setting-max-belt") })
   local items = { L("best-researched") }
-  local current = settings.global["fp-max-belt"].value
+  local current = settings.global["stoich-max-belt"].value
   local sel = 1
   for i, tier in ipairs(ctx.tiers) do
     items[#items + 1] = { "", "[entity=" .. tier.name .. "] ", common.entity_name(tier.name), " (" .. fp_util.format_number(tier.capacity) .. "/s)" }
@@ -234,25 +234,25 @@ end
 
 handlers.set_unit = function(player, element)
   local u = fp_util.UNIT_ORDER[element.selected_index]
-  if u then player.mod_settings["fp-rate-unit"] = { value = u } end
+  if u then player.mod_settings["stoich-rate-unit"] = { value = u } end
 end
 
 handlers.set_edit_mode = function(player, element)
   if not player.admin then return end
-  settings.global["fp-edit-permission"] = { value = element.selected_index == 2 and "admins" or "everyone" }
-  model.log(player.index, { "fp.log-edit-mode", L("edit-" .. model.edit_mode()) }, nil)
+  settings.global["stoich-edit-permission"] = { value = element.selected_index == 2 and "admins" or "everyone" }
+  model.log(player.index, { "stoich.log-edit-mode", L("edit-" .. model.edit_mode()) }, nil)
 end
 
 handlers.set_max_belt = function(player, element)
   if not model.can_edit(player) then return end
   local tiers = common.ctx(player).tiers
   local i = element.selected_index
-  settings.global["fp-max-belt"] = { value = i > 1 and tiers[i - 1].name or "" }
+  settings.global["stoich-max-belt"] = { value = i > 1 and tiers[i - 1].name or "" }
 end
 
 handlers.set_one_lane = function(player, element)
   if not model.can_edit(player) then return end
-  settings.global["fp-one-lane"] = { value = element.state }
+  settings.global["stoich-one-lane"] = { value = element.state }
 end
 
 -- Edit log -------------------------------------------------------------------------------------

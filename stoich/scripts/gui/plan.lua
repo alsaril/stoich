@@ -134,7 +134,7 @@ function plan_tab.build_splits_tab(player, parent, ctx)
   local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local box = pane.add({ type = "table", name = "fp_plan_splits", column_count = 2 })
+  local box = pane.add({ type = "table", name = "stoich_plan_splits", column_count = 2 })
   box.style.horizontal_spacing = 12
   box.style.vertical_spacing = 12
   for i, split in ipairs(p.splits) do splits.build_card(box, player, "plan", i, split) end
@@ -144,15 +144,15 @@ window.builders.splits = plan_tab.build_splits_tab
 
 local function build_table(parent, player, r, ctx)
   local state = model.player(player.index)
-  local box = parent.add({ type = "flow", name = "fp_plan_table_box", direction = "vertical" })
+  local box = parent.add({ type = "flow", name = "stoich_plan_table_box", direction = "vertical" })
   local filters = box.add({ type = "flow", direction = "horizontal" })
   filters.style.vertical_align = "center"
   filters.add({ type = "label", caption = L("filter") })
   local filter = filters.add({ type = "textfield", text = state.filter or "", tags = { fp = "plan_filter" }, tooltip = L("filter-tooltip") })
   filter.style.width = 160
   filters.add({ type = "checkbox", caption = L("hide-ok"), state = state.hide_ok or false, tags = { fp = "plan_hide_ok" } })
-  box.add({ type = "flow", name = "fp_plan_rows", direction = "vertical" })
-  plan_tab.fill_rows(player, box.fp_plan_rows, r, ctx)
+  box.add({ type = "flow", name = "stoich_plan_rows", direction = "vertical" })
+  plan_tab.fill_rows(player, box.stoich_plan_rows, r, ctx)
 end
 
 function plan_tab.fill_rows(player, holder, r, ctx)
@@ -269,12 +269,12 @@ end
 
 function plan_tab.build(player, parent, ctx)
   local r = result()
-  build_header(section(parent, "fp_plan_header"), player, r, ctx)
+  build_header(section(parent, "stoich_plan_header"), player, r, ctx)
   -- problems first: they are what needs doing
-  build_problems(section(parent, "fp_plan_problems"), player, r, ctx)
-  build_sinks(section(parent, "fp_plan_sinks"), player, ctx)
-  build_splits(section(parent, "fp_plan_splits_box"), player)
-  build_table(section(parent, "fp_plan_main"), player, r, ctx)
+  build_problems(section(parent, "stoich_plan_problems"), player, r, ctx)
+  build_sinks(section(parent, "stoich_plan_sinks"), player, ctx)
+  build_splits(section(parent, "stoich_plan_splits_box"), player)
+  build_table(section(parent, "stoich_plan_main"), player, r, ctx)
 end
 
 window.builders.plan = plan_tab.build
@@ -284,7 +284,7 @@ window.builders.plan = plan_tab.build
 function plan_tab.refresh_except_splits(player, index, line)
   -- the cards are in the Splits tab now: update them (and their needed counts) in place
   local w = window.get(player)
-  local root = w and w.fp_inner.fp_tabs.fp_content_splits
+  local root = w and w.stoich_inner.stoich_tabs.stoich_content_splits
   if not root then return end
   for i in ipairs(model.plan().splits) do splits.update_card(root, player, "plan", i, i == index and line or nil) end
 end
@@ -322,7 +322,7 @@ splits.targets.plan = {
 problems.actions.plan = {
   mark_external = function(player, item)
     model.plan().external[item] = true
-    model.log(player.index, { "fp.log-external", fp_util.rich(item) }, nil)
+    model.log(player.index, { "stoich.log-external", fp_util.rich(item) }, nil)
     plan.changed()
   end,
   add_sink = function(player, item)
@@ -337,7 +337,7 @@ problems.actions.plan = {
   add_split = function(player, item)
     local list = units()
     draft.add_split(model.plan(), item, solver.producers_of(list, item), list)
-    model.log(player.index, { "fp.log-plan-split", fp_util.rich(item) }, nil)
+    model.log(player.index, { "stoich.log-plan-split", fp_util.rich(item) }, nil)
     plan.changed()
     window.select_tab(player, "splits")
   end,
@@ -377,7 +377,7 @@ handlers.plan_filter = function(player, element, event)
   local state = model.player(player.index)
   state.filter = element.text
   local w = window.get(player)
-  local rows = w and common.find(w, "fp_plan_rows")
+  local rows = w and common.find(w, "stoich_plan_rows")
   if rows then plan_tab.fill_rows(player, rows, result(), common.ctx(player)) end
 end
 
@@ -385,7 +385,7 @@ handlers.plan_hide_ok = function(player, element)
   local state = model.player(player.index)
   state.hide_ok = element.state
   local w = window.get(player)
-  local rows = w and common.find(w, "fp_plan_rows")
+  local rows = w and common.find(w, "stoich_plan_rows")
   if rows then plan_tab.fill_rows(player, rows, result(), common.ctx(player)) end
 end
 
@@ -401,7 +401,7 @@ handlers.plan_sink_rate = function(player, element, event)
   f.revision = f.revision + 1
   f.modified_by = player.index
   f.modified_tick = game.tick
-  model.log(player.index, { "fp.log-rate" }, f.name)
+  model.log(player.index, { "stoich.log-rate" }, f.name)
   plan.changed()
 end
 

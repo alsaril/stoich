@@ -12,7 +12,7 @@ local common = {}
 common.handlers = {}
 
 function common.L(key, ...)
-  return { "fp." .. key, ... }
+  return { "stoich." .. key, ... }
 end
 local L = common.L
 
@@ -59,16 +59,16 @@ end
 
 --- Per-player view settings: unit, belt tiers and the highest allowed tier.
 function common.ctx(player)
-  local unit = player.mod_settings["fp-rate-unit"].value
+  local unit = player.mod_settings["stoich-rate-unit"].value
   local tiers = belts.read_tiers(player.force)
-  local chosen = settings.global["fp-max-belt"].value
+  local chosen = settings.global["stoich-max-belt"].value
   local max_index = chosen ~= "" and belts.index_of(tiers, chosen) or best_researched(tiers, player.force)
   return {
     player = player,
     unit = unit,
     tiers = tiers,
     max_index = max_index,
-    one_lane = settings.global["fp-one-lane"].value,
+    one_lane = settings.global["stoich-one-lane"].value,
     can_edit = model.can_edit(player),
   }
 end
@@ -347,7 +347,7 @@ function common.spacer(parent)
 end
 
 function common.titlebar(frame, caption, close_action, extra)
-  local bar = frame.add({ type = "flow", name = "fp_titlebar", direction = "horizontal" })
+  local bar = frame.add({ type = "flow", name = "stoich_titlebar", direction = "horizontal" })
   bar.drag_target = frame
   bar.add({ type = "label", caption = caption, style = "frame_title", ignored_by_interaction = true })
   local filler = bar.add({ type = "empty-widget", style = "draggable_space_header", ignored_by_interaction = true })
@@ -392,7 +392,7 @@ end
 --- player.opened (that would close the main window); Esc closes both.
 function common.open_dialog(player, name, caption)
   common.close_dialog(player)
-  local frame = player.gui.screen.add({ type = "frame", name = "fp_dialog", direction = "vertical", tags = { dialog = name } })
+  local frame = player.gui.screen.add({ type = "frame", name = "stoich_dialog", direction = "vertical", tags = { dialog = name } })
   common.titlebar(frame, caption, "dialog_close")
   frame.auto_center = true
   frame.bring_to_front()
@@ -400,7 +400,7 @@ function common.open_dialog(player, name, caption)
 end
 
 function common.close_dialog(player)
-  local d = player.gui.screen.fp_dialog
+  local d = player.gui.screen.stoich_dialog
   if d and d.valid then d.destroy() end
   local state = storage.players[player.index]
   if state then state.dialog = nil end
@@ -411,7 +411,7 @@ common.handlers.dialog_close = function(player)
 end
 
 function common.dialog_buttons(frame)
-  local flow = frame.add({ type = "flow", name = "fp_buttons", style = "dialog_buttons_horizontal_flow" })
+  local flow = frame.add({ type = "flow", name = "stoich_buttons", style = "dialog_buttons_horizontal_flow" })
   flow.style.horizontal_spacing = 8
   return flow
 end

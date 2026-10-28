@@ -1,8 +1,8 @@
-# factorio-planner — mod spec
+# Stoich — mod spec
 
 ## Goal and scope
 
-Build `factorio-planner`, a Factorio 2.1+ mod that does what levels 1 and 2 of the existing Kotlin calculator (attached `calculator.zip`) did, entirely in-game. Factories are captured from the map instead of typed as JSON. The plan lives in the save and is shared by every player.
+Build `stoich`, a Factorio 2.1+ mod that does what levels 1 and 2 of the existing Kotlin calculator (attached `calculator.zip`) did, entirely in-game. Factories are captured from the map instead of typed as JSON. The plan lives in the save and is shared by every player.
 
 **In scope (v1)**
 
@@ -337,10 +337,10 @@ One draggable window with three tabs, opened from a shortcut-bar button or hotke
 
 ## Mod structure and API notes
 
-Mod name: `factorio-planner`. Target Factorio 2.1 and later (`"factorio_version": "2.1"`, dependency `base >= 2.1`), with Space Age and Krastorio 2 as optional test mods. If it will be published, check the name is free on the mod portal first.
+Mod name: `stoich`. Target Factorio 2.1 and later (`"factorio_version": "2.1"`, dependency `base >= 2.1`), with Space Age and Krastorio 2 as optional test mods. If it will be published, check the name is free on the mod portal first.
 
 ```
-factorio-planner/
+stoich/
   info.json
   data.lua              -- selection tool, shortcut, custom-input hotkey, GUI styles
   settings.lua          -- rate unit, edit permission, max belt tier, one-lane toggle

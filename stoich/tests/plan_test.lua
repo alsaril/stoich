@@ -219,7 +219,7 @@ t.test("model: permissions", function()
   local other = fake.add_player(2, false)
   t.eq(model.can_edit(admin), true)
   t.eq(model.can_edit(other), false)
-  settings.global["fp-edit-permission"].value = "everyone"
+  settings.global["stoich-edit-permission"].value = "everyone"
   t.eq(model.can_edit(other), true)
 end)
 

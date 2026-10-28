@@ -23,7 +23,7 @@ local splits = {}
 ---   can_edit(player) -> bool }
 splits.targets = {}
 
-local function card_name(index) return "fp_split_" .. index end
+local function card_name(index) return "stoich_split_" .. index end
 
 function splits.build_card(parent, player, mode, index, split)
   local target = splits.targets[mode]
@@ -53,7 +53,7 @@ function splits.build_card(parent, player, mode, index, split)
 
   local extra = target.extra_of
   -- icon, name, slider, share, "%" (, extra)
-  local t = card.add({ type = "table", name = "fp_split_table", column_count = extra and 6 or 5 })
+  local t = card.add({ type = "table", name = "stoich_split_table", column_count = extra and 6 or 5 })
   t.style.horizontal_spacing = 8
   t.style.column_alignments[4] = "right"
   for i, id in ipairs(ids) do
@@ -93,7 +93,7 @@ function splits.update_card(container, player, mode, index, except_line)
   local target = splits.targets[mode]
   local split = target.holder(player).splits[index]
   if not split then return end
-  local t = card.fp_split_table
+  local t = card.stoich_split_table
   for _, id in ipairs(draft.split_lines(target.units(player), split)) do
     local share = split.shares[id] or 0
     local slider, field, last = t["s_" .. id], t["f_" .. id], t["l_" .. id]

@@ -1,4 +1,4 @@
-# Factory Block Balancer (factorio-planner)
+# Stoich
 
 A Factorio 2.1 mod for planning a base out of **minifactories**: self-contained blocks
 (a green circuit block, an oil block, a smelting column…) that you build several copies of.
@@ -66,10 +66,10 @@ screen and a compact one.
 
 ## Install
 
-Copy or link the `factorio-planner` folder into your Factorio `mods` folder, e.g. on macOS:
+Copy or link the `stoich` folder into your Factorio `mods` folder, e.g. on macOS:
 
 ```sh
-ln -s "$PWD/factorio-planner" ~/Library/Application\ Support/factorio/mods/factorio-planner
+ln -s "$PWD/stoich" ~/Library/Application\ Support/factorio/mods/stoich
 ```
 
 Requires Factorio 2.1. Space Age and Krastorio 2 are optional.
@@ -80,7 +80,7 @@ The solver, rate formulas, storage model and the whole GUI run offline in plain 
 (written for Factorio's Lua 5.2, tested with newer Lua too):
 
 ```sh
-cd factorio-planner && lua tests/run.lua
+cd stoich && lua tests/run.lua
 ```
 
 GUI tests drive `control.lua` through `tests/mock_runtime.lua`, a strict stand-in for the
@@ -90,7 +90,7 @@ install by `tests/tools/gen_api.py`.
 
 ## Design
 
-See [`Factory Block Balancer — mod spec.md`](Factory%20Block%20Balancer%20—%20mod%20spec.md)
+See [`Stoich — mod spec.md`](Stoich%20—%20mod%20spec.md)
 for the original spec. Changes made while building it: the old Kotlin JSON importer was
 dropped, plan splits have their own tab, and shortage is shown as copies still to build
 (never below 0).
