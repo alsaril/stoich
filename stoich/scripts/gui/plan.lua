@@ -168,14 +168,14 @@ function plan_tab.fill_rows(player, holder, r, ctx)
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
   -- fixed column widths (only the name stretches), so the table also fits the compact window
-  local t = pane.add({ type = "table", column_count = 10, draw_horizontal_lines = true })
+  local t = pane.add({ type = "table", column_count = 9, draw_horizontal_lines = true })
   t.style.horizontally_stretchable = true
   t.style.horizontal_spacing = 14
   t.style.column_alignments[4] = "right"
   t.style.column_alignments[5] = "right"
   local heads = {
     { "", 24 }, { "col-name", nil }, { "col-copies", 80 }, { "col-needed", 64 }, { "col-shortage", 70 },
-    { "col-progress", 96 }, { "", 24 }, { "col-pin", 40 }, { "", 28 }, { "", 28 },
+    { "col-progress", 96 }, { "", 24 }, { "", 28 }, { "", 28 },
   }
   for _, h in ipairs(heads) do
     local head
@@ -235,7 +235,6 @@ function plan_tab.fill_rows(player, holder, r, ctx)
       else
         t.add({ type = "empty-widget" })
       end
-      t.add({ type = "checkbox", state = f.pinned or false, enabled = ctx.can_edit, tooltip = L("pinned-tooltip"), tags = { fp = "plan_pin", id = id } })
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"), tags = { fp = "fac_edit", id = id } })
       -- delete lives in the Factories tab
       t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"), enabled = f.source ~= nil,
@@ -365,11 +364,6 @@ handlers.plan_copies = function(player, element)
   local f = model.get(element.tags.id)
   if not f then return end
   if model.set_copies(f.id, (f.copies or 0) + element.tags.delta, player.index) then plan.changed() end
-end
-
-handlers.plan_pin = function(player, element)
-  if not model.can_edit(player) then return end
-  if model.set_pinned(element.tags.id, element.state, player.index) then plan.changed() end
 end
 
 handlers.plan_filter = function(player, element, event)

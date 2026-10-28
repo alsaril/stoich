@@ -150,6 +150,16 @@ local function saved_oil(p)
   for id in pairs(storage.plans.main.factories) do return id end
 end
 
+-- Fixed copies is set in the editor.
+local function pin(p, id)
+  tab(p, 2)
+  click(p, "fac_edit", { id = id })
+  click(p, "editor_pinned")
+  mock.click(p, mock.named(win(p), "stoich_save"))
+  t.eq(storage.plans.main.factories[id].pinned, true)
+  tab(p, 1)
+end
+
 local function add_sink(p, item, per_min)
   tab(p, 2)
   click(p, "fac_new_sink")
@@ -183,9 +193,7 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   click(p, "plan_copies", { id = id, delta = 1 })
   t.eq(storage.plans.main.factories[id].copies, 2)
   t.near(storage.plans.main.result.shortage[id], before - 1)
-  local pin = mock.find(win(p), "plan_pin", { id = id })
-  mock.click(p, pin)
-  t.eq(storage.plans.main.factories[id].pinned, true)
+  pin(p, id)
   -- filter hides rows
   mock.type_text(p, mock.find(win(p), "plan_filter"), "zzz")
   t.truthy(mock.text(win(p)):find("<stoich.plan-filtered>", 1, true))
@@ -555,8 +563,7 @@ t.test("gui: idle machines get a recipe; add sink fixes surpluses", function()
   -- plan mode: a pinned factory's surplus offers a sink for it
   local id
   for fid in pairs(storage.plans.main.factories) do id = fid end
-  tab(p, 1)
-  click(p, "plan_pin", { id = id })
+  pin(p, id)
   for _ = 1, 10 do
     local b = mock.find(win(p), "problem_external", { mode = "plan" })
     if not b or b.tags.item == "item/plastic-bar" then break end
@@ -588,6 +595,7 @@ t.test("gui: discard question for unsaved captures and edits", function()
   t.truthy(draft_of(p) ~= captured, "new capture opened after discarding")
   t.eq(#p.translations, 3, "default-name translation requested for each capture")
   click(p, "editor_cancel")
+  pin(p, id) -- pinned: its plastic is a surplus the plan offers a sink for
   -- editing a saved factory: unchanged opens other things freely, changed asks
   tab(p, 2)
   click(p, "fac_edit", { id = id })
@@ -595,8 +603,6 @@ t.test("gui: discard question for unsaved captures and edits", function()
   click(p, "fac_edit", { id = id }) -- same factory: just shows it
   t.eq(dialog(p), nil)
   mock.type_text(p, mock.find(win(p), "editor_name"), "changed")
-  tab(p, 1)
-  click(p, "plan_pin", { id = id }) -- pinned: its plastic is a surplus the plan offers a sink for
   tab(p, 3)
   click(p, "items_toggle", { item = "item/plastic-bar" })
   click(p, "items_open")
@@ -744,7 +750,7 @@ t.test("gui: only the shown tab has content; window size toggle; splits tab", fu
   -- window fits the screen, compact toggle
   local big = win(p).style.width
   click(p, "window_size")
-  t.eq(win(p).style.width, 1000)
+  t.eq(win(p).style.width, 860)
   t.eq(storage.players[1].compact, true)
   click(p, "window_size")
   t.eq(win(p).style.width, big)
@@ -820,7 +826,7 @@ t.test("gui: a new sink is named after its first item; the list marks sinks with
     if e.type == "label" and e.caption == "Boilers" then name_label = e end
   end
   t.truthy(name_label, "name shown as is, no suffix")
-  t.truthy(mock.text(win(p)):find("<stoich.sink-mark>", 1, true), "marked in its own column")
+  t.truthy(mock.text(win(p)):find("<stoich.sink-mark>", 1, true), "marked next to the name")
 end)
 
 local function gear_build(x0)

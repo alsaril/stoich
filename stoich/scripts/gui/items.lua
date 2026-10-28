@@ -1,5 +1,5 @@
 -- Items tab: the plan's flow view. Every item with its total flow; expand one
--- to see producers and consumers (per copy and in total) and the virtual
+-- to see its producers and consumers in total and the virtual
 -- input / output line, as the old flow table did.
 
 local common = require("scripts.gui.common")
@@ -23,7 +23,6 @@ local function plan_fluid_keys()
 end
 
 -- Column widths of the items table.
--- Belts go on the per-copy flow: that is what one copy puts on a belt.
 local W = { toggle = 28, name = 190, share = 160, info = 150 }
 
 local function cell_label(t, caption, width, opts)
@@ -66,16 +65,14 @@ function items.build(player, parent, ctx)
   local pane = parent.add({ type = "scroll-pane", name = "stoich_items_pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  local t = pane.add({ type = "table", name = "stoich_items_table", column_count = 8 })
+  local t = pane.add({ type = "table", name = "stoich_items_table", column_count = 7 })
   t.style.horizontal_spacing = 12
   t.style.vertical_spacing = 2
   t.add({ type = "empty-widget" }).style.width = W.toggle
   cell_label(t, L("col-item"), W.name, { style = "bold_label" })
-  local unit = common.unit_suffix(ctx)
-  cell_label(t, { "", L("col-total"), " (", unit, ")" }, common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-total-tooltip") })
+  cell_label(t, { "", L("col-total"), " (", common.unit_suffix(ctx), ")" }, common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-total-tooltip") })
   cell_label(t, L("col-belt"), common.BELT_WIDTH, { style = "bold_label", tooltip = L("col-belt-total-tooltip") })
   cell_label(t, L("col-fill"), common.FILL_WIDTH, { style = "bold_label", right = true, tooltip = L("col-fill-total-tooltip") })
-  cell_label(t, { "", L("col-per-copy"), " (", unit, ")" }, common.RATE_WIDTH, { style = "bold_label", right = true, tooltip = L("col-per-copy-tooltip") })
   cell_label(t, L("col-share"), W.share, { style = "bold_label" })
   cell_label(t, "", W.info)
 
@@ -94,7 +91,6 @@ function items.build(player, parent, ctx)
     local label = name.add({ type = "label", caption = fp_util.localised(key), style = "bold_label" })
     label.style.single_line = true
     total_cells(t, ctx, entry.total, key, fluid_keys)
-    cell_label(t, "", common.RATE_WIDTH)
     local producers, consumers = 0, 0
     for _, c in ipairs(entry.components) do
       if not c.virtual then
@@ -119,15 +115,12 @@ function items.build(player, parent, ctx)
           local v = src.add({ type = "label", caption = L("virtual-" .. c.source), style = "info_label" })
           v.style.single_line = true
           total_cells(t, ctx, c.count, key, fluid_keys)
-          cell_label(t, "", common.RATE_WIDTH)
         else
           local f = model.get(c.source)
           src.add({ type = "sprite", sprite = f and common.factory_sprite(f) or "utility/missing_icon" })
           src.add({ type = "button", caption = names[c.source] or "?", style = "list_box_item", tooltip = L("open-in-editor"),
             tags = { fp = "items_open", id = c.source } })
           total_cells(t, ctx, c.count, key, fluid_keys)
-          local per_copy = f and (f.kind == "sink" and plan.sink_flow(f)[key] or f.result.net[key]) or 0
-          cell_label(t, fp_util.format_rate(per_copy, ctx.unit), common.RATE_WIDTH, { right = true })
         end
         local share = t.add({ type = "flow", direction = "horizontal" })
         share.style.vertical_align = "center"
@@ -135,7 +128,7 @@ function items.build(player, parent, ctx)
         local pct = share.add({ type = "progressbar", value = math.min(1, math.abs(c.percent)) })
         pct.style.width = 100
         pct.style.color = c.count >= 0 and common.GREEN or common.RED
-        share.add({ type = "label", caption = fp_util.format_count(100 * c.percent) .. "%" })
+        share.add({ type = "label", caption = fp_util.format_count(100 * math.abs(c.percent)) .. "%" })
         cell_label(t, "", W.info)
       end
     end

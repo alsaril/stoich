@@ -102,7 +102,7 @@ end
 --- (Factorio mod windows can't be resized by dragging.)
 function window.size(player)
   local state = model.player(player.index)
-  if state.compact then return { width = 1000, height = 640 } end
+  if state.compact then return { width = 860, height = 560 } end
   local res = player.display_resolution or { width = 1920, height = 1080 }
   local scale = player.display_scale or 1
   local width = math.floor(res.width / scale * 0.8)

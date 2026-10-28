@@ -85,7 +85,7 @@ function factories.build(player, parent, ctx)
   pane.style.horizontally_stretchable = true
   -- Saved factories are always EXACT (Save requires it), so there is no status column;
   -- an invalid one (a mod it uses was removed) gets a red name and a warning icon.
-  local heads = { "", "col-name", "col-lines", "col-net-flow" }
+  local heads = { "", "col-name", "col-net-flow" }
   if details then heads[#heads + 1] = "col-modified" end
   heads[#heads + 1] = ""
   heads[#heads + 1] = ""
@@ -124,12 +124,9 @@ function factories.build(player, parent, ctx)
       warn.style.stretch_image_to_widget_size = true
     end
     if f.kind == "sink" then
-      -- sinks have no lines; mark them here instead of in the name
-      local mark = t.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+      local mark = name_cell.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
       mark.style.single_line = true
       mark.style.minimal_width = 36
-    else
-      t.add({ type = "label", caption = tostring(#f.lines) })
     end
     outputs_flow(t, f, ctx)
     if details then
