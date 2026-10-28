@@ -19,7 +19,8 @@ echo "release: $NAME $VERSION"
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
 grep -qx "Version: $VERSION" "$MOD/changelog.txt" 2>/dev/null || die "$MOD/changelog.txt has no entry for $VERSION"
 
-(cd "$MOD" && lua tests/run.lua) || die "tests failed"
+OUT="$(cd "$MOD" && lua tests/run.lua 2>&1)" || { echo "$OUT"; die "tests failed"; }
+echo "release: tests: $(echo "$OUT" | tail -1)"
 
 mkdir -p dist
 rm -f "$ZIP"
