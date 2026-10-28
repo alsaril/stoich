@@ -281,7 +281,8 @@ if debug_setting and debug_setting.value then
       local element = find_action(player.gui.screen, action, match)
       if not element then return false end
       local t = element.type
-      if t == "checkbox" then element.state = (value == nil) and not element.state or value
+      if t == "checkbox" then
+        if value == nil then element.state = not element.state else element.state = value end
       elseif t == "textfield" or t == "text-box" then element.text = tostring(value)
       elseif t == "slider" then element.slider_value = value
       elseif t == "drop-down" then element.selected_index = value

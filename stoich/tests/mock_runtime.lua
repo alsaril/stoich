@@ -292,6 +292,9 @@ Element.__index = function(e, k)
   return nil
 end
 
+-- The game rejects anything but true/false here (nil included).
+local BOOLEAN_ATTRIBUTES = { state = true, enabled = true, visible = true, ignored_by_interaction = true }
+
 Element.__newindex = function(e, k, v)
   local d = data_of[e]
   if not d.valid then error("LuaGuiElement API call when LuaGuiElement was invalid (writing " .. tostring(k) .. ")", 2) end
@@ -312,6 +315,7 @@ Element.__newindex = function(e, k, v)
   if k == "selected_tab_index" then
     if v ~= nil and (v < 1 or v > #d.tabs) then error("selected_tab_index out of range", 2) end
   end
+  if BOOLEAN_ATTRIBUTES[k] and type(v) ~= "boolean" then error("bool expected, got " .. type(v), 2) end
   d[k] = v
 end
 

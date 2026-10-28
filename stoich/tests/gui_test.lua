@@ -908,8 +908,17 @@ t.test("gui: the debug interface only exists when its hidden setting is on", fun
   boot()
   t.truthy(mock.interfaces["stoich"])
   t.eq(mock.interfaces["stoich-debug"], nil)
-  boot({ debug_interface = true })
-  t.truthy(mock.interfaces["stoich-debug"])
+  local p = boot({ debug_interface = true })
+  local debug = mock.interfaces["stoich-debug"]
+  t.truthy(debug)
+  -- act toggles a checkbox both ways when no value is given
+  debug.open(p.index, "factories")
+  local details = function() return mock.find(win(p), "fac_details").state end
+  local before = details()
+  t.eq(debug.act(p.index, "fac_details", {}), true)
+  t.eq(details(), not before)
+  t.eq(debug.act(p.index, "fac_details", {}), true)
+  t.eq(details(), before)
 end)
 
 t.test("gui: every handler is reached by some scenario", function()
