@@ -1,5 +1,7 @@
--- Factory and sink editor. Works on the player's private draft
--- (storage.players[i].draft); others see changes only after Save.
+-- Factory and sink editor, in its own window over the plan. Works on the player's
+-- private draft (storage.players[i].draft); others see changes only after Save.
+-- The draft and the window live together: closing the window drops the draft
+-- (after asking when it has unsaved changes).
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
@@ -37,15 +39,25 @@ local function rebalance(player)
 end
 
 local function container(player)
-  local w = window.get(player)
-  return w and w.stoich_inner.stoich_tabs.stoich_content_factories
+  return window.child_content(player, "stoich_editor")
 end
 
 -- Opening ------------------------------------------------------------------------------------
 
+--- Open the editor window on the player's draft (over the main window), built afresh.
 local function show_editor(player)
-  window.open(player, "factories")
-  window.select_tab(player, "factories")
+  local d = get_draft(player)
+  if not d then return end
+  window.open(player)
+  local caption = L(d.factory.kind == "sink" and "editor-title-sink" or "editor-title")
+  -- always the one-column layout, just wide enough for the recipe lines table;
+  -- a sink is only a short list of items and rates
+  local sink = d.factory.kind == "sink"
+  local frame, content = window.open_child(player, "stoich_editor", caption, { height = window.large_size(player).height })
+  -- set on every open: the same window can switch between a factory and a sink
+  frame.style.width = sink and window.SINK_WIDTH or window.EDITOR_WIDTH
+  content.clear()
+  editor.build(player, content, common.ctx(player))
 end
 
 local function really_open(player, factory, opts)
@@ -81,7 +93,10 @@ function editor.open_factory(player, factory, opts)
   return true
 end
 
-function editor.discard_dialog(player)
+--- Ask before dropping unsaved changes. What happens on "discard" is in
+--- state.pending_open (open another factory) or state.pending_close ("editor" or "all").
+--- @param confirm string? locale key of the discard button (default "discard-open")
+function editor.discard_dialog(player, confirm)
   local d = draft.get(player.index)
   local frame = common.open_dialog(player, "discard", L("discard-title"))
   local body = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
@@ -89,21 +104,68 @@ function editor.discard_dialog(player)
   local buttons = common.dialog_buttons(frame)
   buttons.add({ type = "button", caption = L("keep-editing"), style = "back_button", tags = { fp = "discard_keep" } })
   common.spacer(buttons)
-  buttons.add({ type = "button", caption = L("discard-open"), style = "red_confirm_button", tags = { fp = "discard_ok" } })
+  buttons.add({ type = "button", caption = L(confirm or "discard-open"), style = "red_confirm_button", tags = { fp = "discard_ok" } })
+end
+
+--- Drop the draft and close the editor window.
+local function close_editor(player)
+  local state = model.player(player.index)
+  state.recapture = nil
+  state.pending_open = nil
+  state.pending_close = nil
+  draft.close(player.index)
+  common.close_dialog(player)
+  window.destroy_child(player, "stoich_editor")
+end
+
+local function ask_before_closing(player, what)
+  model.player(player.index).pending_close = what
+  editor.discard_dialog(player, "discard-close")
+  window.refocus(player) -- the window stays open: Esc / E goes back to it
+end
+
+window.child_close.stoich_editor = function(player)
+  if draft.is_dirty(get_draft(player)) then return ask_before_closing(player, "editor") end
+  close_editor(player)
+end
+
+-- The main window takes the editor with it: ask first, then drop the draft.
+window.can_close_all = function(player)
+  if draft.is_dirty(get_draft(player)) then
+    ask_before_closing(player, "all")
+    return false
+  end
+  close_editor(player)
+  return true
+end
+
+window.keep_open = function(player)
+  local state = model.player(player.index)
+  return (state.recapture and get_draft(player) ~= nil) or state.map_tick == game.tick
 end
 
 handlers.discard_keep = function(player)
-  model.player(player.index).pending_open = nil
+  local state = model.player(player.index)
+  state.pending_open = nil
+  state.pending_close = nil
   common.close_dialog(player)
-  show_editor(player)
+  window.refocus(player)
 end
 
 handlers.discard_ok = function(player)
   local state = model.player(player.index)
-  local pending = state.pending_open
+  local pending, closing = state.pending_open, state.pending_close
   state.pending_open = nil
+  state.pending_close = nil
   common.close_dialog(player)
-  if pending then really_open(player, pending.factory, pending.opts) end
+  if pending then
+    really_open(player, pending.factory, pending.opts)
+  elseif closing == "editor" then
+    close_editor(player)
+  elseif closing == "all" then
+    close_editor(player)
+    window.close_all(player)
+  end
 end
 
 function editor.open_saved(player, id)
@@ -113,8 +175,15 @@ function editor.open_saved(player, id)
 end
 
 function editor.rebuild(player)
-  local state = model.player(player.index)
-  if state.tab == "factories" then window.refresh(player) end
+  local content = container(player)
+  if not content then return end
+  content.clear()
+  editor.build(player, content, common.ctx(player))
+end
+
+--- Reopen the editor window if the player has a draft (after a mod update or a rejoin).
+function editor.restore(player)
+  if get_draft(player) then show_editor(player) end
 end
 
 -- Line helpers -----------------------------------------------------------------------------
@@ -172,11 +241,9 @@ local function render_items(box, player, d, ctx)
     end
     table.insert(groups[g], entry.item)
   end
-  -- large window: groups stacked in the right column; compact: side by side
-  local wide = box.tags.wide
-  local row = box.add({ type = "flow", name = "stoich_items_groups", direction = wide and "vertical" or "horizontal" })
-  -- a flow only has the spacing of its own direction
-  if wide then row.style.vertical_spacing = 10 else row.style.horizontal_spacing = 24 end
+  -- the groups stacked: side by side they don't fit the editor window next to each other
+  local row = box.add({ type = "flow", name = "stoich_items_groups", direction = "vertical" })
+  row.style.vertical_spacing = 10
   for _, group in ipairs(ITEM_GROUPS) do
     if not (group.optional and #groups[group.key] == 0) then
       local col = row.add({ type = "flow", direction = "vertical" })
@@ -305,12 +372,6 @@ local function build_header(parent, player, d, ctx)
   name.style.width = 180
   bar.add({ type = "choose-elem-button", elem_type = "signal", signal = f.icon and { type = f.icon.type, name = f.icon.name } or nil,
     enabled = ctx.can_edit, tooltip = L("icon"), tags = { fp = "editor_icon" } })
-  if f.kind ~= "sink" then
-    bar.add({ type = "label", caption = L("copies") })
-    common.number_field(bar, f.copies, { fp = "editor_copies" }, { enabled = ctx.can_edit, width = 50 })
-    bar.add({ type = "checkbox", caption = L("pinned"), tooltip = L("pinned-tooltip"), state = f.pinned or false,
-      enabled = ctx.can_edit, tags = { fp = "editor_pinned" } })
-  end
   common.spacer(bar)
   -- a sink is always balanced: no status there
   if f.kind ~= "sink" then
@@ -464,24 +525,19 @@ function editor.build(player, parent, ctx)
   if f.kind == "sink" then
     local pane = scroll.add({ type = "flow", direction = "vertical" })
     pane.style.vertical_spacing = 6
+    pane.style.horizontally_stretchable = true
     local explain = pane.add({ type = "label", caption = L("sink-explain"), style = "info_label" })
     explain.style.single_line = false
-    explain.style.maximal_width = 700
-    rows.build(pane, player, "sink", ctx, ctx.can_edit)
+    explain.style.maximal_width = window.SINK_WIDTH - 40
+    rows.build(pane, player, "sink", ctx, ctx.can_edit, { stretch = true })
   else
-    -- large window: recipe lines and splits on the left, the items on the right;
-    -- compact window: one column
-    local wide = not model.player(player.index).compact
-    local body = scroll.add({ type = "flow", direction = wide and "horizontal" or "vertical" })
-    if wide then body.style.horizontal_spacing = 24 else body.style.vertical_spacing = 6 end
-    local left = body.add({ type = "flow", direction = "vertical" })
-    left.style.vertical_spacing = 6
-    build_lines(left, player, d, ctx)
-    build_splits(left, player, d)
-    local right = body.add({ type = "flow", direction = "vertical" })
-    right.style.vertical_spacing = 6
-    right.add({ type = "label", caption = L("section-items", common.unit_suffix(ctx)), style = "caption_label" })
-    right.add({ type = "flow", name = "stoich_items_box", direction = "vertical", tags = { wide = wide } })
+    -- one column: recipe lines, splits, then the items
+    local body = scroll.add({ type = "flow", direction = "vertical" })
+    body.style.vertical_spacing = 6
+    build_lines(body, player, d, ctx)
+    build_splits(body, player, d)
+    body.add({ type = "label", caption = L("section-items", common.unit_suffix(ctx)), style = "caption_label" })
+    body.add({ type = "flow", name = "stoich_items_box", direction = "vertical" })
   end
   build_actions(parent, player, d, ctx)
   editor.update_results(player)
@@ -590,16 +646,6 @@ handlers.editor_icon = function(player, element, event)
   local d = get_draft(player)
   local v = element.elem_value
   d.factory.icon = v and { type = v.type or "item", name = v.name } or nil
-end
-
-handlers.editor_copies = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
-  local v = fp_util.parse_number(element.text)
-  if v then get_draft(player).factory.copies = math.max(0, v) end
-end
-
-handlers.editor_pinned = function(player, element)
-  get_draft(player).factory.pinned = element.state
 end
 
 -- Line handlers ---------------------------------------------------------------------------------------
@@ -719,6 +765,8 @@ end
 
 handlers.editor_show_map = function(player)
   local d = get_draft(player)
+  -- switching to the map closes the window; the draft stays for when the player comes back
+  model.player(player.index).map_tick = game.tick
   editor.show_on_map(player, d and d.factory.source)
 end
 
@@ -749,18 +797,25 @@ handlers.editor_recapture = function(player)
     player.cursor_stack.set_stack({ name = "stoich-selection-tool", count = 1 })
     d.notice = L("recapture-notice")
     editor.rebuild(player)
+    -- out of the way while the player drags the new area; back when it is done or cancelled
+    window.set_hidden(player, true)
   end
 end
 
---- Put a fresh capture into the open draft (called by the capture handler).
+--- Put a fresh capture into the open draft (called by the capture handler);
+--- captured nil: the area had no machines, the draft stays as it was.
 function editor.recapture(player, captured)
+  window.set_hidden(player, false)
   local d = get_draft(player)
   if not d then return false end
-  draft.recapture(d.factory, captured)
-  d.notice = L("recaptured", #d.factory.lines)
-  rebalance(player)
+  if captured then
+    draft.recapture(d.factory, captured)
+    d.notice = L("recaptured", #d.factory.lines)
+    rebalance(player)
+  else
+    d.notice = nil
+  end
   show_editor(player)
-  editor.rebuild(player)
   return true
 end
 
@@ -769,6 +824,7 @@ function editor.cancel_recapture(player)
   local state = model.player(player.index)
   if not state.recapture then return end
   state.recapture = nil
+  window.set_hidden(player, false)
   local d = get_draft(player)
   if d then
     d.notice = nil
@@ -777,10 +833,7 @@ function editor.cancel_recapture(player)
 end
 
 handlers.editor_cancel = function(player)
-  model.player(player.index).recapture = nil
-  draft.close(player.index)
-  common.close_dialog(player)
-  window.refresh(player)
+  close_editor(player)
 end
 
 local function do_save(player, force)
@@ -798,10 +851,8 @@ local function do_save(player, force)
     editor.conflict_dialog(player, result)
     return
   end
-  draft.close(player.index)
-  common.close_dialog(player)
+  close_editor(player)
   plan.changed()
-  window.refresh(player)
 end
 
 handlers.editor_save = function(player)
@@ -836,7 +887,7 @@ handlers.conflict_reload = function(player)
   local f = d and model.get(d.factory.id)
   if f then
     draft.open(player.index, f)
-    window.refresh(player)
+    editor.rebuild(player)
   end
 end
 

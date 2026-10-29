@@ -1,8 +1,7 @@
--- Factories tab: the list of factories and sinks, or the editor when a draft is open.
--- Also the export / import dialogs and delete confirmation.
+-- Factory list helpers for the Plan tab: the toolbar buttons and the per-copy flow chips.
+-- Also the factory actions: new, capture, edit, delete, export / import.
 
 local common = require("scripts.gui.common")
-local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
@@ -15,10 +14,9 @@ local handlers = common.handlers
 
 local factories = {}
 
--- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
-local MAX_CHIPS = 8
-
-local function outputs_flow(parent, f, ctx)
+--- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
+--- The arrow is always there, so a sink reads "inputs →" and a mine "→ outputs".
+function factories.flow_chips(parent, f, ctx, max_chips)
   local flow = parent.add({ type = "flow", direction = "horizontal" })
   flow.style.horizontal_spacing = 2
   flow.style.vertical_align = "center"
@@ -45,119 +43,33 @@ local function outputs_flow(parent, f, ctx)
     shown = shown + 1
   end
   -- keep room for the outputs: inputs get what's left of the slots
-  local out_slots = math.min(#outputs, MAX_CHIPS)
-  local in_slots = math.min(#inputs, MAX_CHIPS - out_slots)
+  local out_slots = math.min(#outputs, max_chips)
+  local in_slots = math.min(#inputs, max_chips - out_slots)
   for i = 1, in_slots do chip(inputs[i]) end
-  if #inputs > 0 and #outputs > 0 then
+  if #inputs + #outputs > 0 then
     flow.add({ type = "label", caption = "→", style = "bold_label" }).style.horizontal_align = "center"
   end
   for i = 1, out_slots do chip(outputs[i]) end
   local hidden = #inputs + #outputs - shown
-  if hidden > 0 then flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = L("more-flows-tooltip", hidden) }) end
+  if hidden > 0 then
+    -- single line with room for the text, or a squeezed flow wraps "+5" onto two lines
+    local more = flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = L("more-flows-tooltip", hidden) })
+    more.style.single_line = true
+    more.style.minimal_width = 24
+  end
 end
 
-function factories.build(player, parent, ctx)
-  local d = draft.get(player.index)
-  if d then
-    editor.build(player, parent, ctx)
-    return
-  end
-  local bar = parent.add({ type = "flow", direction = "horizontal" })
-  bar.style.horizontal_spacing = 8
+--- Toolbar buttons, added to the given (horizontal) bar.
+function factories.add_buttons(bar, ctx)
   bar.add({ type = "button", caption = L("new-factory"), enabled = ctx.can_edit, tags = { fp = "fac_new" } })
   bar.add({ type = "button", caption = L("new-sink"), enabled = ctx.can_edit, tags = { fp = "fac_new_sink" } })
   bar.add({ type = "button", caption = L("capture"), tooltip = L("capture-tooltip"), enabled = ctx.can_edit, tags = { fp = "fac_capture" } })
-  common.spacer(bar)
+  bar.add({ type = "empty-widget" }).style.width = 8
+  bar.add({ type = "button", caption = L("statistics"), tooltip = L("statistics-tooltip"), tags = { fp = "open_stats" } })
+  bar.add({ type = "empty-widget" }).style.width = 8
   bar.add({ type = "button", caption = L("export-all"), tags = { fp = "fac_export_all" } })
   bar.add({ type = "button", caption = L("import"), enabled = ctx.can_edit, tags = { fp = "fac_import" } })
-
-  local state = model.player(player.index)
-  local details = state.factories_details or false
-  bar.add({ type = "checkbox", caption = L("details"), tooltip = L("details-tooltip"), state = details, tags = { fp = "fac_details" } })
-
-  local ids = model.factory_ids()
-  if #ids == 0 then
-    parent.add({ type = "label", caption = L("no-factories") })
-    return
-  end
-  local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
-  pane.style.vertically_stretchable = true
-  pane.style.horizontally_stretchable = true
-  -- Saved factories are always EXACT (Save requires it), so there is no status column;
-  -- an invalid one (a mod it uses was removed) gets a red name and a warning icon.
-  local heads = { "", "col-name", "col-net-flow" }
-  if details then heads[#heads + 1] = "col-modified" end
-  heads[#heads + 1] = ""
-  heads[#heads + 1] = ""
-  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true })
-  t.style.horizontally_stretchable = true
-  t.style.horizontal_spacing = 10
-  t.style.vertical_spacing = 4
-  for _, h in ipairs(heads) do
-    if h == "" then t.add({ type = "empty-widget" }) else
-      local caption = L(h)
-      if h == "col-net-flow" then caption = { "", L(h), " (", common.unit_suffix(ctx), ")" } end
-      -- stretchable headers: the data columns share the spare width (invisible spacing)
-      t.add({ type = "label", caption = caption, style = "bold_label" }).style.horizontally_stretchable = true
-    end
-  end
-  -- sinks first, then factories, each by name
-  table.sort(ids, function(a, b)
-    local fa, fb = model.get(a), model.get(b)
-    if (fa.kind == "sink") ~= (fb.kind == "sink") then return fa.kind == "sink" end
-    if fa.name ~= fb.name then return fa.name < fb.name end
-    return a < b
-  end)
-  local names = common.factory_names(ctx)
-  for _, id in ipairs(ids) do
-    local f = model.get(id)
-    t.add({ type = "sprite", sprite = common.factory_sprite(f) })
-    local name_cell = t.add({ type = "flow", direction = "horizontal" })
-    name_cell.style.vertical_align = "center"
-    local name = name_cell.add({ type = "label", caption = names[id] })
-    name.style.maximal_width = 220
-    if f.invalid then
-      name.style.font_color = common.RED
-      local warn = name_cell.add({ type = "sprite", sprite = "utility/warning_icon",
-        tooltip = L("invalid-missing", table.concat(f.invalid, ", ")) })
-      warn.style.size = 16
-      warn.style.stretch_image_to_widget_size = true
-    end
-    if f.kind == "sink" then
-      local mark = name_cell.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
-      mark.style.single_line = true
-      mark.style.minimal_width = 36
-    end
-    outputs_flow(t, f, ctx)
-    if details then
-      t.add({ type = "label", caption = { "", common.player_name(f.modified_by), " ", common.time_ago(f.modified_tick) } })
-    end
-    local buttons = t.add({ type = "flow", direction = "horizontal" })
-    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
-      tags = { fp = "fac_edit", id = id } })
-    if f.source then
-      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"),
-        tags = { fp = "show_map", id = id } })
-    else
-      buttons.add({ type = "empty-widget" }).style.width = 28 -- keep the columns aligned
-    end
-    if details then
-      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/copy", tooltip = L("duplicate"), enabled = ctx.can_edit,
-        tags = { fp = "fac_duplicate", id = id } })
-      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/export", tooltip = L("export"),
-        tags = { fp = "fac_export", id = id } })
-    end
-    t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
-      tags = { fp = "fac_delete", id = id } })
-  end
 end
-
-handlers.fac_details = function(player, element)
-  model.player(player.index).factories_details = element.state
-  window.refresh(player)
-end
-
-window.builders.factories = factories.build
 
 -- Toolbar -------------------------------------------------------------------------------------
 
@@ -194,23 +106,6 @@ end
 
 handlers.fac_edit = function(player, element)
   editor.open_saved(player, element.tags.id)
-end
-
-handlers.fac_duplicate = function(player, element)
-  if not check_edit(player) then return end
-  local f = model.get(element.tags.id)
-  if not f then return end
-  local copy = fp_util.deep_copy(f)
-  copy.id = nil
-  copy.revision = 0
-  copy.name = f.name .. " (copy)"
-  -- a new design: nothing of it is built yet, and not at the original's area
-  if copy.kind ~= "sink" then copy.copies = 1 end
-  copy.pinned = false
-  copy.source = nil
-  plan.balance_factory(copy)
-  model.save_factory(copy, {}, player.index)
-  plan.changed()
 end
 
 handlers.show_map = function(player, element)
@@ -257,11 +152,6 @@ local function export_dialog(player, list, with_plan)
   box.select_all()
   box.focus()
   frame.add({ type = "label", caption = L("export-hint"), style = "info_label" })
-end
-
-handlers.fac_export = function(player, element)
-  local f = model.get(element.tags.id)
-  if f then export_dialog(player, { f }, false) end
 end
 
 handlers.fac_export_all = function(player)

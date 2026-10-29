@@ -349,7 +349,6 @@ function mock.new_player(index, opts)
     gui = { screen = new_root(index) },
     mod_settings = mod_settings,
     force = mock.force,
-    opened = nil,
     printed = {},
     cursor_stack = setmetatable({}, { __index = function(_, k)
       if k == "valid_for_read" then return p.cursor ~= nil end
@@ -386,7 +385,26 @@ function mock.new_player(index, opts)
       if not API.set_controller[k] then error("set_controller: unknown parameter " .. k, 2) end
     end
     p.controller = params
+    p.opened = nil -- the game closes the open GUI on a controller change
   end
+  -- player.opened as in the game: writing nil or a new GUI asks the current one to
+  -- close (on_gui_closed, raised instantly); a destroyed element reads as nil.
+  local opened
+  setmetatable(p, {
+    __index = function(_, k)
+      if k ~= "opened" then return nil end
+      if opened and not opened.valid then opened = nil end
+      return opened
+    end,
+    __newindex = function(t, k, v)
+      if k ~= "opened" then return rawset(t, k, v) end
+      local old = opened
+      if old and not old.valid then old = nil end
+      opened = nil
+      if old and old ~= v then mock.fire("on_gui_closed", { player_index = index, element = old }) end
+      opened = v
+    end,
+  })
   game.players[index] = p
   game.connected_players[#game.connected_players + 1] = p
   return p

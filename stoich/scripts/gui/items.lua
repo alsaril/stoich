@@ -1,6 +1,6 @@
--- Items tab: the plan's flow view. Every item with its total flow; expand one
--- to see its producers and consumers in total and the virtual
--- input / output line, as the old flow table did.
+-- Statistics window: the plan's flow view. Every item with its total flow; expand
+-- one to see its producers and consumers in total and the virtual input / output
+-- line, as the old flow table did.
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
@@ -139,7 +139,33 @@ function items.build(player, parent, ctx)
   end
 end
 
-window.builders.items = items.build
+--- Rebuild the open statistics window.
+function items.refresh(player)
+  local content = window.child_content(player, "stoich_stats")
+  if not content then return end
+  content.clear()
+  items.build(player, content, common.ctx(player))
+end
+
+window.child_refresh.stoich_stats = items.refresh
+
+--- Open the statistics window (or bring it forward), optionally expanded and scrolled to an item.
+function items.open(player, focus_item)
+  local state = model.player(player.index)
+  if focus_item then
+    state.expanded = state.expanded or {}
+    state.expanded[focus_item] = true
+    state.focus_item = focus_item
+  end
+  window.open(player)
+  window.open_child(player, "stoich_stats", L("statistics"),
+    { width = window.COMPACT.width, height = window.size(player).height })
+  items.refresh(player)
+end
+
+handlers.open_stats = function(player)
+  items.open(player)
+end
 
 handlers.items_toggle = function(player, element)
   local state = model.player(player.index)
@@ -147,12 +173,12 @@ handlers.items_toggle = function(player, element)
   local key = element.tags.item
   state.expanded[key] = not state.expanded[key] or nil
   state.focus_item = key
-  window.refresh(player)
+  items.refresh(player)
 end
 
 handlers.items_collapse = function(player)
   model.player(player.index).expanded = {}
-  window.refresh(player)
+  items.refresh(player)
 end
 
 handlers.items_open = function(player, element)

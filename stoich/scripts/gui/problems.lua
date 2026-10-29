@@ -11,7 +11,7 @@ local handlers = common.handlers
 local problems = {}
 
 --- Extra per-mode actions, set by the editor and plan tab:
---- actions[mode] = { mark_external(player, item), add_sink(player, item),
+--- actions[mode] = { mark_external(player, item) (factory only), add_sink(player, item),
 ---   add_split(player, item) (over every line making the item), anchor(player, line_id), show_item(player, item)? }
 problems.actions = {}
 
@@ -111,12 +111,9 @@ local function conflict_row(list, player, mode, ctx, entry)
       tags = { fp = action, mode = mode, item = key } })
   end
   if mode == "plan" then
-    if reason == "no_consumer" then
-      button("plan-to-outside", "plan-outside-tooltip", "problem_external")
-      button("add-sink", "add-sink-tooltip-plan", "problem_sink")
-    else
-      button("plan-from-outside", "plan-outside-tooltip", "problem_external")
-    end
+    -- the plan is closed: no "comes from / leaves the plan" here (plan.external stays in
+    -- the model and still applies); a surplus can go to a sink
+    if reason == "no_consumer" then button("add-sink", "add-sink-tooltip-plan", "problem_sink") end
   else
     if reason == "no_producer" then
       button("mark-input", "mark-input-tooltip", "problem_external")
@@ -182,7 +179,7 @@ end
 
 handlers.problem_external = function(player, element)
   local a = problems.actions[element.tags.mode]
-  if a and common.ctx(player).can_edit then a.mark_external(player, element.tags.item) end
+  if a and a.mark_external and common.ctx(player).can_edit then a.mark_external(player, element.tags.item) end
 end
 
 handlers.problem_sink = function(player, element)

@@ -140,7 +140,8 @@ plan.refresh_hook = nil
 
 --- After any change to factories, sinks, copies, pins, splits or externals:
 --- balance the plan once and refresh every player's open window.
---- @param opts table? { except = player_index } to skip one player's refresh
+--- @param opts table? { keep_split = player_index }: that player's split window is
+---   updated in place instead of rebuilt (they are dragging its slider)
 function plan.changed(opts)
   plan.rebalance()
   if plan.refresh_hook then plan.refresh_hook(opts or {}) end

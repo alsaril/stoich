@@ -1,11 +1,14 @@
--- Plan tab: what to build next. Status, sinks, plan splits, the shortage table
--- and the problems list.
+-- The main window: every sink, plan split and factory, and what to build next.
+-- Toolbar and status, problems, and one table with their flow, copies and
+-- shortage. Also the split window, where one plan split is edited.
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local splits = require("scripts.gui.splits")
 local problems = require("scripts.gui.problems")
 local editor = require("scripts.gui.editor")
+local factories = require("scripts.gui.factories")
+local items = require("scripts.gui.items")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
 local draft = require("scripts.draft")
@@ -35,115 +38,53 @@ local function units()
   return out
 end
 
+local function key_matches(key, q)
+  local _, n = fp_util.parse_key(key)
+  return n:lower():find(q, 1, true) ~= nil
+end
+
 local function matches(f, filter)
   if filter == "" then return true end
   local q = filter:lower()
   if (f.name or ""):lower():find(q, 1, true) then return true end
   for key in pairs(f.result and f.result.net or {}) do
-    local _, n = fp_util.parse_key(key)
-    if n:lower():find(q, 1, true) then return true end
+    if key_matches(key, q) then return true end
   end
   return false
 end
 
+local function split_index(item)
+  for i, split in ipairs(model.plan().splits) do
+    if split.item == item then return i end
+  end
+  return nil
+end
+
 -- Sections ------------------------------------------------------------------------------------
 
+-- Toolbar on the left, the plan status on the right (as in the editor header).
 local function build_header(parent, player, r, ctx)
   local bar = parent.add({ type = "frame", style = "subheader_frame", direction = "horizontal" })
   bar.style.horizontally_stretchable = true
   bar.style.height = 40
   bar.style.vertical_align = "center"
+  factories.add_buttons(bar, ctx)
+  common.spacer(bar)
   -- an empty plan has no status worth showing
-  if #(r.order or {}) > 0 or next(model.plan().factories) then
+  if next(model.plan().factories) then
     common.status_label(bar, r.status)
     local n = problems.count(r)
     if n > 0 then bar.add({ type = "label", caption = L("status-problems", n) }) end
   end
-  common.spacer(bar)
   bar.add({ type = "sprite-button", style = "tool_button", sprite = "utility/refresh", tooltip = L("recalculate"), tags = { fp = "plan_recalculate" } })
 end
 
-local function build_sinks(parent, player, ctx)
-  local ids = {}
-  for _, id in ipairs(model.factory_ids()) do
-    if model.get(id).kind == "sink" then ids[#ids + 1] = id end
-  end
-  if #ids == 0 then return end
-  parent.add({ type = "label", caption = { "", L("section-sinks"), " (", common.unit_suffix(ctx), ")" }, style = "caption_label" })
-  -- top-aligned rows: a sink whose rates wrap keeps its name next to the first row
-  local t = parent.add({ type = "table", column_count = 4, vertical_centering = false })
-  t.style.horizontal_spacing = 10
-  t.style.vertical_spacing = 6
-  for _, id in ipairs(ids) do
-    local f = model.get(id)
-    -- nudged down to the centre line of the first row of rate fields
-    local icon = t.add({ type = "sprite", sprite = common.factory_sprite(f) })
-    icon.style.top_margin = 2
-    local name = t.add({ type = "label", caption = f.name, style = "bold_label" })
-    name.style.minimal_width = 120
-    name.style.top_margin = 4
-    -- each item is one unit (icon + rate), with a clear gap between units; they wrap
-    -- onto more rows so a long sink doesn't widen the window
-    local per_row = model.player(player.index).compact and 4 or 8
-    local grid = t.add({ type = "table", column_count = per_row })
-    grid.style.horizontal_spacing = 16
-    grid.style.vertical_spacing = 4
-    for i, row in ipairs(f.sink_items or {}) do
-      if row.key then
-        local unit = grid.add({ type = "flow", direction = "horizontal" })
-        unit.style.vertical_align = "center"
-        unit.style.horizontal_spacing = 4
-        unit.add({ type = "sprite", sprite = common.key_sprite(row.key), tooltip = fp_util.localised(row.key) })
-        common.number_field(unit, common.from_per_second(ctx, row.rate or 0), { fp = "plan_sink_rate", id = id, i = i },
-          { width = 64, enabled = ctx.can_edit, tooltip = { "", fp_util.localised(row.key), "\n", L("sink-rate-tooltip", common.unit_suffix(ctx)) } })
-      end
-    end
-    local buttons = t.add({ type = "flow", direction = "horizontal" })
-    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
-      tags = { fp = "fac_edit", id = id } })
-    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("delete"),
-      enabled = ctx.can_edit, tags = { fp = "fac_delete", id = id } })
-  end
-end
-
--- In the Plan tab only a summary; the cards live in the Splits tab.
-local function build_splits(parent, player)
-  local p = model.plan()
-  if #p.splits == 0 then return end
-  local row = parent.add({ type = "flow", direction = "horizontal" })
-  row.style.vertical_align = "center"
-  row.style.horizontal_spacing = 8
-  row.add({ type = "label", caption = L("section-plan-splits"), style = "caption_label" })
-  for _, split in ipairs(p.splits) do
-    local n = 0
-    for _ in pairs(split.shares) do n = n + 1 end
-    row.add({ type = "sprite", sprite = common.key_sprite(split.item), tooltip = fp_util.localised(split.item) })
-    row.add({ type = "label", caption = L("split-summary", fp_util.localised(split.item), n) })
-  end
-  row.add({ type = "button", caption = L("open-splits"), tags = { fp = "open_splits_tab" } })
-end
-
---- Splits tab: one card per plan split, with the needed count of each factory.
-function plan_tab.build_splits_tab(player, parent, ctx)
-  parent.add({ type = "label", caption = L("splits-explain"), style = "info_label" }).style.single_line = false
-  local p = model.plan()
-  if #p.splits == 0 then
-    parent.add({ type = "label", caption = L("no-plan-splits") })
-    return
-  end
-  local pane = parent.add({ type = "scroll-pane", style = "scroll_pane" })
-  pane.style.vertically_stretchable = true
-  pane.style.horizontally_stretchable = true
-  local box = pane.add({ type = "table", name = "stoich_plan_splits", column_count = 2 })
-  box.style.horizontal_spacing = 12
-  box.style.vertical_spacing = 12
-  for i, split in ipairs(p.splits) do splits.build_card(box, player, "plan", i, split) end
-end
-
-window.builders.splits = plan_tab.build_splits_tab
-
 local function build_table(parent, player, r, ctx)
   local state = model.player(player.index)
+  if #model.factory_ids() == 0 then
+    parent.add({ type = "label", caption = L("no-factories") })
+    return
+  end
   local box = parent.add({ type = "flow", name = "stoich_plan_table_box", direction = "vertical" })
   local filters = box.add({ type = "flow", direction = "horizontal" })
   filters.style.vertical_align = "center"
@@ -155,97 +96,203 @@ local function build_table(parent, player, r, ctx)
   plan_tab.fill_rows(player, box.stoich_plan_rows, r, ctx)
 end
 
+--- Row order: sinks by name (then the plan splits), factories by shortage, then the
+--- ones the plan can't use.
+--- @return number[] sinks, number[] factories
+local function row_order(r)
+  local p = model.plan()
+  local sinks, rest, seen = {}, {}, {}
+  for _, id in ipairs(r.order or {}) do seen[id] = true end
+  for _, id in ipairs(model.factory_ids()) do
+    local f = p.factories[id]
+    if f.kind == "sink" then sinks[#sinks + 1] = id elseif not seen[id] then rest[#rest + 1] = id end
+  end
+  local function by_name(a, b)
+    local na, nb = p.factories[a].name, p.factories[b].name
+    if na ~= nb then return na < nb end
+    return a < b
+  end
+  table.sort(sinks, by_name)
+  table.sort(rest, by_name)
+  local out = {}
+  for _, id in ipairs(r.order or {}) do out[#out + 1] = id end
+  for _, id in ipairs(rest) do out[#out + 1] = id end
+  return sinks, out
+end
+
+local function name_cell(t, f, name, ctx, max_width)
+  local cell = t.add({ type = "flow", direction = "horizontal" })
+  cell.style.vertical_align = "center"
+  local label = cell.add({ type = "label", caption = name, tooltip = common.flow_tooltip(ctx, f.result and f.result.net or {}, L("per-copy")) })
+  label.style.maximal_width = max_width
+  if f.invalid then
+    label.style.font_color = common.RED
+    local warn = cell.add({ type = "sprite", sprite = "utility/warning_icon",
+      tooltip = L("invalid-missing", table.concat(f.invalid, ", ")) })
+    warn.style.size = 16
+    warn.style.stretch_image_to_widget_size = true
+  end
+  if f.kind == "sink" then
+    local mark = cell.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+    mark.style.single_line = true
+    mark.style.minimal_width = 36
+  end
+end
+
+-- copies, needed, shortage, coverage (large window only) and chokes of a factory;
+-- sinks leave them empty
+local function plan_cells(t, f, r, ctx, coverage)
+  local id = f.id
+  if f.kind == "sink" then
+    for _ = 1, coverage and 5 or 4 do t.add({ type = "empty-widget" }) end
+    return
+  end
+  local shortage = r.shortage[id]
+  local class = plan.shortage_class(shortage)
+  local copies = t.add({ type = "flow", direction = "horizontal" })
+  copies.style.vertical_align = "center"
+  copies.add({ type = "button", caption = "−", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = -1 } })
+  local c = copies.add({ type = "label", caption = fp_util.format_count(f.copies) })
+  c.style.minimal_width = 28
+  c.style.horizontal_align = "center"
+  copies.add({ type = "button", caption = "+", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = 1 } })
+  local needed = r.counts[id]
+  local known = needed ~= nil and not r.undetermined[id]
+  t.add({ type = "label", caption = known and fp_util.format_count(needed) or "?" })
+  -- copies still to build, one decimal; never below 0, green when covered; the exact need in the tooltip
+  local caption, tip = "?", nil
+  if shortage and known then
+    caption = class == "short" and ("+" .. fp_util.format_count(shortage, 1)) or "0"
+    local covered = needed > 0 and math.min(100, math.floor(100 * f.copies / needed + 0.5)) or 100
+    tip = L("shortage-tooltip", fp_util.format_count(needed), fp_util.format_count(f.copies),
+      fp_util.format_count(math.max(0, shortage)), covered)
+    if shortage < -0.005 then tip = { "", tip, "\n", L("surplus-tooltip", fp_util.format_count(-shortage)) } end
+  end
+  local sl = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = tip })
+  if known and class == "short" then sl.style.font_color = common.RED
+  elseif known and class == "ok" then sl.style.font_color = common.GREEN end
+  if coverage then
+    if known and shortage then
+      local bar = t.add({ type = "progressbar", value = needed > 0 and math.min(1, f.copies / needed) or 1, tooltip = tip })
+      bar.style.width = 90
+      -- same colours as the shortage: red short, green covered
+      bar.style.color = class == "short" and common.RED or common.GREEN
+    else
+      t.add({ type = "empty-widget" }) -- no coverage to show while the need is unknown
+    end
+  end
+  local chokes = plan.chokes(f, ctx.tiers, ctx.max_index, ctx.one_lane, belts)
+  if #chokes > 0 then
+    local ctip = { "", L("chokes") }
+    for i, ch in ipairs(chokes) do
+      if i <= 6 then ctip[#ctip + 1] = { "", "\n", fp_util.rich(ch.item), " ", fp_util.format_rate(ch.rate, ctx.unit, true), " = ", fp_util.format_count(ch.check.belts), "×[entity=" .. ch.check.tier.name .. "]" } end
+    end
+    t.add({ type = "sprite", sprite = "utility/warning_icon", tooltip = ctip })
+  else
+    t.add({ type = "empty-widget" })
+  end
+end
+
 function plan_tab.fill_rows(player, holder, r, ctx)
   holder.clear()
   local state = model.player(player.index)
   local filter = state.filter or ""
-  local order = r.order or {}
-  if #order == 0 then
-    holder.add({ type = "label", caption = L("plan-empty") })
-    return
-  end
+  -- the compact window has no room for the coverage bars: the shortage says the same
+  local coverage = not state.compact
   local pane = holder.add({ type = "scroll-pane", style = "scroll_pane" })
   pane.style.vertically_stretchable = true
   pane.style.horizontally_stretchable = true
-  -- fixed column widths (only the name stretches), so the table also fits the compact window
-  local t = pane.add({ type = "table", column_count = 9, draw_horizontal_lines = true })
+  -- widths: nil = natural, true = takes the spare width (the flow, so it starts right after the name)
+  local heads = { { "", 24 }, { "col-name" }, { "col-per-copy", true }, { "col-copies", 80 }, { "col-needed", 64 }, { "col-shortage", 70 } }
+  if coverage then heads[#heads + 1] = { "col-progress", 96 } end
+  heads[#heads + 1] = { "", 24 }
+  heads[#heads + 1] = { "" }
+  local t = pane.add({ type = "table", column_count = #heads, draw_horizontal_lines = true })
   t.style.horizontally_stretchable = true
-  t.style.horizontal_spacing = 14
-  t.style.column_alignments[4] = "right"
+  t.style.horizontal_spacing = 12
   t.style.column_alignments[5] = "right"
-  local heads = {
-    { "", 24 }, { "col-name", nil }, { "col-copies", 80 }, { "col-needed", 64 }, { "col-shortage", 70 },
-    { "col-progress", 96 }, { "", 24 }, { "", 28 }, { "", 28 },
-  }
+  t.style.column_alignments[6] = "right"
   for _, h in ipairs(heads) do
     local head
     if h[1] == "" then head = t.add({ type = "empty-widget" }) else
-      head = t.add({ type = "label", caption = L(h[1]), style = "bold_label", tooltip = L(h[1] .. "-tooltip") })
+      local caption = L(h[1])
+      if h[1] == "col-per-copy" then caption = { "", caption, " (", common.unit_suffix(ctx), ")" } end
+      head = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = L(h[1] .. "-tooltip") })
     end
-    if h[2] then head.style.width = h[2] else head.style.horizontally_stretchable = true end
+    if h[2] == true then head.style.horizontally_stretchable = true elseif h[2] then head.style.width = h[2] end
   end
   local shown = 0
   local names = common.factory_names(ctx)
-  for _, id in ipairs(order) do
+  local max_chips = state.compact and 4 or 8
+  local name_width = state.compact and 160 or 260
+  local function factory_row(id)
     local f = model.get(id)
-    local shortage = r.shortage[id]
-    local class = plan.shortage_class(shortage)
-    if f and matches(f, filter) and not (state.hide_ok and class == "ok") then
-      shown = shown + 1
-      t.add({ type = "sprite", sprite = common.factory_sprite(f) })
-      local name = t.add({ type = "label", caption = names[id], tooltip = common.flow_tooltip(ctx, f.result.net, L("per-copy")) })
-      name.style.maximal_width = 360
-      local copies = t.add({ type = "flow", direction = "horizontal" })
-      copies.style.vertical_align = "center"
-      copies.add({ type = "button", caption = "−", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = -1 } })
-      local c = copies.add({ type = "label", caption = fp_util.format_count(f.copies) })
-      c.style.minimal_width = 28
-      c.style.horizontal_align = "center"
-      copies.add({ type = "button", caption = "+", style = "mini_button", enabled = ctx.can_edit, tags = { fp = "plan_copies", id = id, delta = 1 } })
-      local needed = r.counts[id]
-      local known = needed ~= nil and not r.undetermined[id]
-      t.add({ type = "label", caption = known and fp_util.format_count(needed) or "?" })
-      -- whole copies still to build; never below 0, green when covered; the exact need in the tooltip
-      local caption, tip = "?", nil
-      if shortage and known then
-        caption = class == "short" and ("+" .. math.ceil(shortage - 1e-6)) or "0"
-        local covered = needed > 0 and math.min(100, math.floor(100 * f.copies / needed + 0.5)) or 100
-        tip = L("shortage-tooltip", fp_util.format_count(needed), fp_util.format_count(f.copies),
-          fp_util.format_count(math.max(0, shortage)), covered)
-        if shortage < -0.005 then tip = { "", tip, "\n", L("surplus-tooltip", fp_util.format_count(-shortage)) } end
-      end
-      local sl = t.add({ type = "label", caption = caption, style = "bold_label", tooltip = tip })
-      if known and class == "short" then sl.style.font_color = common.RED
-      elseif known and class == "ok" then sl.style.font_color = common.GREEN end
-      if known then
-        local bar = t.add({ type = "progressbar", value = needed > 0 and math.min(1, f.copies / needed) or 1, tooltip = tip })
-        bar.style.width = 90
-        -- same colours as the shortage: red short, green covered
-        bar.style.color = class == "short" and common.RED or common.GREEN
-      else
-        t.add({ type = "empty-widget" }) -- no coverage to show while the need is unknown
-      end
-      local chokes = plan.chokes(f, ctx.tiers, ctx.max_index, ctx.one_lane, belts)
-      if #chokes > 0 then
-        local ctip = { "", L("chokes") }
-        for i, ch in ipairs(chokes) do
-          if i <= 6 then ctip[#ctip + 1] = { "", "\n", fp_util.rich(ch.item), " ", fp_util.format_rate(ch.rate, ctx.unit, true), " = ", fp_util.format_count(ch.check.belts), "×[entity=" .. ch.check.tier.name .. "]" } end
-        end
-        t.add({ type = "sprite", sprite = "utility/warning_icon", tooltip = ctip })
-      else
-        t.add({ type = "empty-widget" })
-      end
-      t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"), tags = { fp = "fac_edit", id = id } })
-      -- delete lives in the Factories tab
-      t.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"), enabled = f.source ~= nil,
+    local class = f and f.kind ~= "sink" and plan.shortage_class(r.shortage[id])
+    if not (f and matches(f, filter) and not (state.hide_ok and class == "ok")) then return end
+    shown = shown + 1
+    t.add({ type = "sprite", sprite = common.factory_sprite(f) })
+    name_cell(t, f, names[id], ctx, name_width)
+    factories.flow_chips(t, f, ctx, max_chips)
+    plan_cells(t, f, r, ctx, coverage)
+    local buttons = t.add({ type = "flow", direction = "horizontal" })
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit"),
+      tags = { fp = "fac_edit", id = id } })
+    if f.source then
+      buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/center", tooltip = L("show-on-map"),
         tags = { fp = "show_map", id = id } })
+    else
+      buttons.add({ type = "empty-widget" }).style.width = 28 -- nothing on the map; keeps the buttons aligned
     end
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("delete"), enabled = ctx.can_edit,
+      tags = { fp = "fac_delete", id = id } })
   end
+  -- a plan split: the item, a "split" mark, and each factory's share as a chip
+  local list = units()
+  local function split_row(index, split)
+    if filter ~= "" and not key_matches(split.item, filter:lower()) then return end
+    shown = shown + 1
+    t.add({ type = "sprite", sprite = common.key_sprite(split.item), tooltip = fp_util.localised(split.item) })
+    local cell = t.add({ type = "flow", direction = "horizontal" })
+    cell.style.vertical_align = "center"
+    local label = cell.add({ type = "label", caption = fp_util.localised(split.item) })
+    label.style.maximal_width = name_width
+    local mark = cell.add({ type = "label", caption = L("split-mark"), style = "info_label", tooltip = L("split-mark-tooltip") })
+    mark.style.single_line = true
+    mark.style.minimal_width = 36
+    local chips = t.add({ type = "flow", direction = "horizontal" })
+    chips.style.horizontal_spacing = 2
+    for _, id in ipairs(draft.split_lines(list, split)) do
+      local f = model.get(id)
+      local share = split.shares[id] or 0
+      local chip = chips.add({
+        type = "sprite-button", style = "slot_button", sprite = f and common.factory_sprite(f) or "utility/missing_icon",
+        number = share, tooltip = { "", names[id] or "?", "\n", L("split-share", fp_util.format_count(share)) },
+      })
+      chip.style.size = 32
+    end
+    for _ = 1, coverage and 5 or 4 do t.add({ type = "empty-widget" }) end -- no copies or shortage
+    local buttons = t.add({ type = "flow", direction = "horizontal" })
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/rename_icon", tooltip = L("edit-split"),
+      tags = { fp = "plan_split_edit", item = split.item } })
+    buttons.add({ type = "empty-widget" }).style.width = 28
+    buttons.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("split-remove"), enabled = ctx.can_edit,
+      tags = { fp = "split_remove", mode = "plan", index = index } })
+  end
+  local sinks, rest = row_order(r)
+  for _, id in ipairs(sinks) do factory_row(id) end
+  for i, split in ipairs(model.plan().splits) do split_row(i, split) end
+  for _, id in ipairs(rest) do factory_row(id) end
   if shown == 0 then holder.add({ type = "label", caption = L("plan-filtered") }) end
 end
 
 local function build_problems(box, player, r, ctx)
-  if #r.problems > 0 then problems.render(box, player, "plan", r, ctx) end
+  if #r.problems > 0 then
+    -- a long list scrolls in its own box, so the factory table keeps its room
+    local pane = box.add({ type = "scroll-pane", style = "naked_scroll_pane", horizontal_scroll_policy = "never" })
+    pane.style.maximal_height = model.player(player.index).compact and 100 or 160
+    pane.style.horizontally_stretchable = true
+    problems.render(pane, player, "plan", r, ctx)
+  end
   if r.excluded and #r.excluded > 0 then
     local names = { "" }
     for i, id in ipairs(r.excluded) do
@@ -271,21 +318,43 @@ function plan_tab.build(player, parent, ctx)
   build_header(section(parent, "stoich_plan_header"), player, r, ctx)
   -- problems first: they are what needs doing
   build_problems(section(parent, "stoich_plan_problems"), player, r, ctx)
-  build_sinks(section(parent, "stoich_plan_sinks"), player, ctx)
-  build_splits(section(parent, "stoich_plan_splits_box"), player)
   build_table(section(parent, "stoich_plan_main"), player, r, ctx)
 end
 
-window.builders.plan = plan_tab.build
+window.builder = plan_tab.build
 
---- Refresh for the player who moved a plan split slider: rebuild everything
---- except the split cards, which are updated in place.
-function plan_tab.refresh_except_splits(player, index, line)
-  -- the cards are in the Splits tab now: update them (and their needed counts) in place
-  local w = window.get(player)
-  local root = w and w.stoich_inner.stoich_tabs.stoich_content_splits
-  if not root then return end
-  for i in ipairs(model.plan().splits) do splits.update_card(root, player, "plan", i, i == index and line or nil) end
+-- Split window ------------------------------------------------------------------------------------
+
+local function fill_split(player, content, index)
+  content.clear()
+  local explain = content.add({ type = "label", caption = L("splits-explain"), style = "info_label" })
+  explain.style.single_line = false
+  explain.style.maximal_width = 440
+  splits.build_card(content, player, "plan", index, model.plan().splits[index])
+end
+
+--- Open the split window on the plan split of an item (with each factory's needed copies).
+function plan_tab.open_split(player, item)
+  local index = split_index(item)
+  if not index then return window.destroy_child(player, "stoich_split") end
+  model.player(player.index).split_item = item
+  window.open(player)
+  local _, content = window.open_child(player, "stoich_split", L("split-title", fp_util.localised(item)))
+  fill_split(player, content, index)
+end
+
+-- After a plan change: rebuilt, or closed when its split is gone. The player dragging
+-- its slider gets the values updated in place, so the slider keeps working.
+window.child_refresh.stoich_split = function(player, opts)
+  local item = model.player(player.index).split_item
+  local index = item and split_index(item)
+  if not index then return window.destroy_child(player, "stoich_split") end
+  local content = window.child_content(player, "stoich_split")
+  if opts.keep_split == player.index then
+    splits.update_card(content, player, "plan", index, opts.line)
+  else
+    fill_split(player, content, index)
+  end
 end
 
 -- Targets for split cards and problems ------------------------------------------------------------
@@ -309,21 +378,18 @@ splits.targets.plan = {
   end,
   changed = function(player, structural, index, line)
     if structural then
+      -- the split window follows its split when the player switched its item
+      local split = index and model.plan().splits[index]
+      if split then model.player(player.index).split_item = split.item end
       plan.changed()
     else
-      plan.changed({ except = player.index })
-      plan_tab.refresh_except_splits(player, index, line)
+      plan.changed({ keep_split = player.index, line = line })
     end
   end,
   can_edit = function(player) return model.can_edit(player) end,
 }
 
 problems.actions.plan = {
-  mark_external = function(player, item)
-    model.plan().external[item] = true
-    model.log(player.index, { "stoich.log-external", fp_util.rich(item) }, nil)
-    plan.changed()
-  end,
   add_sink = function(player, item)
     local f = draft.new_sink()
     f.name = fp_util.pretty_name(select(2, fp_util.parse_key(item)))
@@ -335,24 +401,20 @@ problems.actions.plan = {
   end,
   add_split = function(player, item)
     local list = units()
-    draft.add_split(model.plan(), item, solver.producers_of(list, item), list)
+    local index = draft.add_split(model.plan(), item, solver.producers_of(list, item), list)
     model.log(player.index, { "stoich.log-plan-split", fp_util.rich(item) }, nil)
     plan.changed()
-    window.select_tab(player, "splits")
+    plan_tab.open_split(player, model.plan().splits[index].item)
   end,
   show_item = function(player, item)
-    local state = model.player(player.index)
-    state.expanded = state.expanded or {}
-    state.expanded[item] = true
-    state.focus_item = item
-    window.select_tab(player, "items")
+    items.open(player, item)
   end,
 }
 
 -- Handlers ------------------------------------------------------------------------------------------
 
-handlers.open_splits_tab = function(player)
-  window.select_tab(player, "splits")
+handlers.plan_split_edit = function(player, element)
+  plan_tab.open_split(player, element.tags.item)
 end
 
 handlers.plan_recalculate = function()
@@ -381,22 +443,6 @@ handlers.plan_hide_ok = function(player, element)
   local w = window.get(player)
   local rows = w and common.find(w, "stoich_plan_rows")
   if rows then plan_tab.fill_rows(player, rows, result(), common.ctx(player)) end
-end
-
-handlers.plan_sink_rate = function(player, element, event)
-  if event.name ~= defines.events.on_gui_confirmed then return end
-  if not model.can_edit(player) then return end
-  local f = model.get(element.tags.id)
-  local v = fp_util.parse_number(element.text)
-  if not (f and v and f.sink_items and f.sink_items[element.tags.i]) then return end
-  f.sink_items[element.tags.i].rate = math.abs(common.to_per_second(common.ctx(player), v))
-  draft.sync_sink(f)
-  plan.balance_factory(f)
-  f.revision = f.revision + 1
-  f.modified_by = player.index
-  f.modified_tick = game.tick
-  model.log(player.index, { "stoich.log-rate" }, f.name)
-  plan.changed()
 end
 
 return plan_tab

@@ -1,4 +1,6 @@
--- The main draggable window with the Plan, Factories and Items tabs.
+-- The main draggable window (the plan: factories, sinks and splits) and its child
+-- windows: the factory editor, statistics and a plan split. Esc / E closes the
+-- frontmost one first.
 
 local common = require("scripts.gui.common")
 local model = require("scripts.model")
@@ -9,10 +11,18 @@ local handlers = common.handlers
 
 local window = {}
 
-window.TABS = { "plan", "factories", "items", "splits" }
+-- Builds the main window's content, set by the plan module: builder(player, container, ctx)
+window.builder = nil
 
--- Tab builders, registered by the tab modules: builder(player, container, ctx)
-window.builders = {}
+-- Child windows, frontmost first: the one that takes Esc / E when several are open.
+window.CHILDREN = { "stoich_editor", "stoich_split", "stoich_stats" }
+local IS_CHILD = {}
+for _, name in ipairs(window.CHILDREN) do IS_CHILD[name] = true end
+window.IS_CHILD = IS_CHILD
+
+-- What a child does when the player closes it, by frame name (set by its module):
+-- close(player) -> true when it closed (false: it asked first and stays open)
+window.child_close = {}
 
 local function get(player)
   local w = player.gui.screen.stoich_window
@@ -21,26 +31,43 @@ local function get(player)
 end
 window.get = get
 
+function window.child(player, name)
+  local c = player.gui.screen[name]
+  if c and c.valid then return c end
+  return nil
+end
+
 function window.is_open(player)
   return get(player) ~= nil
 end
 
-local function tab_index(name)
-  for i, n in ipairs(window.TABS) do
-    if n == name then return i end
-  end
-  return 1
+--- Make a frame the one Esc / E closes. Writing player.opened asks the previous
+--- GUI to close (on_gui_closed); that close is ours to ignore.
+function window.focus(player, frame)
+  if not (frame and frame.valid) then return end
+  local state = model.player(player.index)
+  state.focusing = true
+  player.opened = frame
+  state.focusing = nil
 end
 
-function window.open(player, tab)
-  local state = model.player(player.index)
-  if tab then state.tab = tab end
+--- Give Esc / E to the frontmost window still open.
+function window.refocus(player)
+  for _, name in ipairs(window.CHILDREN) do
+    local c = window.child(player, name)
+    if c and c.visible then return window.focus(player, c) end
+  end
+  local w = get(player)
+  if w and w.visible then window.focus(player, w) end
+end
+
+function window.open(player)
   local w = get(player)
   if w then
     w.bring_to_front()
-    window.select_tab(player, state.tab)
     return w
   end
+  local state = model.player(player.index)
   w = player.gui.screen.add({ type = "frame", name = "stoich_window", direction = "vertical" })
   local size = window.size(player)
   w.style.width = size.width
@@ -54,55 +81,127 @@ function window.open(player, tab)
   local inner = w.add({ type = "frame", name = "stoich_inner", style = "inside_deep_frame", direction = "vertical" })
   inner.style.vertically_stretchable = true
   inner.style.horizontally_stretchable = true
-  local tabs = inner.add({ type = "tabbed-pane", name = "stoich_tabs", style = "tabbed_pane_with_no_side_padding", tags = { fp = "tab_changed" } })
-  tabs.style.vertically_stretchable = true
-  tabs.style.horizontally_stretchable = true
-  for _, name in ipairs(window.TABS) do
-    local tab = tabs.add({ type = "tab", name = "stoich_tab_" .. name, caption = L("tab-" .. name) })
-    local content = tabs.add({ type = "flow", name = "stoich_content_" .. name, direction = "vertical" })
-    content.style.padding = 8
-    content.style.vertical_spacing = 6
-    -- the content fills the window; scroll panes inside take the remaining height
-    content.style.horizontally_stretchable = true
-    content.style.vertically_stretchable = true
-    tabs.add_tab(tab, content)
-  end
-  tabs.selected_tab_index = tab_index(state.tab)
+  local content = inner.add({ type = "flow", name = "stoich_content", direction = "vertical" })
+  content.style.padding = 8
+  content.style.vertical_spacing = 6
+  -- the content fills the window; scroll panes inside take the remaining height
+  content.style.horizontally_stretchable = true
+  content.style.vertically_stretchable = true
   if state.location then
     w.location = state.location
   else
     w.auto_center = true
   end
-  player.opened = w
   window.refresh(player)
+  window.refocus(player)
   return w
 end
 
+--- Open (or bring forward) a child window and give it Esc / E.
+--- @param opts table { width?, height? }
+--- @return LuaGuiElement frame, LuaGuiElement content flow, boolean created
+function window.open_child(player, name, caption, opts)
+  opts = opts or {}
+  local frame = window.child(player, name)
+  local created = false
+  if not frame then
+    created = true
+    frame = player.gui.screen.add({ type = "frame", name = name, direction = "vertical" })
+    if opts.width then frame.style.width = opts.width end
+    if opts.height then frame.style.height = opts.height end
+    common.titlebar(frame, caption, "child_close")
+    local inner = frame.add({ type = "frame", name = "stoich_inner", style = "inside_deep_frame", direction = "vertical" })
+    inner.style.vertically_stretchable = true
+    inner.style.horizontally_stretchable = true
+    local content = inner.add({ type = "flow", name = "stoich_content", direction = "vertical" })
+    content.style.padding = 8
+    content.style.vertical_spacing = 6
+    content.style.horizontally_stretchable = true
+    content.style.vertically_stretchable = true
+    local locations = model.player(player.index).locations
+    if locations and locations[name] then frame.location = locations[name] else frame.auto_center = true end
+  else
+    frame.stoich_titlebar.children[1].caption = caption
+  end
+  frame.visible = true
+  frame.bring_to_front()
+  window.focus(player, frame)
+  return frame, frame.stoich_inner.stoich_content, created
+end
+
+--- Content flow of an open child window, or nil.
+function window.child_content(player, name)
+  local c = window.child(player, name)
+  return c and c.stoich_inner.stoich_content or nil
+end
+
+function window.destroy_child(player, name)
+  local c = window.child(player, name)
+  if c then c.destroy() end
+  window.refocus(player)
+end
+
+--- Hide every window (while the player drags a recapture area on the map), or show them again.
+function window.set_hidden(player, hidden)
+  local w = get(player)
+  if w then w.visible = not hidden end
+  for _, name in ipairs(window.CHILDREN) do
+    local c = window.child(player, name)
+    if c then c.visible = not hidden end
+  end
+  if not hidden then window.refocus(player) end
+end
+
+--- Close the main window only (rebuilds keep the child windows and the editor).
 function window.close(player)
   local w = get(player)
   if w then w.destroy() end
   common.close_dialog(player)
 end
 
+--- Close every window this mod has open for the player.
+function window.close_all(player)
+  for _, name in ipairs(window.CHILDREN) do
+    local c = window.child(player, name)
+    if c then c.destroy() end
+  end
+  window.close(player)
+end
+
+-- Set by the editor module: false when an unsaved editor must ask before the main
+-- window (and with it the editor) closes.
+window.can_close_all = function() return true end
+
+--- The player closed the main window (Esc, E, the close button or the hotkey):
+--- every child window goes with it, after asking about unsaved changes.
+function window.close_by_player(player)
+  if not window.can_close_all(player) then return end
+  window.close_all(player)
+end
+
+--- The player closed a child window (Esc, E or its close button).
+function window.close_child_by_player(player, name)
+  local close = window.child_close[name]
+  if close then close(player) else window.destroy_child(player, name) end
+end
+
 function window.toggle(player)
-  if get(player) then window.close(player) else window.open(player) end
+  if get(player) then window.close_by_player(player) else window.open(player) end
 end
 
-function window.select_tab(player, name)
-  local state = model.player(player.index)
-  state.tab = name
-  local w = get(player)
-  if not w then return end
-  local tabs = w.stoich_inner.stoich_tabs
-  tabs.selected_tab_index = tab_index(name)
-  window.refresh(player)
-end
-
---- Window size for a player: most of the screen, or a fixed compact size.
+--- Main window size: most of the screen, or a fixed compact size.
 --- (Factorio mod windows can't be resized by dragging.)
 function window.size(player)
   local state = model.player(player.index)
-  if state.compact then return { width = 860, height = 560 } end
+  if state.compact then return window.COMPACT end
+  return window.large_size(player)
+end
+
+window.COMPACT = { width = 860, height = 560 }
+window.EDITOR_WIDTH = 900
+window.SINK_WIDTH = 460
+
+function window.large_size(player)
   local res = player.display_resolution or { width = 1920, height = 1080 }
   local scale = player.display_scale or 1
   local width = math.floor(res.width / scale * 0.8)
@@ -110,27 +209,13 @@ function window.size(player)
   return { width = math.max(900, math.min(width, 1600)), height = math.max(500, math.min(height, 1200)) }
 end
 
---- Rebuild the selected tab. The other tabs are emptied, so a long list in one
---- tab doesn't keep stretching the window when another is shown.
+--- Rebuild the main window's content.
 function window.refresh(player)
   local w = get(player)
   if not w then return end
-  local state = model.player(player.index)
-  local tabs = w.stoich_inner.stoich_tabs
-  for _, name in ipairs(window.TABS) do
-    local other = tabs["stoich_content_" .. name]
-    if other and name ~= state.tab then other.clear() end
-  end
-  local splits_tab = tabs.stoich_tab_splits
-  if splits_tab then
-    local n = #model.plan().splits
-    splits_tab.badge_text = n > 0 and tostring(n) or "" -- nil would show as "nil"
-  end
-  local container = tabs["stoich_content_" .. state.tab]
-  if not container then return end
-  local builder = window.builders[state.tab]
+  local container = w.stoich_inner.stoich_content
   container.clear()
-  if builder then builder(player, container, common.ctx(player)) end
+  if window.builder then window.builder(player, container, common.ctx(player)) end
 end
 
 --- Show the current rate unit in an open settings dialog (it can also change in the game's mod settings).
@@ -144,7 +229,7 @@ function window.sync_unit(player)
   end
 end
 
---- Rebuild the whole window (e.g. after a size change).
+--- Rebuild the main window (e.g. after a size change).
 function window.reopen(player)
   if not get(player) then return end
   local state = model.player(player.index)
@@ -153,39 +238,57 @@ function window.reopen(player)
   window.open(player)
 end
 
---- Refresh every player who has the window open. A player's open factory
---- editor is left alone (it shows their private draft, possibly mid-typing).
+-- Child windows that show shared plan state, refreshed with the main window
+-- (set by their modules): refresh(player, opts)
+window.child_refresh = {}
+
+--- Refresh every player's windows after a plan change. An open factory editor
+--- only updates its status (it shows the player's private draft, possibly mid-typing).
+--- @param opts table? passed to the child refreshers (see plan.changed)
 function window.refresh_all(opts)
-  local except = opts and opts.except
   for _, player in pairs(game.connected_players) do
-    if get(player) and player.index ~= except then
-      local state = model.player(player.index)
-      if not (state.tab == "factories" and state.draft) then
-        window.refresh(player)
-      else
-        window.refresh_editor_status(player)
-      end
+    if get(player) then window.refresh(player) end
+    for _, name in ipairs(window.CHILDREN) do
+      local refresh = window.child_refresh[name]
+      if refresh and window.child(player, name) then refresh(player, opts or {}) end
     end
+    if window.child(player, "stoich_editor") then window.refresh_editor_status(player) end
   end
 end
 
 -- Set by the editor module: updates parts of the editor that depend on shared state.
 window.refresh_editor_status = function() end
 
+--- on_gui_closed: Esc / E (or another GUI opening) closed one of our windows.
+-- Set by the editor module: true while a close must be ignored (a recapture is under
+-- way, or the editor just switched to the map view, which closes the open GUI).
+window.keep_open = function() return false end
+
+function window.on_closed(player, element)
+  local state = model.player(player.index)
+  if state.focusing then return end -- we moved Esc / E to another window ourselves
+  if window.keep_open(player) then return end
+  if element.name == "stoich_window" then
+    window.close_by_player(player)
+  elseif IS_CHILD[element.name] then
+    window.close_child_by_player(player, element.name)
+  end
+end
+
 handlers.window_close = function(player)
-  window.close(player)
+  window.close_by_player(player)
+end
+
+handlers.child_close = function(player, element)
+  -- the close button sits in the child's title bar, right under its frame
+  local frame = element.parent.parent
+  window.close_child_by_player(player, frame.name)
 end
 
 handlers.window_size = function(player)
   local state = model.player(player.index)
   state.compact = not state.compact or nil
   window.reopen(player)
-end
-
-handlers.tab_changed = function(player, element, event)
-  if event.name ~= defines.events.on_gui_selected_tab_changed then return end
-  local name = window.TABS[element.selected_tab_index] or "plan"
-  window.select_tab(player, name)
 end
 
 -- Settings dialog -------------------------------------------------------------------------

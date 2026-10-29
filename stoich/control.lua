@@ -9,8 +9,8 @@ local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 local factories = require("scripts.gui.factories")
-require("scripts.gui.plan")
-require("scripts.gui.items")
+local plan_gui = require("scripts.gui.plan")
+local items = require("scripts.gui.items")
 
 local L = common.L
 local TOOL = "stoich-selection-tool"
@@ -23,8 +23,11 @@ plan.refresh_hook = function(opts) window.refresh_all(opts) end
 local function rebuild_all_guis()
   for _, player in pairs(game.players) do
     local was_open = window.is_open(player)
-    window.close(player)
-    if was_open and player.connected then window.open(player) end
+    window.close_all(player)
+    if player.connected then
+      if was_open then window.open(player) end
+      editor.restore(player) -- a draft always has its editor window
+    end
   end
 end
 
@@ -57,9 +60,10 @@ script.on_event(defines.events.on_player_joined_game, function(event)
   -- Rebuild the window if it was open when the player left.
   if state.was_open then
     state.was_open = nil
-    window.close(player)
+    window.close_all(player)
     window.open(player)
   end
+  editor.restore(player)
 end)
 
 script.on_event(defines.events.on_player_left_game, function(event)
@@ -92,24 +96,33 @@ end)
 
 script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
-  if element and element.valid and element.name == "stoich_window" then
-    local player = game.get_player(event.player_index)
-    if player then window.close(player) end
-  end
+  if not (element and element.valid and element.get_mod() == script.mod_name) then return end
+  local player = game.get_player(event.player_index)
+  if player then window.on_closed(player, element) end
 end)
 
--- The window is sized to the screen: refit it when the resolution or UI scale changes.
+-- The windows are sized to the screen: refit them when the resolution or UI scale changes.
 local function refit(event)
   local player = game.get_player(event.player_index)
-  if player and window.is_open(player) then window.reopen(player) end
+  if not player then return end
+  if window.is_open(player) then window.reopen(player) end
+  if window.child(player, "stoich_editor") then
+    window.child(player, "stoich_editor").destroy()
+    editor.restore(player)
+  end
 end
 script.on_event(defines.events.on_player_display_resolution_changed, refit)
 script.on_event(defines.events.on_player_display_scale_changed, refit)
 
 script.on_event(defines.events.on_gui_location_changed, function(event)
   local element = event.element
-  if element and element.valid and element.name == "stoich_window" then
-    model.player(event.player_index).location = element.location
+  if not (element and element.valid) then return end
+  local state = model.player(event.player_index)
+  if element.name == "stoich_window" then
+    state.location = element.location
+  elseif window.IS_CHILD[element.name] then
+    state.locations = state.locations or {}
+    state.locations[element.name] = element.location
   end
 end)
 
@@ -155,6 +168,7 @@ local function capture(event)
   if recapture then
     if scan.production == 0 then
       player.print(L("nothing-selected"))
+      editor.recapture(player, nil)
     else
       editor.recapture(player, draft.from_scan(scan, source))
     end
@@ -260,10 +274,16 @@ end
 local debug_setting = settings.startup["stoich-debug-interface"]
 if debug_setting and debug_setting.value then
   remote.add_interface("stoich-debug", {
-    open = function(player_index, tab)
+    --- Open the main window, or one of its child windows: "statistics" (or the old
+    --- tab name "items"), "splits" (the first plan split).
+    open = function(player_index, what)
       local player = game.get_player(player_index)
-      window.open(player, tab)
-      if tab then window.select_tab(player, tab) end
+      window.open(player)
+      if what == "statistics" or what == "items" then
+        items.open(player)
+      elseif what == "splits" and model.plan().splits[1] then
+        plan_gui.open_split(player, model.plan().splits[1].item)
+      end
     end,
     --- Capture an area as if the player dragged the tool over it.
     capture = function(player_index, area)
@@ -296,6 +316,26 @@ if debug_setting and debug_setting.value then
     end,
     draft = function(player_index)
       return draft.get(player_index)
+    end,
+    --- Mark everything the plan can't balance as external (the GUI has no button for plan
+    --- externals; the test world lacks mines for some inputs). Returns how many were marked.
+    plan_external = function()
+      local p, n = model.plan(), 0
+      for _ = 1, 10 do
+        local any = false
+        for _, problem in ipairs(p.result.problems) do
+          if problem.type == "conflict" then
+            any = true
+            for _, key in ipairs(problem.items) do
+              if not p.external[key] then n = n + 1 end
+              p.external[key] = true
+            end
+          end
+        end
+        if not any then break end
+        plan.changed()
+      end
+      return n
     end,
     factories = function()
       return model.plan().factories

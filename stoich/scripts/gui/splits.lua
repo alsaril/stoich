@@ -1,4 +1,4 @@
--- Split cards, shared by the factory editor (mode "factory") and the Plan tab
+-- Split cards, shared by the factory editor (mode "factory") and the split window
 -- (mode "plan"). A card shows the split item with a dropdown of shared items,
 -- then one row per line: icon, name, slider and % field. The last line shows
 -- 100% minus the rest.
@@ -18,7 +18,8 @@ local splits = {}
 ---   units(player) -> lines { id, flow, count },
 ---   counts(player) -> current solved counts by id,
 ---   name_of(player, id) -> LocalisedString, sprite_of(player, id) -> SpritePath,
----   changed(player, structural) -> called after a change,
+---   changed(player, structural, index?, line?) -> called after a change (index: the
+---     split whose item was switched, or whose share moved; line: the share moved),
 ---   extra_of(player, id)? -> caption of an extra column (plan: needed copies),
 ---   can_edit(player) -> bool }
 splits.targets = {}
@@ -143,7 +144,7 @@ handlers.split_item = function(player, element, event)
   local item = tags.cands[element.selected_index]
   if not item then return end
   draft.switch_split_item(target.holder(player), tags.index, item, target.units(player), target.counts(player))
-  target.changed(player, true)
+  target.changed(player, true, tags.index)
 end
 
 handlers.split_remove = function(player, element)

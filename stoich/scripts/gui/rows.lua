@@ -52,7 +52,10 @@ function rows.prepare(list)
   return list
 end
 
-function rows.build(parent, player, mode, ctx, enabled)
+--- @param opts table? { stretch = true }: the rows fill the parent's width (the custom
+---   name field takes the spare room)
+function rows.build(parent, player, mode, ctx, enabled, opts)
+  local stretch = opts and opts.stretch
   local target = rows.targets[mode]
   local list = target.rows(player)
   -- The fluid flag only means something for custom names; real items and fluids know what they are.
@@ -63,6 +66,10 @@ function rows.build(parent, player, mode, ctx, enabled)
   local box = parent.add({ type = "flow", name = "stoich_rows_" .. mode, direction = "vertical" })
   local t = box.add({ type = "table", name = "stoich_rows_table", column_count = any_custom and 5 or 4 })
   t.style.horizontal_spacing = 8
+  if stretch then
+    box.style.horizontally_stretchable = true
+    t.style.horizontally_stretchable = true
+  end
   t.add({ type = "label", caption = L("row-item"), style = "bold_label" })
   t.add({ type = "label", caption = L("row-custom"), style = "bold_label", tooltip = L("row-custom-tooltip") })
   t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" })
@@ -73,7 +80,13 @@ function rows.build(parent, player, mode, ctx, enabled)
     t.add({ type = "choose-elem-button", elem_type = "signal", signal = row.signal, enabled = enabled,
       tooltip = key and fp_util.localised(key) or L("row-item-tooltip"), tags = { fp = "row_signal", mode = mode, i = i } })
     local text = t.add({ type = "textfield", text = row.text or "", enabled = enabled, tags = { fp = "row_text", mode = mode, i = i } })
-    text.style.width = 140
+    if stretch then
+      text.style.minimal_width = 140
+      text.style.maximal_width = 1000 -- the textfield style caps the width otherwise
+      text.style.horizontally_stretchable = true
+    else
+      text.style.width = 140
+    end
     local v = row[target.field]
     common.number_field(t, v and common.from_per_second(ctx, v) or nil, { fp = "row_rate", mode = mode, i = i },
       { width = 80, enabled = enabled, negative = target.allow_negative })

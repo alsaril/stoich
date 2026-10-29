@@ -72,11 +72,11 @@ local function trim(s)
   return s
 end
 
---- Number with 2 decimals, trailing zeros trimmed.
-function fp_util.format_count(v)
+--- Number with 2 decimals (or `decimals`), trailing zeros trimmed.
+function fp_util.format_count(v, decimals)
   if v == nil then return "?" end
   if math.abs(v) < 0.005 then return "0" end
-  return trim(string.format("%.2f", v))
+  return trim(string.format("%." .. (decimals or 2) .. "f", v))
 end
 
 --- Number with k/M suffix.
