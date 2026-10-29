@@ -1,6 +1,5 @@
 -- Statistics window: the plan's flow view. Every item with its total flow; expand
--- one to see its producers and consumers in total and the virtual input / output
--- line, as the old flow table did.
+-- one to see its producers and consumers and what is left over or missing.
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
@@ -127,7 +126,7 @@ function items.build(player, parent, ctx)
         share.style.width = W.share
         local pct = share.add({ type = "progressbar", value = math.min(1, math.abs(c.percent)) })
         pct.style.width = 100
-        pct.style.color = c.count >= 0 and common.GREEN or common.RED
+        pct.style.color = c.count >= 0 and common.GREEN or common.BLUE
         share.add({ type = "label", caption = fp_util.format_count(100 * math.abs(c.percent)) .. "%" })
         cell_label(t, "", W.info)
       end
@@ -140,14 +139,17 @@ function items.build(player, parent, ctx)
 end
 
 --- Rebuild the open statistics window.
-function items.refresh(player)
+function items.refresh(player, ctx)
   local content = window.child_content(player, "stoich_stats")
   if not content then return end
   content.clear()
-  items.build(player, content, common.ctx(player))
+  items.build(player, content, ctx or common.ctx(player))
 end
 
-window.child_refresh.stoich_stats = items.refresh
+window.register_child("stoich_stats", {
+  refresh = function(player, _, ctx) items.refresh(player, ctx) end,
+  rebuild = items.refresh,
+})
 
 --- Open the statistics window (or bring it forward), optionally expanded and scrolled to an item.
 function items.open(player, focus_item)
@@ -157,9 +159,8 @@ function items.open(player, focus_item)
     state.expanded[focus_item] = true
     state.focus_item = focus_item
   end
-  window.open(player)
   window.open_child(player, "stoich_stats", L("statistics"),
-    { width = window.COMPACT.width, height = window.size(player).height })
+    { width = window.SIZE.width, height = window.SIZE.height })
   items.refresh(player)
 end
 

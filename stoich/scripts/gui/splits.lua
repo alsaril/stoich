@@ -4,6 +4,7 @@
 -- 100% minus the rest.
 
 local common = require("scripts.gui.common")
+local scopes = require("scripts.gui.scopes")
 local draft = require("scripts.draft")
 local fp_util = require("scripts.util")
 
@@ -12,22 +13,11 @@ local handlers = common.handlers
 
 local splits = {}
 
---- Per-mode access, set by the editor and plan tab modules:
---- targets[mode] = {
----   holder(player) -> table with .splits,
----   units(player) -> lines { id, flow, count },
----   counts(player) -> current solved counts by id,
----   name_of(player, id) -> LocalisedString, sprite_of(player, id) -> SpritePath,
----   changed(player, structural, index?, line?) -> called after a change (index: the
----     split whose item was switched, or whose share moved; line: the share moved),
----   extra_of(player, id)? -> caption of an extra column (plan: needed copies),
----   can_edit(player) -> bool }
-splits.targets = {}
 
 local function card_name(index) return "stoich_split_" .. index end
 
 function splits.build_card(parent, player, mode, index, split)
-  local target = splits.targets[mode]
+  local target = scopes[mode]
   local units = target.units(player)
   local ids = draft.split_lines(units, split)
   local enabled = target.can_edit(player)
@@ -53,13 +43,14 @@ function splits.build_card(parent, player, mode, index, split)
     enabled = enabled, tags = { fp = "split_remove", mode = mode, index = index } })
 
   local extra = target.extra_of
+  local names = target.names(player)
   -- icon, name, slider, share, "%" (, extra)
   local t = card.add({ type = "table", name = "stoich_split_table", column_count = extra and 6 or 5 })
   t.style.horizontal_spacing = 8
   t.style.column_alignments[4] = "right"
   for i, id in ipairs(ids) do
     t.add({ type = "sprite", sprite = target.sprite_of(player, id) })
-    local name = t.add({ type = "label", caption = target.name_of(player, id) })
+    local name = t.add({ type = "label", caption = names[id] or tostring(id) })
     name.style.maximal_width = 180
     local share = split.shares[id] or 0
     if i < #ids then
@@ -91,7 +82,7 @@ end
 function splits.update_card(container, player, mode, index, except_line)
   local card = container and common.find(container, card_name(index))
   if not card then return end
-  local target = splits.targets[mode]
+  local target = scopes[mode]
   local split = target.holder(player).splits[index]
   if not split then return end
   local t = card.stoich_split_table
@@ -110,46 +101,45 @@ end
 
 local function apply_share(player, element, value)
   local tags = element.tags
-  local target = splits.targets[tags.mode]
+  local target = scopes[tags.mode]
   if not target.can_edit(player) then return end
   local holder = target.holder(player)
   draft.set_share(holder, tags.index, tags.line, value, target.units(player))
   target.changed(player, false, tags.index, tags.line)
 end
 
-handlers.split_slider = function(player, element, event)
-  if event.name ~= defines.events.on_gui_value_changed then return end
+handlers.split_slider = { value = function(player, element, event)
   apply_share(player, element, element.slider_value)
   -- keep this row's field in sync with the slider
   local field = element.parent["f_" .. element.tags.line]
-  local split = splits.targets[element.tags.mode].holder(player).splits[element.tags.index]
+  local split = scopes[element.tags.mode].holder(player).splits[element.tags.index]
   if field and split then field.text = fp_util.format_count(split.shares[element.tags.line] or 0) end
-end
+end }
 
-handlers.split_share = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed and event.name ~= defines.events.on_gui_confirmed then return end
+local function typed_share(player, element)
   local v = fp_util.parse_number(element.text)
   if not v then return end
   apply_share(player, element, v)
   local slider = element.parent["s_" .. element.tags.line]
-  local split = splits.targets[element.tags.mode].holder(player).splits[element.tags.index]
+  local split = scopes[element.tags.mode].holder(player).splits[element.tags.index]
   if slider and split then slider.slider_value = split.shares[element.tags.line] or 0 end
 end
 
-handlers.split_item = function(player, element, event)
-  if event.name ~= defines.events.on_gui_selection_state_changed then return end
+handlers.split_share = { text = typed_share, confirmed = typed_share }
+
+handlers.split_item = { selection = function(player, element, event)
   local tags = element.tags
-  local target = splits.targets[tags.mode]
+  local target = scopes[tags.mode]
   if not target.can_edit(player) then return end
   local item = tags.cands[element.selected_index]
   if not item then return end
   draft.switch_split_item(target.holder(player), tags.index, item, target.units(player), target.counts(player))
   target.changed(player, true, tags.index)
-end
+end }
 
 handlers.split_remove = function(player, element)
   local tags = element.tags
-  local target = splits.targets[tags.mode]
+  local target = scopes[tags.mode]
   if not target.can_edit(player) then return end
   draft.remove_split(target.holder(player), tags.index)
   target.changed(player, true)

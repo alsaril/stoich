@@ -1,6 +1,7 @@
--- Factory balance, plan balance, shortage, and the refresh of all open GUIs.
+-- Factory balance, plan balance, shortage and belt chokes (pure but for prototype reads).
 
 local solver = require("scripts.solver")
+local belts = require("scripts.belts")
 local model = require("scripts.model")
 local fp_util = require("scripts.util")
 
@@ -15,11 +16,14 @@ local function flow_items(flow)
 end
 plan.flow_items = flow_items
 
---- Custom keys marked as fluid on any line of a factory.
+--- Custom keys marked as fluid on any line of a factory (or row of a sink).
 function plan.fluid_keys(factory)
   local set = {}
   for _, line in ipairs(factory.lines) do
     for k in pairs(line.fluid_keys or {}) do set[k] = true end
+  end
+  for _, row in ipairs(factory.kind == "sink" and factory.sink_items or {}) do
+    if row.key and row.fluid then set[row.key] = true end
   end
   return set
 end
@@ -33,11 +37,11 @@ function plan.solvable_lines(factory)
   return out
 end
 
---- Consumption of a sink as a flow map (per second, negative).
+--- Consumption of a sink as a flow map (per second, negative): its items and rates.
 function plan.sink_flow(sink)
   local flow = {}
-  for _, line in ipairs(sink.lines) do
-    for k, v in pairs(line.flow) do flow[k] = (flow[k] or 0) + v * (line.count or 1) end
+  for _, row in ipairs(sink.sink_items or {}) do
+    if row.key and row.rate and row.rate ~= 0 then flow[row.key] = (flow[row.key] or 0) - math.abs(row.rate) end
   end
   return flow
 end
@@ -80,25 +84,33 @@ function plan.usable(f)
   return next(f.result.net) ~= nil
 end
 
---- Re-run the plan balance and cache it in the plan.
-function plan.rebalance()
+--- The plan as the solver sees it: one unit per usable factory or sink (flow per copy),
+--- and the factories it leaves out (invalid, not balanced, nothing in or out).
+--- @return table[] units { id, flow, count }, number[] excluded
+function plan.units()
   local p = model.plan()
-  local lines, anchors, excluded = {}, {}, {}
+  local units, excluded = {}, {}
   for _, id in ipairs(model.factory_ids()) do
     local f = p.factories[id]
     if plan.usable(f) then
-      if f.kind == "sink" then
-        lines[#lines + 1] = { id = id, flow = plan.sink_flow(f) }
-        anchors[id] = 1
-      else
-        lines[#lines + 1] = { id = id, flow = f.result.net }
-        if f.pinned then anchors[id] = f.copies end
-      end
+      units[#units + 1] = { id = id, flow = f.kind == "sink" and plan.sink_flow(f) or f.result.net, count = f.copies or 1 }
     else
       excluded[#excluded + 1] = id
     end
   end
-  local r = solver.balance(lines, anchors, p.splits, p.external, {})
+  return units, excluded
+end
+
+--- Re-run the plan balance and cache it in the plan. Sinks are the anchors; the plan
+--- is closed (nothing comes from or goes outside it).
+function plan.rebalance()
+  local p = model.plan()
+  local lines, excluded = plan.units()
+  local anchors = {}
+  for _, line in ipairs(lines) do
+    if p.factories[line.id].kind == "sink" then anchors[line.id] = 1 end
+  end
+  local r = solver.balance(lines, anchors, p.splits, {}, {})
   r.excluded = excluded
   r.shortage = {}
   local order = {}
@@ -132,24 +144,9 @@ function plan.shortage_class(shortage)
   return "ok"
 end
 
--- Change notification ------------------------------------------------------------
-
--- Set by control.lua to refresh all open windows; kept as a function value only
--- (re-set on every load), never stored.
-plan.refresh_hook = nil
-
---- After any change to factories, sinks, copies, pins, splits or externals:
---- balance the plan once and refresh every player's open window.
---- @param opts table? { keep_split = player_index }: that player's split window is
----   updated in place instead of rebuilt (they are dragging its slider)
-function plan.changed(opts)
-  plan.rebalance()
-  if plan.refresh_hook then plan.refresh_hook(opts or {}) end
-end
-
 --- Belt check of one copy: external item flows above the allowed tier.
 --- @return table[] { item, rate, check } for chokes
-function plan.chokes(factory, tiers, max_index, one_lane, belts)
+function plan.chokes(factory, tiers, max_index, one_lane)
   local out = {}
   local net = factory.result and factory.result.net or {}
   local fluid_keys = plan.fluid_keys(factory)

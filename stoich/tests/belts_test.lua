@@ -17,7 +17,6 @@ t.test("belts: K2 tiers are 15/30/45/60/90 items/s", function()
   for i, cap in ipairs(expected) do t.near(tiers[i].capacity, cap) end
   t.eq(tiers[1].name, "transport-belt")
   t.eq(tiers[5].name, "kr-superior-transport-belt")
-  for _, tier in ipairs(tiers) do t.truthy(tier.color, "colour for " .. tier.name) end
 end)
 
 t.test("belts: input order does not matter and duplicates collapse", function()

@@ -7,6 +7,7 @@ local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local splits = require("scripts.gui.splits")
 local problems = require("scripts.gui.problems")
+local scopes = require("scripts.gui.scopes")
 local rows = require("scripts.gui.rows")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
@@ -22,6 +23,15 @@ local editor = {}
 
 local function get_draft(player)
   return draft.get(player.index)
+end
+
+--- A handler that needs the player's draft: fn(player, element, event, draft);
+--- nothing happens when there is none (an element outliving its draft).
+local function with_draft(fn)
+  return function(player, element, event)
+    local d = get_draft(player)
+    if d then return fn(player, element, event, d) end
+  end
 end
 
 local function find_line(d, id)
@@ -44,18 +54,17 @@ end
 
 -- Opening ------------------------------------------------------------------------------------
 
---- Open the editor window on the player's draft (over the main window), built afresh.
+--- Open the editor window on the player's draft (in place of the main window), built afresh.
 local function show_editor(player)
   local d = get_draft(player)
   if not d then return end
-  window.open(player)
   local caption = L(d.factory.kind == "sink" and "editor-title-sink" or "editor-title")
   -- always the one-column layout, just wide enough for the recipe lines table;
   -- a sink is only a short list of items and rates
   local sink = d.factory.kind == "sink"
-  local frame, content = window.open_child(player, "stoich_editor", caption, { height = window.large_size(player).height })
-  -- set on every open: the same window can switch between a factory and a sink
-  frame.style.width = sink and window.SINK_WIDTH or window.EDITOR_WIDTH
+  -- the width is set on every open: the same window can switch between a factory and a sink
+  local _, content = window.open_child(player, "stoich_editor", caption,
+    { width = sink and window.SINK_WIDTH or window.EDITOR_WIDTH, height = window.SIZE.height })
   content.clear()
   editor.build(player, content, common.ctx(player))
 end
@@ -124,25 +133,30 @@ local function ask_before_closing(player, what)
   window.refocus(player) -- the window stays open: Esc / E goes back to it
 end
 
-window.child_close.stoich_editor = function(player)
-  if draft.is_dirty(get_draft(player)) then return ask_before_closing(player, "editor") end
-  close_editor(player)
-end
-
--- The main window takes the editor with it: ask first, then drop the draft.
-window.can_close_all = function(player)
-  if draft.is_dirty(get_draft(player)) then
-    ask_before_closing(player, "all")
-    return false
-  end
-  close_editor(player)
-  return true
-end
-
-window.keep_open = function(player)
-  local state = model.player(player.index)
-  return (state.recapture and get_draft(player) ~= nil) or state.map_tick == game.tick
-end
+window.register_child("stoich_editor", {
+  -- the player closed it: ask first when there are unsaved changes
+  close = function(player)
+    if draft.is_dirty(get_draft(player)) then return ask_before_closing(player, "editor") end
+    close_editor(player)
+  end,
+  -- the main window takes the editor with it: ask first, then drop the draft
+  before_close_all = function(player)
+    if draft.is_dirty(get_draft(player)) then
+      ask_before_closing(player, "all")
+      return false
+    end
+    close_editor(player)
+    return true
+  end,
+  dismiss = function(player) close_editor(player) end,
+  -- the windows are hidden while the capture tool is out for a recapture
+  keep_open = function(player)
+    return model.player(player.index).recapture and get_draft(player) ~= nil
+  end,
+  -- shared state (permissions, belt settings) may have changed: the draft itself didn't
+  refresh = function(player) editor.update_results(player) end,
+  rebuild = function(player) editor.rebuild(player) end,
+})
 
 handlers.discard_keep = function(player)
   local state = model.player(player.index)
@@ -241,33 +255,42 @@ local function render_items(box, player, d, ctx)
     end
     table.insert(groups[g], entry.item)
   end
-  -- the groups stacked: side by side they don't fit the editor window next to each other
-  local row = box.add({ type = "flow", name = "stoich_items_groups", direction = "vertical" })
-  row.style.vertical_spacing = 10
+  -- one table, so the columns (and the External checkboxes) line up across the groups:
+  -- icon, item, rate, belt, fill, external; a heading row per group
+  local t = box.add({ type = "table", name = "stoich_items_table", column_count = 6 })
+  t.style.horizontal_spacing = 6
+  t.style.vertical_spacing = 2
+  t.add({ type = "empty-widget" })
+  t.add({ type = "label", caption = L("col-item"), style = "bold_label" })
+  local rate_head = t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" })
+  rate_head.style.width = 80
+  rate_head.style.horizontal_align = "right"
+  rate_head.style.single_line = true
+  t.add({ type = "label", caption = L("col-belt"), style = "bold_label", tooltip = L("col-belt-tooltip") }).style.width = common.BELT_WIDTH
+  local fill_head = t.add({ type = "label", caption = L("col-fill"), style = "bold_label", tooltip = L("col-fill-tooltip") })
+  fill_head.style.width = common.FILL_WIDTH
+  fill_head.style.horizontal_align = "right"
+  local ext_head = t.add({ type = "label", caption = L("col-external"), style = "bold_label", tooltip = L("col-external-tooltip") })
+  ext_head.style.single_line = true
+  ext_head.style.minimal_width = 60 -- single-line labels would otherwise shrink to "Exte…"
   for _, group in ipairs(ITEM_GROUPS) do
     if not (group.optional and #groups[group.key] == 0) then
-      local col = row.add({ type = "flow", direction = "vertical" })
-      col.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "bold_label",
+      t.add({ type = "empty-widget" })
+      local head = t.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "caption_label",
         tooltip = L(group.tooltip) })
-      -- icon, name, rate, belt, fill, external ("External" once, as a heading)
-      local t = col.add({ type = "table", column_count = 6 })
-      t.style.horizontal_spacing = 6
-      if #groups[group.key] > 0 then
-        for _ = 1, 5 do t.add({ type = "empty-widget" }) end
-        local head = t.add({ type = "label", caption = L("col-external"), style = "info_label", tooltip = L("col-external-tooltip") })
-        head.style.single_line = true
-        head.style.minimal_width = 60 -- single-line labels would otherwise shrink to "Exte…"
-      end
+      head.style.top_margin = 6
+      for _ = 1, 4 do t.add({ type = "empty-widget" }) end
       for _, key in ipairs(groups[group.key]) do
         t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
         local name = t.add({ type = "label", caption = fp_util.localised(key) })
-        name.style.maximal_width = 130
+        name.style.maximal_width = 200
         local net = r.net[key]
         if net then
-          common.rate_cells(t, ctx, net, key, fluid_keys, nil, 64)
+          -- the group says which way it goes: no minus sign on inputs
+          common.rate_cells(t, ctx, math.abs(net), key, fluid_keys, nil, 80)
         else
           local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
-          dash.style.width = 64
+          dash.style.width = 80
           dash.style.horizontal_align = "right"
           t.add({ type = "empty-widget" })
           t.add({ type = "empty-widget" })
@@ -278,9 +301,8 @@ local function render_items(box, player, d, ctx)
           tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
           tags = { fp = "editor_external", item = key },
         })
-        ext.style.left_margin = 12
+        ext.style.left_margin = 16
       end
-      if #groups[group.key] == 0 then col.add({ type = "label", caption = "—" }) end
     end
   end
 end
@@ -327,8 +349,11 @@ function editor.update_results(player, skip_split, skip_line)
       if lines_table["out_" .. line.id .. "_rate"] then
         local out = main_output(line)
         local rate = (out and c and not unknown) and c * line.flow[out] or nil
-        -- the product's icon in front: recipes often have several products
-        common.set_rate_cells(lines_table, "out_" .. line.id, ctx, rate, out, line.fluid_keys, rate and fp_util.rich(out) or nil)
+        -- the product's icon in front when it isn't the line's own item (a recipe with
+        -- several products, say); the line's icon already shows the rest
+        local _, out_name = fp_util.parse_key(out or "")
+        local own = out_name == line.recipe or out_name == line.resource
+        common.set_rate_cells(lines_table, "out_" .. line.id, ctx, rate, out, line.fluid_keys, rate and not own and fp_util.rich(out) or nil)
       end
     end
   end
@@ -351,12 +376,12 @@ function editor.update_results(player, skip_split, skip_line)
     local ok, why = save_state(player, d, ctx)
     save.enabled = ok
     save.tooltip = why
+    local note = common.find(root, "stoich_save_note")
+    if note then
+      note.visible = why ~= nil
+      note.stoich_save_reason.caption = why or ""
+    end
   end
-end
-
-window.refresh_editor_status = function(player)
-  -- Shared state (e.g. permissions, belt settings) may have changed.
-  editor.update_results(player)
 end
 
 -- Building -----------------------------------------------------------------------------------
@@ -492,6 +517,11 @@ end
 
 local function build_actions(parent, player, d, ctx)
   local f = d.factory
+  -- why Save is disabled, on its own line right above it (set by update_results; hidden
+  -- when there is nothing to say). In the button row it would be squeezed to nothing.
+  local note = parent.add({ type = "flow", name = "stoich_save_note", direction = "horizontal", visible = false })
+  common.spacer(note)
+  note.add({ type = "label", name = "stoich_save_reason", caption = "", style = "info_label" })
   local bar = parent.add({ type = "flow", direction = "horizontal" })
   bar.style.horizontal_spacing = 8
   bar.style.top_margin = 4
@@ -536,21 +566,21 @@ function editor.build(player, parent, ctx)
     body.style.vertical_spacing = 6
     build_lines(body, player, d, ctx)
     build_splits(body, player, d)
-    body.add({ type = "label", caption = L("section-items", common.unit_suffix(ctx)), style = "caption_label" })
+    body.add({ type = "label", caption = L("section-items"), style = "caption_label" })
     body.add({ type = "flow", name = "stoich_items_box", direction = "vertical" })
   end
   build_actions(parent, player, d, ctx)
   editor.update_results(player)
 end
 
--- Splits and problems targets -------------------------------------------------------------------
+-- Scope of the split cards and problems ------------------------------------------------------------
 
-splits.targets.factory = {
+scopes.factory = {
   holder = function(player) return get_draft(player).factory end,
   units = function(player) return plan.solvable_lines(get_draft(player).factory) end,
   counts = function(player) return get_draft(player).factory.result.counts end,
-  name_of = function(player, id)
-    return common.line_names(get_draft(player).factory.lines, line_name)[id] or tostring(id)
+  names = function(player)
+    return common.line_names(get_draft(player).factory.lines, line_name)
   end,
   sprite_of = function(player, id)
     local line = find_line(get_draft(player), id)
@@ -561,9 +591,7 @@ splits.targets.factory = {
     if structural then editor.rebuild(player) else editor.update_results(player, index, line) end
   end,
   can_edit = function(player) return model.can_edit(player) end,
-}
-
-problems.actions.factory = {
+  -- problem actions
   mark_external = function(player, item)
     local d = get_draft(player)
     draft.set_external(d.factory, item, true)
@@ -604,12 +632,12 @@ rows.targets.sink = {
   rows = function(player)
     local f = get_draft(player).factory
     f.sink_items = f.sink_items or {}
-    return rows.prepare(f.sink_items)
+    return f.sink_items
   end,
   field = "rate",
   changed = function(player, structural)
     local d = get_draft(player)
-    draft.sync_sink(d.factory)
+    draft.sink_icon(d.factory)
     -- a new sink is named after its first item until the player types a name
     local first = d.factory.sink_items[1]
     if d.name_auto and first and first.key and first.key ~= d.name_key then
@@ -632,26 +660,20 @@ function editor.set_name_field(player, text)
   if field then field.text = text end
 end
 
-handlers.editor_name = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
-  local d = get_draft(player)
-  if not d then return end
+handlers.editor_name = { text = with_draft(function(player, element, event, d)
   d.name_auto = false
   d.factory.name = element.text
   editor.update_results(player)
-end
+end) }
 
-handlers.editor_icon = function(player, element, event)
-  if event.name ~= defines.events.on_gui_elem_changed then return end
-  local d = get_draft(player)
+handlers.editor_icon = { elem = with_draft(function(player, element, event, d)
   local v = element.elem_value
   d.factory.icon = v and { type = v.type or "item", name = v.name } or nil
-end
+end) }
 
 -- Line handlers ---------------------------------------------------------------------------------------
 
-handlers.editor_anchor = function(player, element)
-  local d = get_draft(player)
+handlers.editor_anchor = with_draft(function(player, element, _, d)
   local line = find_line(d, element.tags.line)
   if not line then return end
   if element.state then
@@ -663,11 +685,9 @@ handlers.editor_anchor = function(player, element)
   end
   rebalance(player)
   editor.rebuild(player) -- the count field appears / disappears
-end
+end)
 
-handlers.editor_anchor_value = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
-  local d = get_draft(player)
+handlers.editor_anchor_value = { text = with_draft(function(player, element, event, d)
   local id = element.tags.line
   if d.factory.anchors[id] == nil then return end
   local v = fp_util.parse_number(element.text)
@@ -675,36 +695,30 @@ handlers.editor_anchor_value = function(player, element, event)
   draft.set_anchor(d.factory, id, v)
   rebalance(player)
   editor.update_results(player)
-end
+end) }
 
-handlers.editor_line_count = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
-  local d = get_draft(player)
+handlers.editor_line_count = { text = with_draft(function(player, element, event, d)
   local line = find_line(d, element.tags.line)
   local v = fp_util.parse_number(element.text)
   if line and v then
     line.count = math.max(0, v)
     editor.update_results(player)
   end
-end
+end) }
 
-handlers.editor_external = function(player, element)
-  local d = get_draft(player)
+handlers.editor_external = with_draft(function(player, element, _, d)
   draft.set_external(d.factory, element.tags.item, element.state)
   rebalance(player)
   editor.update_results(player)
-end
+end)
 
-handlers.editor_delete_line = function(player, element)
-  local d = get_draft(player)
+handlers.editor_delete_line = with_draft(function(player, element, _, d)
   model.remove_line(d.factory, element.tags.line)
   rebalance(player)
   editor.rebuild(player)
-end
+end)
 
-handlers.editor_assign_recipe = function(player, element, event)
-  if event.name ~= defines.events.on_gui_elem_changed then return end
-  local d = get_draft(player)
+handlers.editor_assign_recipe = { elem = with_draft(function(player, element, event, d)
   local line = find_line(d, element.tags.line)
   local name = element.elem_value
   if not (line and name) then return end
@@ -723,51 +737,20 @@ handlers.editor_assign_recipe = function(player, element, event)
   line.recipe = name
   line.idle = nil
   line.manual = true
-  line.prod_pct = editor.research_prod_pct(player, name)
+  line.prod_pct = scanner.research_productivity_pct(player.force, name)
   line.flow = scanner.manual_recipe_flow(recipe, machine, 0, line.prod_pct)
   -- Rescan won't touch this line, nor re-add the idle machines it came from.
   line.assigned_from = line.key
   line.key = nil
   rebalance(player)
   editor.rebuild(player)
-end
-
---- The force's research productivity for a recipe, in %.
-function editor.research_prod_pct(player, recipe_name)
-  local r = player.force.recipes[recipe_name]
-  return r and (r.productivity_bonus or 0) * 100 or 0
-end
+end) }
 
 -- Bottom actions ---------------------------------------------------------------------------------------
 
-function editor.show_on_map(player, source)
-  if not (source and source.areas and #source.areas > 0) then
-    player.print(L("no-area"))
-    return
-  end
-  local surface = game.get_surface(source.surface_index)
-  if not surface then
-    player.print(L("no-surface"))
-    return
-  end
-  local l, t, r, b = math.huge, math.huge, -math.huge, -math.huge
-  for _, area in ipairs(source.areas) do
-    local lt, rb = area.left_top, area.right_bottom
-    l, t = math.min(l, lt.x), math.min(t, lt.y)
-    r, b = math.max(r, rb.x), math.max(b, rb.y)
-    rendering.draw_rectangle({
-      color = { r = 0.3, g = 0.9, b = 0.4, a = 0.8 }, width = 4, filled = false,
-      left_top = lt, right_bottom = rb, surface = surface, players = { player }, time_to_live = 60 * 15,
-    })
-  end
-  player.set_controller({ type = defines.controllers.remote, position = { x = (l + r) / 2, y = (t + b) / 2 }, surface = surface })
-end
-
 handlers.editor_show_map = function(player)
   local d = get_draft(player)
-  -- switching to the map closes the window; the draft stays for when the player comes back
-  model.player(player.index).map_tick = game.tick
-  editor.show_on_map(player, d and d.factory.source)
+  window.show_on_map(player, d and d.factory.source)
 end
 
 handlers.editor_rescan = function(player)
@@ -798,7 +781,7 @@ handlers.editor_recapture = function(player)
     d.notice = L("recapture-notice")
     editor.rebuild(player)
     -- out of the way while the player drags the new area; back when it is done or cancelled
-    window.set_hidden(player, true)
+    window.set_hidden(player, true, L("recapture-hint", d.factory.name or ""))
   end
 end
 
@@ -852,7 +835,7 @@ local function do_save(player, force)
     return
   end
   close_editor(player)
-  plan.changed()
+  window.plan_changed()
 end
 
 handlers.editor_save = function(player)
@@ -906,13 +889,12 @@ rows.targets.dialog = {
 }
 
 --- Dialog for a custom line (new) or a flow override of an existing line.
-function editor.build_line_dialog(player)
-  local state = model.player(player.index)
-  local dlg = state.dialog
+--- @param dlg table? its state; nil rebuilds the open one
+function editor.build_line_dialog(player, dlg)
+  dlg = dlg or model.player(player.index).dialog
   if not dlg then return end
   local ctx = common.ctx(player)
-  local frame = common.open_dialog(player, "line", L(dlg.kind == "override" and "edit-flow" or "add-custom"))
-  state.dialog = dlg -- open_dialog clears it
+  local frame = common.open_dialog(player, "line", L(dlg.kind == "override" and "edit-flow" or "add-custom"), dlg)
   local outer = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
   local body = outer.add({ type = "flow", direction = "vertical" })
   body.style.vertical_spacing = 8
@@ -925,41 +907,33 @@ function editor.build_line_dialog(player)
   local buttons = common.dialog_buttons(frame)
   buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
   common.spacer(buttons)
-  buttons.add({ type = "button", caption = L("ok"), style = "confirm_button", tags = { fp = "dlg_line_ok" } })
+  buttons.add({ type = "button", caption = L(dlg.kind == "override" and "apply" or "add"), style = "confirm_button", tags = { fp = "dlg_line_ok" } })
 end
 
-handlers.dlg_label = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
+handlers.dlg_label = { text = function(player, element, event)
   local state = model.player(player.index)
   if state.dialog then state.dialog.label = element.text end
-end
+end }
 
 handlers.editor_add_custom = function(player)
-  local state = model.player(player.index)
-  state.dialog = { kind = "custom", label = "", rows = { {} } }
-  editor.build_line_dialog(player)
+  editor.build_line_dialog(player, { kind = "custom", label = "", rows = { {} } })
 end
 
-handlers.editor_edit_flow = function(player, element)
-  local d = get_draft(player)
+handlers.editor_edit_flow = with_draft(function(player, element, _, d)
   local line = find_line(d, element.tags.line)
   if not line then return end
-  local state = model.player(player.index)
-  state.dialog = { kind = "override", line = line.id, label = line.label or "", rows = rows.prepare(draft.rows_from_flow(line)) }
-  editor.build_line_dialog(player)
-end
+  editor.build_line_dialog(player, { kind = "override", line = line.id, label = line.label or "", rows = draft.rows_from_flow(line) })
+end)
 
 handlers.dlg_line_ok = function(player)
   local state = model.player(player.index)
   local dlg = state.dialog
   local d = get_draft(player)
   if not (dlg and d) then return end
-  for _, row in ipairs(dlg.rows) do row.key = rows.key_of(row) end
   if dlg.kind == "override" then
     local line = find_line(d, dlg.line)
     if line then
-      line.rows = dlg.rows
-      draft.sync_custom(line)
+      draft.set_flow(line, dlg.rows)
       line.overridden = line.kind ~= "custom"
       if dlg.label ~= "" then line.label = dlg.label end
     end
@@ -973,11 +947,10 @@ end
 
 -- Add recipe dialog
 
-function editor.build_recipe_dialog(player)
-  local state = model.player(player.index)
-  local dlg = state.dialog
-  local frame = common.open_dialog(player, "recipe", L("add-recipe"))
-  state.dialog = dlg
+--- @param dlg table? its state; nil rebuilds the open one
+function editor.build_recipe_dialog(player, dlg)
+  dlg = dlg or model.player(player.index).dialog
+  local frame = common.open_dialog(player, "recipe", L("add-recipe"), dlg)
   local body = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
   local t = body.add({ type = "table", column_count = 2 })
   t.style.vertical_spacing = 8
@@ -1003,33 +976,29 @@ function editor.build_recipe_dialog(player)
 end
 
 handlers.editor_add_recipe = function(player)
-  model.player(player.index).dialog = { kind = "recipe", count = 1, speed = 0, prod = 0, machine_index = 1 }
-  editor.build_recipe_dialog(player)
+  editor.build_recipe_dialog(player, { kind = "recipe", count = 1, speed = 0, prod = 0, machine_index = 1 })
 end
 
-handlers.dlg_recipe = function(player, element, event)
-  if event.name ~= defines.events.on_gui_elem_changed then return end
+handlers.dlg_recipe = { elem = function(player, element, event)
   local dlg = model.player(player.index).dialog
   if not dlg then return end
   dlg.recipe = element.elem_value
   dlg.machine_index = 1
   -- productivity research of this recipe as the default
-  if dlg.recipe then dlg.prod = editor.research_prod_pct(player, dlg.recipe) end
+  if dlg.recipe then dlg.prod = scanner.research_productivity_pct(player.force, dlg.recipe) end
   editor.build_recipe_dialog(player)
-end
+end }
 
-handlers.dlg_machine = function(player, element, event)
-  if event.name ~= defines.events.on_gui_selection_state_changed then return end
+handlers.dlg_machine = { selection = function(player, element, event)
   local dlg = model.player(player.index).dialog
   if dlg then dlg.machine_index = element.selected_index end
-end
+end }
 
-handlers.dlg_num = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed then return end
+handlers.dlg_num = { text = function(player, element, event)
   local dlg = model.player(player.index).dialog
   local v = fp_util.parse_number(element.text)
   if dlg and v then dlg[element.tags.field] = v end
-end
+end }
 
 handlers.dlg_recipe_ok = function(player)
   local dlg = model.player(player.index).dialog

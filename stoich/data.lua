@@ -1,8 +1,8 @@
-local production = { "assembling-machine", "furnace", "rocket-silo", "mining-drill", "offshore-pump" }
-local generators = { "boiler", "generator", "burner-generator", "reactor" }
+-- the machines a capture reads, the same lists the runtime scanner uses
+local scanner = require("scripts.scanner")
 local filter = {}
-for _, t in ipairs(production) do filter[#filter + 1] = t end
-for _, t in ipairs(generators) do filter[#filter + 1] = t end
+for _, t in ipairs(scanner.PRODUCTION_TYPES) do filter[#filter + 1] = t end
+for _, t in ipairs(scanner.GENERATOR_TYPES) do filter[#filter + 1] = t end
 
 -- Both selection modes capture a new factory (Factorio requires an alt_select).
 local function mode(color)

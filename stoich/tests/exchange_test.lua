@@ -60,12 +60,12 @@ t.test("exchange: plan import remaps split factory ids", function()
   local a = custom("a", { ["item/electronic-circuit"] = 1 })
   local b = custom("b", { ["item/electronic-circuit"] = 2 })
   model.plan().splits = { { item = "item/electronic-circuit", shares = { [a.id] = 25, [b.id] = 75 } } }
-  local data = through_json(exchange.pack({ a, b }, true))
+  local data = through_json(exchange.pack({ a, b }))
 
   fake.reset() -- another save
   model.new_id(); model.new_id(); model.new_id() -- ids already taken there
   local unpacked = assert(exchange.unpack(data))
-  local added = exchange.add_to_plan(unpacked, 1, plan.balance_factory)
+  local added = exchange.add_to_plan(unpacked, 1)
   t.eq(#added, 2)
   local split = model.plan().splits[1]
   t.truthy(split)

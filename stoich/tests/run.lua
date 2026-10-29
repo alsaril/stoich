@@ -61,18 +61,16 @@ end
 
 package.loaded["tests.t"] = t
 
-local files = { "linalg_test", "solver_test", "belts_test", "scanner_test", "model_test", "plan_test", "exchange_test", "format_test", "gui_test" }
+local files = { "linalg_test", "solver_test", "belts_test", "scanner_test", "plan_test", "exchange_test", "format_test",
+  "locale_test", "gui_test" }
 local filter = arg and arg[1]
 
 for _, f in ipairs(files) do
+  -- a missing file is an error too: a renamed test must not vanish quietly
   local ok, e = pcall(require, "tests." .. f)
   if not ok then
-    if tostring(e):find("module 'tests." .. f .. "' not found", 1, true) then
-      -- not written yet
-    else
-      print("LOAD ERROR " .. f .. ": " .. tostring(e))
-      t.failures = t.failures + 1
-    end
+    print("LOAD ERROR " .. f .. ": " .. tostring(e))
+    t.failures = t.failures + 1
   end
 end
 

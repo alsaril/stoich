@@ -7,27 +7,6 @@ local belts = {}
 -- speed is tiles per tick, a belt holds 8 items per tile (4 per lane), 60 ticks per second.
 belts.ITEMS_PER_SPEED = 480
 
--- Colours close to the old UI's CSS backgrounds.
-belts.KNOWN_COLORS = {
-  ["transport-belt"] = { r = 0.93, g = 0.78, b = 0.18 },
-  ["fast-transport-belt"] = { r = 0.89, g = 0.25, b = 0.20 },
-  ["express-transport-belt"] = { r = 0.25, g = 0.55, b = 0.95 },
-  ["turbo-transport-belt"] = { r = 0.55, g = 0.80, b = 0.25 },
-  ["kr-advanced-transport-belt"] = { r = 0.30, g = 0.80, b = 0.35 },
-  ["kr-superior-transport-belt"] = { r = 0.65, g = 0.35, b = 0.90 },
-}
-
--- Fallback by speed rank, for belts of other mods.
-belts.FALLBACK_COLORS = {
-  { r = 0.93, g = 0.78, b = 0.18 },
-  { r = 0.89, g = 0.25, b = 0.20 },
-  { r = 0.25, g = 0.55, b = 0.95 },
-  { r = 0.30, g = 0.80, b = 0.35 },
-  { r = 0.65, g = 0.35, b = 0.90 },
-  { r = 0.90, g = 0.55, b = 0.20 },
-  { r = 0.85, g = 0.85, b = 0.85 },
-}
-
 --- Build tiers sorted by capacity.
 --- @param protos table[] { name, speed (tiles/tick), color? }
 --- @param stack_size number? items per belt slot (1 without belt stacking)
@@ -37,7 +16,7 @@ function belts.tiers_from(protos, stack_size)
   local tiers = {}
   for _, p in ipairs(protos) do
     if p.speed and p.speed > 0 then
-      tiers[#tiers + 1] = { name = p.name, speed = p.speed, capacity = p.speed * belts.ITEMS_PER_SPEED * stack_size, color = p.color }
+      tiers[#tiers + 1] = { name = p.name, speed = p.speed, capacity = p.speed * belts.ITEMS_PER_SPEED * stack_size }
     end
   end
   table.sort(tiers, function(a, b)
@@ -49,9 +28,6 @@ function belts.tiers_from(protos, stack_size)
   for _, t in ipairs(tiers) do
     local last = unique[#unique]
     if not last or math.abs(last.capacity - t.capacity) > 1e-9 then unique[#unique + 1] = t end
-  end
-  for i, t in ipairs(unique) do
-    t.color = t.color or belts.KNOWN_COLORS[t.name] or belts.FALLBACK_COLORS[math.min(i, #belts.FALLBACK_COLORS)]
   end
   return unique
 end

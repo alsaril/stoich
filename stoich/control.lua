@@ -8,15 +8,14 @@ local fp_util = require("scripts.util")
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
-local factories = require("scripts.gui.factories")
+require("scripts.gui.actions")
+local dialogs = require("scripts.gui.dialogs")
 local plan_gui = require("scripts.gui.plan")
 local items = require("scripts.gui.items")
 
 local L = common.L
 local TOOL = "stoich-selection-tool"
 
--- Function values are never stored, so this is set again on every load.
-plan.refresh_hook = function(opts) window.refresh_all(opts) end
 
 -- Lifecycle -----------------------------------------------------------------------------------
 
@@ -46,7 +45,7 @@ script.on_configuration_changed(function()
   for _, id in ipairs(model.factory_ids()) do plan.balance_factory(model.get(id)) end
   for _, state in pairs(storage.players) do
     if state.draft then plan.balance_factory(state.draft.factory) end
-    state.dialog = nil
+    model.reset_transient(state)
   end
   plan.rebalance()
   rebuild_all_guis()
@@ -57,6 +56,7 @@ script.on_event(defines.events.on_player_joined_game, function(event)
   local player = game.get_player(event.player_index)
   if not player then return end
   local state = model.player(player.index)
+  model.reset_transient(state)
   -- Rebuild the window if it was open when the player left.
   if state.was_open then
     state.was_open = nil
@@ -101,26 +101,13 @@ script.on_event(defines.events.on_gui_closed, function(event)
   if player then window.on_closed(player, element) end
 end)
 
--- The windows are sized to the screen: refit them when the resolution or UI scale changes.
-local function refit(event)
-  local player = game.get_player(event.player_index)
-  if not player then return end
-  if window.is_open(player) then window.reopen(player) end
-  if window.child(player, "stoich_editor") then
-    window.child(player, "stoich_editor").destroy()
-    editor.restore(player)
-  end
-end
-script.on_event(defines.events.on_player_display_resolution_changed, refit)
-script.on_event(defines.events.on_player_display_scale_changed, refit)
-
 script.on_event(defines.events.on_gui_location_changed, function(event)
   local element = event.element
   if not (element and element.valid) then return end
   local state = model.player(event.player_index)
   if element.name == "stoich_window" then
     state.location = element.location
-  elseif window.IS_CHILD[element.name] then
+  elseif window.children[element.name] then
     state.locations = state.locations or {}
     state.locations[element.name] = element.location
   end
@@ -129,20 +116,23 @@ end)
 -- GUI events all go through the tag dispatcher.
 for _, name in ipairs({
   "on_gui_click", "on_gui_checked_state_changed", "on_gui_value_changed", "on_gui_text_changed",
-  "on_gui_elem_changed", "on_gui_selection_state_changed", "on_gui_confirmed", "on_gui_selected_tab_changed",
-  "on_gui_switch_state_changed",
+  "on_gui_elem_changed", "on_gui_selection_state_changed", "on_gui_confirmed",
 }) do
   script.on_event(defines.events[name], common.dispatch)
 end
 
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   if event.setting == "stoich-rate-unit" then
+    -- every number on screen is in the unit, typed ones too: rebuild all this player's windows
     local player = event.player_index and game.get_player(event.player_index)
-    if player and window.is_open(player) then
-      window.sync_unit(player)
-      window.refresh(player)
+    if player then
+      dialogs.sync_unit(player)
+      window.rebuild_player(player)
     end
-  elseif event.setting == "stoich-edit-permission" or event.setting == "stoich-max-belt" or event.setting == "stoich-one-lane" then
+  elseif event.setting == "stoich-edit-permission" then
+    -- what is enabled changes everywhere, the editor included
+    for _, player in pairs(game.connected_players) do window.rebuild_player(player) end
+  elseif event.setting == "stoich-max-belt" or event.setting == "stoich-one-lane" then
     window.refresh_all()
   end
 end)
@@ -184,9 +174,11 @@ local function capture(event)
     return
   end
   local f = draft.from_scan(scan, source)
-  local notice = nil
-  if scan.idle > 0 then notice = L("idle-notice", scan.idle) end
-  editor.open_factory(player, f, { notice = notice, translate = f.main_product })
+  -- the main product names a new capture (once translated); it isn't kept.
+  -- Idle machines get their own line with a recipe picker, so there is no notice for them.
+  local main = f.main_product
+  f.main_product = nil
+  editor.open_factory(player, f, { translate = main })
 end
 
 script.on_event(defines.events.on_string_translated, function(event)
@@ -253,7 +245,6 @@ local EVENT_FOR = {
   ["button"] = "on_gui_click", ["sprite-button"] = "on_gui_click", ["checkbox"] = "on_gui_checked_state_changed",
   ["textfield"] = "on_gui_text_changed", ["text-box"] = "on_gui_text_changed", ["slider"] = "on_gui_value_changed",
   ["drop-down"] = "on_gui_selection_state_changed", ["choose-elem-button"] = "on_gui_elem_changed",
-  ["tabbed-pane"] = "on_gui_selected_tab_changed",
 }
 
 local function find_action(element, action, match)
@@ -274,12 +265,12 @@ end
 local debug_setting = settings.startup["stoich-debug-interface"]
 if debug_setting and debug_setting.value then
   remote.add_interface("stoich-debug", {
-    --- Open the main window, or one of its child windows: "statistics" (or the old
-    --- tab name "items"), "splits" (the first plan split).
+    --- Open the main window, or one of its child windows: "statistics", "splits"
+    --- (the first plan split).
     open = function(player_index, what)
       local player = game.get_player(player_index)
       window.open(player)
-      if what == "statistics" or what == "items" then
+      if what == "statistics" then
         items.open(player)
       elseif what == "splits" and model.plan().splits[1] then
         plan_gui.open_split(player, model.plan().splits[1].item)
@@ -307,7 +298,7 @@ if debug_setting and debug_setting.value then
       elseif t == "slider" then element.slider_value = value
       elseif t == "drop-down" then element.selected_index = value
       elseif t == "choose-elem-button" then element.elem_value = value
-      elseif t == "tabbed-pane" then element.selected_tab_index = value end
+      end
       common.dispatch({ name = defines.events[EVENT_FOR[t]], element = element, player_index = player_index, tick = game.tick })
       if (t == "textfield") and element.valid then
         common.dispatch({ name = defines.events.on_gui_confirmed, element = element, player_index = player_index, tick = game.tick })
@@ -317,23 +308,39 @@ if debug_setting and debug_setting.value then
     draft = function(player_index)
       return draft.get(player_index)
     end,
-    --- Mark everything the plan can't balance as external (the GUI has no button for plan
-    --- externals; the test world lacks mines for some inputs). Returns how many were marked.
-    plan_external = function()
-      local p, n = model.plan(), 0
+    --- Close the plan of a test world that lacks mines for some inputs: a source factory
+    --- (one custom line) for each item nothing makes, a void for each item nothing uses.
+    --- Returns how many factories it added.
+    plan_sources = function()
+      local n = 0
       for _ = 1, 10 do
-        local any = false
-        for _, problem in ipairs(p.result.problems) do
-          if problem.type == "conflict" then
-            any = true
-            for _, key in ipairs(problem.items) do
-              if not p.external[key] then n = n + 1 end
-              p.external[key] = true
-            end
+        local made, used, missing = {}, {}, {}
+        for _, u in ipairs(plan.units()) do
+          for k, v in pairs(u.flow) do
+            if v > 0 then made[k] = true else used[k] = true end
           end
         end
-        if not any then break end
-        plan.changed()
+        for _, problem in ipairs(model.plan().result.problems) do
+          if problem.type == "conflict" then
+            for _, key in ipairs(problem.items) do missing[#missing + 1] = key end
+          end
+        end
+        if #missing == 0 then break end
+        table.sort(missing)
+        for _, key in ipairs(missing) do
+          local sign = (not made[key] and 1) or (not used[key] and -1) or nil
+          if sign then
+            local f = model.new_factory("factory")
+            local line = model.add_line(f, { kind = "custom", label = key, count = 1, flow = { [key] = sign } })
+            f.name = fp_util.pretty_name(select(2, fp_util.parse_key(key))) .. (sign > 0 and " source" or " void")
+            f.anchors[line.id] = 1
+            f.external = { [key] = true }
+            plan.balance_factory(f)
+            model.save_factory(f, {}, 1)
+            n = n + 1
+          end
+        end
+        window.plan_changed()
       end
       return n
     end,

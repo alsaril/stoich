@@ -4,6 +4,7 @@ local model = require("scripts.model")
 local plan = require("scripts.plan")
 local draft = require("scripts.draft")
 local scanner = require("scripts.scanner")
+local fp_util = require("scripts.util")
 
 local function find_problem(result, kind)
   for _, p in ipairs(result.problems) do
@@ -245,8 +246,10 @@ end
 local function sink(name, rates_per_min)
   local f = draft.new_sink()
   f.name = name
-  for key, per_min in pairs(rates_per_min) do f.sink_items[#f.sink_items + 1] = { key = key, rate = per_min / 60 } end
-  draft.sync_sink(f)
+  for _, key in ipairs(fp_util.sorted_keys(rates_per_min)) do
+    f.sink_items[#f.sink_items + 1] = { key = key, rate = rates_per_min[key] / 60 }
+  end
+  draft.sink_icon(f)
   return save(f)
 end
 
@@ -266,7 +269,7 @@ t.test("plan: science and boiler sinks drive the plan", function()
   t.near(r.counts[coal.id], (4 + 0.5) / 2) -- plates burn 4 coal/s, boilers 0.5
 end)
 
-t.test("plan: surplus is a conflict until marked external", function()
+t.test("plan: the plan is closed: a surplus is a conflict until a sink takes it", function()
   fake.reset()
   local gears = custom_factory("gears", { ["item/iron-plate"] = -2, ["item/iron-gear-wheel"] = 1 }, 1)
   local sci = custom_factory("red science", { ["item/iron-gear-wheel"] = -1, ["item/copper-plate"] = -1, ["item/automation-science-pack"] = 1 }, 1)
@@ -276,17 +279,20 @@ t.test("plan: surplus is a conflict until marked external", function()
   t.eq(r.status, "CONFLICT")
   local p = find_problem(r, "conflict")
   t.truthy(p)
-  model.plan().external["item/copper-plate"] = true
+  -- a void for the surplus: whatever copper the plates make goes into it
+  local void = custom_factory("copper void", { ["item/copper-plate"] = -1 }, 1)
   r = plan.rebalance()
   t.eq(r.status, "EXACT")
   t.near(r.counts[plates.id], 4)
   t.near(r.shortage[plates.id], 3)
   t.near(r.shortage[gears.id], 9)
   t.near(r.shortage[sci.id], 9)
+  t.near(r.counts[void.id], 10) -- 20 copper/s made, 10 used by science
   -- sorted by shortage, largest first; ties by name
-  t.eq(r.order[1], gears.id)
-  t.eq(r.order[2], sci.id)
-  t.eq(r.order[3], plates.id)
+  t.eq(r.order[1], void.id)
+  t.eq(r.order[2], gears.id)
+  t.eq(r.order[3], sci.id)
+  t.eq(r.order[4], plates.id)
 end)
 
 t.test("plan: research does not change sinks (fixed rates)", function()
@@ -299,15 +305,31 @@ t.test("plan: research does not change sinks (fixed rates)", function()
   t.eq(plan.shortage_class(r.shortage[sci.id]), "ok")
 end)
 
-t.test("plan: pinned factory anchors at its copies", function()
+t.test("plan: old saves lose fixed copies and plan externals; sinks keep only their items", function()
   fake.reset()
   local a = custom_factory("a", { ["item/iron-plate"] = 1 }, 3)
-  local b = custom_factory("b", { ["item/iron-plate"] = -1, ["item/iron-gear-wheel"] = 1 }, 1)
-  model.plan().external["item/iron-gear-wheel"] = true
-  model.set_pinned(a.id, true, 1)
+  local s = sink("use", { ["item/iron-plate"] = 60 })
+  -- as schema 1 stored them
+  storage.schema = 1
+  storage.settings = {}
+  model.plan().external = { ["item/iron-plate"] = true }
+  model.get(a.id).pinned = true
+  local old = model.get(s.id)
+  old.lines = { { id = 1, kind = "custom", label = "consumption", count = 1, flow = { ["item/iron-plate"] = -1 } } }
+  old.anchors, old.external = { [1] = 1 }, { ["item/iron-plate"] = true }
+  old.sink_items[1].signal = { type = "item", name = "iron-plate" }
+  model.migrate()
+  t.eq(storage.schema, model.SCHEMA)
+  t.eq(model.plan().external, nil)
+  t.eq(model.get(a.id).pinned, nil)
+  t.eq(#model.get(s.id).lines, 0)
+  t.eq(next(model.get(s.id).anchors), nil)
+  t.eq(model.get(s.id).sink_items[1].signal, nil, "editing state dropped")
+  t.eq(model.get(s.id).sink_items[1].key, "item/iron-plate")
+  plan.balance_factory(model.get(s.id))
   local r = plan.rebalance()
   t.eq(r.status, "EXACT")
-  t.near(r.counts[b.id], 3)
+  t.near(r.counts[a.id], 1) -- needed copies from the sink, not fixed at 3
 end)
 
 t.test("plan: two designs for one item need a plan split", function()

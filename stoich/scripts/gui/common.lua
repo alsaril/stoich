@@ -8,8 +8,23 @@ local model = require("scripts.model")
 local common = {}
 
 --- Handlers by action name. Elements carry tags = { fp = action, ... }.
---- handler(player, element, event)
+--- A handler is handler(player, element, event), called for every event of its
+--- elements (clicks only on buttons), or a table of them by event kind:
+--- { click, checked, value, text, confirmed, selection, elem }.
 common.handlers = {}
+
+local KINDS -- event id -> kind name; built on first use (defines exists at runtime only)
+local function kind_of(event_name)
+  if not KINDS then
+    local e = defines.events
+    KINDS = {
+      [e.on_gui_click] = "click", [e.on_gui_checked_state_changed] = "checked", [e.on_gui_value_changed] = "value",
+      [e.on_gui_text_changed] = "text", [e.on_gui_confirmed] = "confirmed",
+      [e.on_gui_selection_state_changed] = "selection", [e.on_gui_elem_changed] = "elem",
+    }
+  end
+  return KINDS[event_name]
+end
 
 function common.L(key, ...)
   return { "stoich." .. key, ... }
@@ -28,6 +43,7 @@ function common.dispatch(event)
   -- on_gui_click; only buttons act on clicks, the rest on their own event.
   if event.name == defines.events.on_gui_click and element.type ~= "button" and element.type ~= "sprite-button" then return end
   local handler = common.handlers[action]
+  if type(handler) == "table" then handler = handler[kind_of(event.name)] end
   if not handler then return end
   local player = game.get_player(event.player_index)
   if not (player and player.valid) then return end
@@ -97,16 +113,16 @@ local GREEN = { r = 0.4, g = 0.9, b = 0.4 }
 local YELLOW = { r = 1, g = 0.85, b = 0.3 }
 local GREY = { r = 0.6, g = 0.6, b = 0.6 }
 common.RED, common.GREEN, common.YELLOW, common.GREY = RED, GREEN, YELLOW, GREY
+common.BLUE = { r = 0.35, g = 0.6, b = 1 } -- consumption: neutral, not an error
 
---- Caption, colour and tooltip for a rate with its belt tier.
+--- A rate split for display: the number, the slowest belt that carries it, and how
+--- full that belt is. Fluids get no belt.
 --- @param per_second number
 --- @param key string item key
 --- @param fluid_keys table? custom keys marked fluid
---- A rate split for display: the number, the slowest belt that carries it,
---- and how full that belt is. Fluids get no belt.
---- @return table { text, belt (rich text or ""), fill, color?, fill_color?, tooltip?, exceeds? }
 --- @param opts table? { total = true }: a plan-wide total, which may span several belts
 ---   by design, so it is never shown as a problem
+--- @return table { text, belt (rich text or ""), fill, color?, fill_color?, tooltip?, exceeds? }
 function common.rate_display(ctx, per_second, key, fluid_keys, opts)
   local text = fp_util.format_rate(per_second, ctx.unit)
   if belts.is_fluid(key, fluid_keys) then
@@ -131,8 +147,10 @@ function common.rate_display(ctx, per_second, key, fluid_keys, opts)
       tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(tier.name), capacity, lane),
     }
   end
+  -- the basic belt is the usual case: only a faster one gets its icon (the tooltip names it)
+  local basic = ctx.tiers[1] and ctx.tiers[1].name == tier.name
   return {
-    text = text, belt = "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
+    text = text, belt = basic and "" or "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
     fill_color = check.belts >= 0.9 and YELLOW or nil, -- near capacity
     tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, math.floor(check.belts * 100 + 0.5), lane),
   }
@@ -178,7 +196,6 @@ local function valid_sprite(path)
   if path and helpers.is_valid_sprite_path(path) then return path end
   return "utility/missing_icon"
 end
-common.valid_sprite = valid_sprite
 
 function common.key_sprite(key)
   return valid_sprite(fp_util.sprite(key))
@@ -378,20 +395,15 @@ function common.number_field(parent, value, tags, opts)
   return f
 end
 
---- Precise text for an editable number (more digits than the 2-decimal display).
-function common.precise(v)
-  if v == nil then return "" end
-  local s = string.format("%.4f", v)
-  s = s:gsub("0+$", ""):gsub("%.$", "")
-  return s
-end
 
 -- Dialogs -----------------------------------------------------------------------------------------------
 
---- One dialog per player, centred, on top of the main window. It is not made
---- player.opened (that would close the main window); Esc closes both.
-function common.open_dialog(player, name, caption)
+--- One dialog per player, centred, on top of the open window. It is not made
+--- player.opened (that would close the window under it).
+--- @param data table? the dialog's state (storage.players[i].dialog) while it is open
+function common.open_dialog(player, name, caption, data)
   common.close_dialog(player)
+  if data then model.player(player.index).dialog = data end
   local frame = player.gui.screen.add({ type = "frame", name = "stoich_dialog", direction = "vertical", tags = { dialog = name } })
   common.titlebar(frame, caption, "dialog_close")
   frame.auto_center = true

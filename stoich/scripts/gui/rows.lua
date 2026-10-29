@@ -1,6 +1,7 @@
 -- Editable rows of (item picker or custom text, rate, fluid flag), used by the
--- sink editor and the custom / override line dialog. Rates are typed in the
--- player's display unit and stored per second.
+-- sink editor and the custom / override line dialog. A row is only
+-- { key, <field>, fluid }: the picker shows an item/fluid key, the text field a
+-- custom one. Rates are typed in the player's display unit and stored per second.
 
 local common = require("scripts.gui.common")
 local fp_util = require("scripts.util")
@@ -10,7 +11,8 @@ local handlers = common.handlers
 
 local rows = {}
 
---- targets[mode] = { rows(player) -> array, field = "rate"|"amount", changed(player, structural), sign = 1|-1 }
+--- targets[mode] = { rows(player) -> array, field = "rate"|"amount", changed(player, structural),
+---   allow_negative? }
 rows.targets = {}
 
 --- The signal picker also offers recipes and buildings: turn those into the
@@ -30,26 +32,16 @@ function rows.normalize_signal(signal)
   return signal
 end
 
---- Item key of a row: custom text wins over the picker.
-function rows.key_of(row)
-  if row.text and row.text ~= "" then return fp_util.key("custom", row.text) end
-  if row.signal then return fp_util.key_from_signal(row.signal) end
-  return row.key
-end
-
 local function is_custom(key)
   return key ~= nil and key:sub(1, 7) == "custom/"
 end
 
---- Fill .signal/.text from .key for editing.
-function rows.prepare(list)
-  for _, row in ipairs(list) do
-    if row.key and not row.signal and not row.text then
-      local t, n = fp_util.parse_key(row.key)
-      if t == "item" or t == "fluid" then row.signal = { type = t, name = n } else row.text = n end
-    end
-  end
-  return list
+--- What the picker and the text field show for a row's key.
+local function display(row)
+  if not row.key then return nil, "" end
+  local signal = fp_util.signal_from_key(row.key)
+  if signal then return signal, "" end
+  return nil, select(2, fp_util.parse_key(row.key))
 end
 
 --- @param opts table? { stretch = true }: the rows fill the parent's width (the custom
@@ -59,9 +51,11 @@ function rows.build(parent, player, mode, ctx, enabled, opts)
   local target = rows.targets[mode]
   local list = target.rows(player)
   -- The fluid flag only means something for custom names; real items and fluids know what they are.
-  local any_custom = false
+  -- A picked item shows its name; the custom-name field is there only for rows without one.
+  local any_custom, any_free = false, false
   for _, row in ipairs(list) do
-    if is_custom(rows.key_of(row)) then any_custom = true end
+    if is_custom(row.key) then any_custom = true end
+    if not row.key or is_custom(row.key) then any_free = true end
   end
   local box = parent.add({ type = "flow", name = "stoich_rows_" .. mode, direction = "vertical" })
   local t = box.add({ type = "table", name = "stoich_rows_table", column_count = any_custom and 5 or 4 })
@@ -71,15 +65,26 @@ function rows.build(parent, player, mode, ctx, enabled, opts)
     t.style.horizontally_stretchable = true
   end
   t.add({ type = "label", caption = L("row-item"), style = "bold_label" })
-  t.add({ type = "label", caption = L("row-custom"), style = "bold_label", tooltip = L("row-custom-tooltip") })
+  if any_free then
+    t.add({ type = "label", caption = L("row-custom"), style = "bold_label", tooltip = L("row-custom-tooltip") })
+  else
+    t.add({ type = "empty-widget" })
+  end
   t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" })
   if any_custom then t.add({ type = "label", caption = L("row-fluid"), style = "bold_label", tooltip = L("row-fluid-tooltip") }) end
   t.add({ type = "empty-widget" })
   for i, row in ipairs(list) do
-    local key = rows.key_of(row)
-    t.add({ type = "choose-elem-button", elem_type = "signal", signal = row.signal, enabled = enabled,
+    local key = row.key
+    local signal, custom = display(row)
+    t.add({ type = "choose-elem-button", elem_type = "signal", signal = signal, enabled = enabled,
       tooltip = key and fp_util.localised(key) or L("row-item-tooltip"), tags = { fp = "row_signal", mode = mode, i = i } })
-    local text = t.add({ type = "textfield", text = row.text or "", enabled = enabled, tags = { fp = "row_text", mode = mode, i = i } })
+    local text
+    if key and not is_custom(key) then
+      text = t.add({ type = "label", caption = fp_util.localised(key) })
+    else
+      text = t.add({ type = "textfield", text = custom, enabled = enabled, tooltip = L("row-custom-tooltip"),
+        tags = { fp = "row_text", mode = mode, i = i } })
+    end
     if stretch then
       text.style.minimal_width = 140
       text.style.maximal_width = 1000 -- the textfield style caps the width otherwise
@@ -111,33 +116,37 @@ local function row_of(player, element)
   return list[element.tags.i], target, list
 end
 
-local function sync_key(row)
-  row.key = rows.key_of(row)
-  if not is_custom(row.key) then row.fluid = nil end
+local function set_key(row, key)
+  row.key = key
+  if not is_custom(key) then row.fluid = nil end
 end
 
-handlers.row_signal = function(player, element, event)
-  if event.name ~= defines.events.on_gui_elem_changed then return end
+handlers.row_signal = { elem = function(player, element, event)
   local row, target = row_of(player, element)
   if not row then return end
-  row.signal = rows.normalize_signal(element.elem_value)
-  if row.signal then row.text = nil end
-  sync_key(row)
+  local signal = rows.normalize_signal(element.elem_value)
+  -- an emptied picker keeps a custom name (the text field shows it)
+  if signal then set_key(row, fp_util.key_from_signal(signal))
+  elseif not is_custom(row.key) then set_key(row, nil) end
   target.changed(player, true)
-end
+end }
 
-handlers.row_text = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed and event.name ~= defines.events.on_gui_confirmed then return end
+local function typed_text(player, element, confirmed)
   local row, target = row_of(player, element)
   if not row then return end
-  row.text = element.text
-  sync_key(row)
+  -- a custom name replaces the picked item; clearing it leaves the row empty
+  if element.text ~= "" then set_key(row, fp_util.key("custom", element.text))
+  elseif is_custom(row.key) then set_key(row, nil) end
   -- rebuild only on Enter (rebuilding while typing would steal the focus); the fluid column appears then
-  target.changed(player, event.name == defines.events.on_gui_confirmed)
+  target.changed(player, confirmed)
 end
 
-handlers.row_rate = function(player, element, event)
-  if event.name ~= defines.events.on_gui_text_changed and event.name ~= defines.events.on_gui_confirmed then return end
+handlers.row_text = {
+  text = function(player, element) typed_text(player, element, false) end,
+  confirmed = function(player, element) typed_text(player, element, true) end,
+}
+
+local function typed_rate(player, element)
   local row, target = row_of(player, element)
   if not row then return end
   local v = fp_util.parse_number(element.text)
@@ -145,6 +154,8 @@ handlers.row_rate = function(player, element, event)
   row[target.field] = common.to_per_second(common.ctx(player), v)
   target.changed(player, false)
 end
+
+handlers.row_rate = { text = typed_rate, confirmed = typed_rate }
 
 handlers.row_fluid = function(player, element)
   local row, target = row_of(player, element)

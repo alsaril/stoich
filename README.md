@@ -5,9 +5,9 @@ A Factorio 2.1 mod for planning a base out of **minifactories**: self-contained 
 Capture a block from the map, let the mod balance it exactly, and it tells you how many
 copies of each block your goals need, which ones you're short of, and which belts will choke.
 
-Everything happens in game: one plan window, with the factory editor, statistics and splits
-opening over it. The plan is stored in the save and shared live
-by every player in multiplayer. Krastorio 2 is the main test case; any mod set should work.
+Everything happens in game: one plan window; the factory editor, statistics and a split
+open in its place and give it back when closed. The plan is stored in the save and shared
+live by every player in multiplayer. Krastorio 2 is the main test case; any mod set should work.
 
 ## What it does
 
@@ -21,11 +21,12 @@ by every player in multiplayer. Krastorio 2 is the main test case; any mod set s
   Problems are named: "Hydrogen can't balance: nothing consumes it", with one-click fixes.
 - **Plan balance.** All factories are balanced together against **sinks**: fixed demands
   you type, such as "10 science/min" or "30 coal/min for boilers". The plan window lists
-  every factory and sink with what one copy takes in and sends out, how many copies are
-  **needed**, how many you have, and the **shortage**.
-- **Belts.** Every flow shows the slowest belt that carries it and how full it is, read
-  from the belts your game has (Krastorio 2's included). A factory whose one copy needs more
-  than the best allowed belt is flagged. Fluids are never limited.
+  every sink, split and factory with its recipe (what one copy takes in and sends out), how
+  many copies you have of how many are **needed**, and what is still **to build**.
+- **Belts.** Every flow shows how full the slowest belt that carries it is, and that belt's
+  icon when it is faster than the basic one; belts are read from your game (Krastorio 2's
+  included). A factory whose one copy needs more than the best allowed belt is flagged.
+  Fluids are never limited.
 - **Statistics.** Every item in the plan with its total flow, belts needed for it, and
   which factories make and use it.
 - **Multiplayer.** Everyone sees the same plan; edits are private drafts until saved; a
@@ -41,7 +42,8 @@ on the shortcut bar).
 1. **Capture a factory.** Drag the capture tool over one copy of a block. The editor opens
    in its own window with one line per recipe and machine, named after its main product.
    Closing it with unsaved changes asks first.
-2. **Check the balance.** The status in the editor header must be **EXACT** to save.
+2. **Check the balance.** The status in the editor header must be **Balanced** to save
+   (otherwise the reason shows above Save).
    - **Anchor** (checkbox next to a line's count) fixes that line's machine count; the
      solver scales the other lines to match. A capture anchors the main product line.
    - **Inputs / Outputs / Balanced inside** list the factory's items. Tick **External** on
@@ -51,20 +53,24 @@ on the shortcut bar).
      4.3 needed).
    - Use **Add recipe** or **Add custom line** for things you didn't capture (imports,
      rocket launches, flare stacks), and the pencil on a line to override its flow.
+   - **Recapture area** hides the windows while you drag the new area (Q cancels).
 3. **Save**, then set **Copies** (− / + in the plan) to how many of that block you have.
 4. **Add sinks** (**New sink**) for what the plan must deliver: science per
    minute, fuel for boilers, items you ship elsewhere. Capturing only boilers or generators
    creates a sink with their fuel filled in.
-5. **Read the plan.** Factories are sorted by shortage: red means build more, green
-   means demand is covered. If two factories make the same item, the plan asks for a split;
-   it shows as a row with each factory's share, and its pencil opens the sliders. The plan
-   is closed: everything it uses must be made by one of its factories, and a surplus can go
-   to a sink with one click. **Statistics** shows every item's flow.
+5. **Read the plan.** Each factory shows its copies against the need (`2 of 3.05`) and
+   what is still to build: a red `+1.1`, or a green ✓ when demand is covered. Factories are
+   sorted by shortage when the window opens. If two factories make the same item, the plan
+   asks for a split; it shows as a row with each factory's share, and its pencil opens the
+   sliders. The plan is closed: everything it uses must be made by one of its factories,
+   and a surplus can go to a sink with one click. **Statistics** shows every item's flow.
+
+Esc or E closes the open window: the editor (asking first if there are unsaved changes),
+statistics or a split go back to the plan, then the plan itself closes.
 
 The settings button in the window title bar holds the rate unit (/s, /min, /h), who can
 edit, the highest belt to plan with, and one-lane planning. Next to it, the clock button
-opens the edit log and the grid button switches between a plan window that fills most of
-the screen and a compact one.
+opens the edit log.
 
 ## Install
 
@@ -87,7 +93,7 @@ cd stoich && lua tests/run.lua
 
 GUI tests drive `control.lua` through `tests/mock_runtime.lua`, a strict stand-in for the
 game that rejects GUI parameters, styles, sprites and attribute writes the real 2.1 API
-would reject. Its API data (`tests/fixtures/api.lua`) is generated from a local Factorio
+would reject; a locale test checks every interface text key both ways. Its API data (`tests/fixtures/api.lua`) is generated from a local Factorio
 install by `tests/tools/gen_api.py`.
 
 ## Release

@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2026-10-29
+  Changes:
+    - One plan window instead of tabs: sinks, plan splits and factories in one table, each with its recipe. The factory editor, statistics and a plan split open in their own window in its place.
+    - One window size (960 x 680); the size toggle is gone.
+    - The plan shows copies against the need ("2 of 3.05") and what is still to build (one decimal, or a tick when covered); rows keep their order while the window is open.
+    - The plan is closed: no more "comes from outside the plan"; fixed copies are gone (old saves are migrated).
+    - Choices to make (splits) come first in the problem list, which shows a few rows and the rest on demand.
+    - Sinks show their items; the sink editor shows item names and a custom name field only where needed.
+    - The editor lists items in one table with column headers, says why Save is disabled, and asks before closing with unsaved changes. Recapture hides the windows and shows a hint.
+    - Plain statuses (Balanced, Needs a split, Can't balance); Capture is the first button; an empty plan explains the three steps.
+  Bugfixes:
+    - Imported strings are checked field by field; a broken one no longer causes errors later, and a failed import adds nothing.
+    - An unchanged sink no longer counts as unsaved when opened.
+    - Changing the rate unit updates the open editor and statistics.
+    - Show on map from the plan no longer closes the editor.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2026-10-28
   Features:

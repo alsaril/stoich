@@ -41,7 +41,7 @@ function draft.open(player_index, factory)
   local copy = fp_util.deep_copy(factory)
   state.draft = {
     factory = copy,
-    base = { revision = factory.revision, copies = factory.copies, pinned = factory.pinned },
+    base = { revision = factory.revision },
     snapshot = strip(factory),
     name_auto = false,
   }
@@ -148,53 +148,31 @@ end
 
 --- A sink with the fuel of the selected generators prefilled at rate 0.
 function draft.sink_from_generators(fuels)
-  local f = model.new_factory("sink")
-  model.add_line(f, { kind = "custom", label = "consumption", count = 1, flow = {} })
-  f.sink_items = {}
+  local f = draft.new_sink()
   for _, key in ipairs(fp_util.sorted_keys(fuels)) do
     f.sink_items[#f.sink_items + 1] = { key = key, rate = 0 }
   end
-  draft.sync_sink(f)
   f.name = "Generators"
-  local first = f.sink_items[1]
-  if first then
-    local t, n = fp_util.parse_key(first.key)
-    if t == "item" or t == "fluid" then f.icon = { type = t, name = n } end
-  end
+  draft.sink_icon(f)
   return f
 end
 
---- New empty sink.
+--- New empty sink: a list of items with the rate the plan must deliver (per second).
 function draft.new_sink()
   local f = model.new_factory("sink")
-  model.add_line(f, { kind = "custom", label = "consumption", count = 1, flow = {} })
   f.sink_items = {}
   f.name = "Sink"
   return f
 end
 
---- Rows of a sink (item, rate per second) -> its consumption line.
-function draft.sync_sink(f)
-  local line = f.lines[1]
-  if not line then line = model.add_line(f, { kind = "custom", label = "consumption", count = 1, flow = {} }) end
-  line.flow = {}
-  line.fluid_keys = {}
+--- No icon chosen yet: a sink shows its first item or fluid.
+function draft.sink_icon(f)
+  if f.icon then return end
   for _, row in ipairs(f.sink_items or {}) do
-    if row.key and row.rate and row.rate ~= 0 then
-      line.flow[row.key] = (line.flow[row.key] or 0) - math.abs(row.rate)
-      if row.fluid then line.fluid_keys[row.key] = true end
-    end
-  end
-  f.external = plan.flow_items(line.flow)
-  f.anchors = { [line.id] = 1 }
-  -- No icon chosen yet: use the first item.
-  if not f.icon then
-    for _, row in ipairs(f.sink_items or {}) do
-      local t, n = fp_util.parse_key(row.key or "")
-      if row.key and (t == "item" or t == "fluid") then
-        f.icon = { type = t, name = n }
-        break
-      end
+    local t, n = fp_util.parse_key(row.key or "")
+    if row.key and (t == "item" or t == "fluid") then
+      f.icon = { type = t, name = n }
+      return
     end
   end
 end
@@ -385,7 +363,6 @@ function draft.recapture(f, captured)
   f.external = captured.external
   f.source = captured.source
   f.next_line_id = captured.next_line_id
-  f.main_product = captured.main_product
   f.removed_keys = nil
   if not f.icon then f.icon = captured.icon end
   return f
@@ -394,16 +371,17 @@ end
 -- Manual and custom lines -------------------------------------------------------------------------
 
 function draft.add_custom_line(f, label, rows)
-  local line = model.add_line(f, { kind = "custom", label = label or "custom", count = 1, flow = {}, rows = rows or {} })
-  draft.sync_custom(line)
+  local line = model.add_line(f, { kind = "custom", label = label or "custom", count = 1, flow = {} })
+  draft.set_flow(line, rows or {})
   return line
 end
 
---- Rows (item, amount per second, fluid flag) -> flow of a custom line.
-function draft.sync_custom(line)
+--- Rows (item, amount per second, fluid flag) -> flow of a line (custom, or an override).
+--- The rows are the dialog's; the line keeps only the flow (rows_from_flow gives them back).
+function draft.set_flow(line, rows)
   line.flow = {}
   line.fluid_keys = {}
-  for _, row in ipairs(line.rows or {}) do
+  for _, row in ipairs(rows) do
     if row.key and row.amount and row.amount ~= 0 then
       line.flow[row.key] = (line.flow[row.key] or 0) + row.amount
       if row.fluid then line.fluid_keys[row.key] = true end

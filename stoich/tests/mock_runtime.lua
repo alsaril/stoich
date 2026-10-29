@@ -317,6 +317,8 @@ Element.__newindex = function(e, k, v)
   end
   if BOOLEAN_ATTRIBUTES[k] and type(v) ~= "boolean" then error("bool expected, got " .. type(v), 2) end
   d[k] = v
+  -- as in the game: a script moving a window raises the event too
+  if k == "location" then mock.fire("on_gui_location_changed", { player_index = d.player_index, element = e }) end
 end
 
 Element.__eq = function(a, b) return rawequal(a, b) end
@@ -389,7 +391,15 @@ function mock.new_player(index, opts)
   end
   -- player.opened as in the game: writing nil or a new GUI asks the current one to
   -- close (on_gui_closed, raised instantly); a destroyed element reads as nil.
+  -- Esc / E (mock.press_esc) closes it first and then raises the event, so a GUI the
+  -- handler opens stays open.
   local opened
+  function p.press_esc()
+    local old = opened
+    if old and not old.valid then old = nil end
+    opened = nil
+    if old then mock.fire("on_gui_closed", { player_index = index, element = old }) end
+  end
   setmetatable(p, {
     __index = function(_, k)
       if k ~= "opened" then return nil end
@@ -449,7 +459,7 @@ end
 function mock.reset(opts)
   opts = opts or {}
   storage = {}
-  local handlers, custom, nth = {}, {}, {}
+  local handlers, custom = {}, {}
   mock.handlers, mock.custom, mock.init = handlers, custom, {}
   local ids = {}
   local n = 0
@@ -520,6 +530,7 @@ function mock.reset(opts)
   }
   prototypes = {
     item = items, fluid = fluids, recipe = recipes, entity = entities, virtual_signal = { ["signal-A"] = proto("signal-A") },
+    quality = {}, space_location = {}, asteroid_chunk = {},
     get_entity_filtered = function(filters)
       local out = {}
       for name, p in pairs(entities) do
@@ -530,6 +541,8 @@ function mock.reset(opts)
       return out
     end,
   }
+  -- like LuaPrototypes: an unknown key is an error, not nil
+  setmetatable(prototypes, { __index = function(_, k) error("LuaPrototypes doesn't contain key " .. tostring(k), 2) end })
   local force_recipes = {}
   for name, r in pairs(recipes) do
     force_recipes[name] = { name = name, energy = r.energy, ingredients = r.ingredients, products = r.products, productivity_bonus = 0, prototype = r, enabled = true, valid = true }
@@ -578,8 +591,12 @@ function mock.reset(opts)
   for name in pairs(package.loaded) do
     if name:match("^scripts%.") or name == "control" then package.loaded[name] = nil end
   end
-  local _ = nth
   return mock
+end
+
+--- The player presses Esc / E: the GUI they have open closes.
+function mock.press_esc(player)
+  player.press_esc()
 end
 
 -- Events ------------------------------------------------------------------------------------------------
@@ -660,11 +677,6 @@ function mock.pick(player, element, value)
   pre_click(player, element)
   data_of[element].elem_value = value
   gui_event("on_gui_elem_changed", player, element)
-end
-
-function mock.select_tab(player, pane, index)
-  data_of[pane].selected_tab_index = index
-  gui_event("on_gui_selected_tab_changed", player, pane)
 end
 
 --- All elements under root (depth first).

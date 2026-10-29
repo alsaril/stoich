@@ -12,8 +12,6 @@ scanner.GENERATOR_TYPES = { "boiler", "generator", "burner-generator", "reactor"
 local production_type, generator_type = {}, {}
 for _, t in ipairs(scanner.PRODUCTION_TYPES) do production_type[t] = true end
 for _, t in ipairs(scanner.GENERATOR_TYPES) do generator_type[t] = true end
-scanner.is_production_type = production_type
-scanner.is_generator_type = generator_type
 
 --- Expected amount of one product per craft, before productivity
 --- (same as core util.product_amount; 2.1 split probability into independent and shared).
@@ -375,6 +373,12 @@ function scanner.machines_for_recipe(recipe_proto)
   local names = {}
   for _, m in ipairs(out) do names[#names + 1] = m.name end
   return names
+end
+
+--- The force's research productivity for a recipe, in % (what a manually added line gets).
+function scanner.research_productivity_pct(force, recipe_name)
+  local r = force.recipes[recipe_name]
+  return r and (r.productivity_bonus or 0) * 100 or 0
 end
 
 return scanner

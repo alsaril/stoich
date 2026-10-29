@@ -1,77 +1,17 @@
--- Factory list helpers for the Plan tab: the toolbar buttons and the per-copy flow chips.
--- Also the factory actions: new, capture, edit, delete, export / import.
+-- Factory actions of the main window: new factory or sink, capture, edit, show on
+-- map, delete (with its question), export and import.
 
 local common = require("scripts.gui.common")
+local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 local model = require("scripts.model")
-local plan = require("scripts.plan")
 local draft = require("scripts.draft")
 local exchange = require("scripts.exchange")
-local fp_util = require("scripts.util")
 
 local L = common.L
 local handlers = common.handlers
 
-local factories = {}
-
---- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
---- The arrow is always there, so a sink reads "inputs →" and a mine "→ outputs".
-function factories.flow_chips(parent, f, ctx, max_chips)
-  local flow = parent.add({ type = "flow", direction = "horizontal" })
-  flow.style.horizontal_spacing = 2
-  flow.style.vertical_align = "center"
-  local net = f.result and f.result.net or {}
-  local inputs, outputs = {}, {}
-  for _, key in ipairs(fp_util.sorted_keys(net)) do
-    table.insert(net[key] > 0 and outputs or inputs, key)
-  end
-  local function by_size(a, b)
-    if math.abs(net[a]) ~= math.abs(net[b]) then return math.abs(net[a]) > math.abs(net[b]) end
-    return a < b
-  end
-  table.sort(inputs, by_size)
-  table.sort(outputs, by_size)
-  local shown = 0
-  local function chip(key)
-    local v = net[key]
-    local b = flow.add({
-      type = "sprite-button", style = "slot_button", sprite = common.key_sprite(key),
-      number = math.abs(common.from_per_second(ctx, v)),
-      tooltip = { "", fp_util.localised(key), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) },
-    })
-    b.style.size = 32
-    shown = shown + 1
-  end
-  -- keep room for the outputs: inputs get what's left of the slots
-  local out_slots = math.min(#outputs, max_chips)
-  local in_slots = math.min(#inputs, max_chips - out_slots)
-  for i = 1, in_slots do chip(inputs[i]) end
-  if #inputs + #outputs > 0 then
-    flow.add({ type = "label", caption = "→", style = "bold_label" }).style.horizontal_align = "center"
-  end
-  for i = 1, out_slots do chip(outputs[i]) end
-  local hidden = #inputs + #outputs - shown
-  if hidden > 0 then
-    -- single line with room for the text, or a squeezed flow wraps "+5" onto two lines
-    local more = flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = L("more-flows-tooltip", hidden) })
-    more.style.single_line = true
-    more.style.minimal_width = 24
-  end
-end
-
---- Toolbar buttons, added to the given (horizontal) bar.
-function factories.add_buttons(bar, ctx)
-  bar.add({ type = "button", caption = L("new-factory"), enabled = ctx.can_edit, tags = { fp = "fac_new" } })
-  bar.add({ type = "button", caption = L("new-sink"), enabled = ctx.can_edit, tags = { fp = "fac_new_sink" } })
-  bar.add({ type = "button", caption = L("capture"), tooltip = L("capture-tooltip"), enabled = ctx.can_edit, tags = { fp = "fac_capture" } })
-  bar.add({ type = "empty-widget" }).style.width = 8
-  bar.add({ type = "button", caption = L("statistics"), tooltip = L("statistics-tooltip"), tags = { fp = "open_stats" } })
-  bar.add({ type = "empty-widget" }).style.width = 8
-  bar.add({ type = "button", caption = L("export-all"), tags = { fp = "fac_export_all" } })
-  bar.add({ type = "button", caption = L("import"), enabled = ctx.can_edit, tags = { fp = "fac_import" } })
-end
-
--- Toolbar -------------------------------------------------------------------------------------
+local actions = {}
 
 local function check_edit(player)
   if model.can_edit(player) then return true end
@@ -93,7 +33,7 @@ handlers.fac_new_sink = function(player)
   editor.open_factory(player, f, { auto_name = true })
 end
 
-function factories.give_tool(player)
+local function give_tool(player)
   if not check_edit(player) then return end
   if player.clear_cursor() then
     player.cursor_stack.set_stack({ name = "stoich-selection-tool", count = 1 })
@@ -101,7 +41,7 @@ function factories.give_tool(player)
 end
 
 handlers.fac_capture = function(player)
-  factories.give_tool(player)
+  give_tool(player)
 end
 
 handlers.fac_edit = function(player, element)
@@ -110,12 +50,12 @@ end
 
 handlers.show_map = function(player, element)
   local f = model.get(element.tags.id)
-  if f then editor.show_on_map(player, f.source) end
+  if f then window.show_on_map(player, f.source) end
 end
 
 -- Delete ---------------------------------------------------------------------------------------
 
-function factories.confirm_delete(player, id)
+function actions.confirm_delete(player, id)
   local f = model.get(id)
   if not f then return end
   local frame = common.open_dialog(player, "delete", L("delete"))
@@ -129,20 +69,20 @@ end
 
 handlers.fac_delete = function(player, element)
   if not check_edit(player) then return end
-  factories.confirm_delete(player, element.tags.id)
+  actions.confirm_delete(player, element.tags.id)
 end
 
 handlers.fac_delete_ok = function(player, element)
   local id = element.tags.id -- read before the dialog (and this button) is destroyed
   common.close_dialog(player)
   if not check_edit(player) then return end
-  if model.delete_factory(id, player.index) then plan.changed() end
+  if model.delete_factory(id, player.index) then window.plan_changed() end
 end
 
 -- Export / import ----------------------------------------------------------------------------------
 
-local function export_dialog(player, list, with_plan)
-  local text = exchange.encode(exchange.pack(list, with_plan))
+local function export_dialog(player, list)
+  local text = exchange.encode(exchange.pack(list))
   local frame = common.open_dialog(player, "export", L("export"))
   local box = frame.add({ type = "text-box", text = text or "" })
   box.style.width = 500
@@ -157,7 +97,7 @@ end
 handlers.fac_export_all = function(player)
   local list = {}
   for _, id in ipairs(model.factory_ids()) do list[#list + 1] = model.get(id) end
-  export_dialog(player, list, true)
+  export_dialog(player, list)
 end
 
 handlers.fac_import = function(player)
@@ -178,7 +118,7 @@ end
 local function finish_import(player, added)
   common.close_dialog(player)
   player.print(L("imported", #added))
-  plan.changed()
+  window.plan_changed()
 end
 
 handlers.fac_import_ok = function(player, element)
@@ -192,13 +132,13 @@ handlers.fac_import_ok = function(player, element)
     if err then err.caption = L("import-error-" .. (why or "not-a-planner-string")) end
     return
   end
-  local ok, added = pcall(exchange.add_to_plan, unpacked, player.index, plan.balance_factory, model.validate_factory)
+  -- a last guard: add_to_plan checks everything before it saves anything
+  local ok, added = pcall(exchange.add_to_plan, unpacked, player.index)
   if not ok then
     if err then err.caption = L("import-error-not-a-planner-string") end
-    plan.changed()
     return
   end
   finish_import(player, added)
 end
 
-return factories
+return actions

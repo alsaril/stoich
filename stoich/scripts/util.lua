@@ -46,12 +46,6 @@ function fp_util.sorted_keys(t, less)
   return keys
 end
 
-function fp_util.count(t)
-  local n = 0
-  for _ in pairs(t) do n = n + 1 end
-  return n
-end
-
 --- Turn an internal name into a readable default: "electronic-circuit" -> "Electronic circuit".
 function fp_util.pretty_name(name)
   local s = (name or ""):gsub("^kr%-", ""):gsub("[-_]", " ")

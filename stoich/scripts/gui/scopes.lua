@@ -1,0 +1,15 @@
+-- What a balance is about, by mode: "factory" (the recipe lines of the player's open
+-- draft) or "plan" (the saved factories and sinks). Split cards and the problems list
+-- work on either through this table; the editor and the plan window fill it in:
+--   holder(player) -> the table with .splits (the draft's factory, or the plan)
+--   units(player) -> lines { id, flow, count } as the solver sees them
+--   counts(player) -> solved counts by id
+--   names(player) -> display names by id (unique where several share a name)
+--   sprite_of(player, id) -> sprite path
+--   extra_of(player, id)? -> caption of an extra split card column (plan: needed copies)
+--   changed(player, structural, index?, line?) -> after a split change (index: the split
+--     whose item was switched or whose share moved; line: the share moved)
+--   can_edit(player) -> bool
+--   problem actions: add_sink(player, item), add_split(player, item), and optionally
+--     mark_external(player, item), anchor(player, line_id), show_item(player, item)
+return {}

@@ -3,6 +3,7 @@
 -- Pure Lua: no game API, so it runs in the offline tests.
 
 local linalg = require("scripts.linalg")
+local fp_util = require("scripts.util")
 
 local solver = {}
 
@@ -19,13 +20,7 @@ function solver.id_less(a, b)
 end
 local id_less = solver.id_less
 
-local function sorted_keys(t, less)
-  local keys = {}
-  for k in pairs(t) do keys[#keys + 1] = k end
-  table.sort(keys, less)
-  return keys
-end
-solver.sorted_keys = sorted_keys
+local sorted_keys = fp_util.sorted_keys
 
 --- Order of flow components, ported from Kotlin FlowComponent.compareTo:
 --- producers first (largest first), then consumers (largest first).
