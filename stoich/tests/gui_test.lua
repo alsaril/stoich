@@ -310,6 +310,14 @@ t.test("gui: rows keep their place while the window is open; sorted again when i
   click(p, "window_close")
   open(p)
   t.eq(order()[1], first[2], "reopened: the one still short comes first")
+  -- the same after the editor (a save, a recapture) took the window's place
+  for _ = 1, 4 do click(p, "plan_copies", { id = first[2], delta = 1 }) end
+  t.eq(order()[1], first[2], "kept while clicking")
+  click(p, "fac_edit", { id = first[2] })
+  t.eq(win(p).visible, false)
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.eq(win(p).visible, true)
+  t.eq(order()[1], first[1], "back from the editor: sorted afresh")
 end)
 
 t.test("gui: a long problem list shows its first rows; split prompts come first", function()
@@ -942,8 +950,8 @@ t.test("gui: belt display is a plain number, the slowest belt and how full it is
   local ctx = common.ctx(p) -- mock: express belts not researched, so fast is the highest allowed
   local d = common.rate_display(ctx, 10, "item/iron-plate")
   t.eq(d.color, nil, "number not tinted")
-  t.eq(d.belt, "", "the basic belt has no icon")
-  t.eq(common.rate_display(ctx, 20, "item/iron-plate").belt, "[entity=fast-transport-belt]", "a faster one has")
+  t.eq(d.belt, "[entity=transport-belt]", "the basic belt has its icon too")
+  t.eq(common.rate_display(ctx, 20, "item/iron-plate").belt, "[entity=fast-transport-belt]")
   t.eq(d.fill, "67%")
   t.eq(d.tooltip[1], "stoich.belt-tooltip")
   local over = common.rate_display(ctx, 40, "item/iron-plate")

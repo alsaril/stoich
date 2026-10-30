@@ -155,9 +155,12 @@ local function build_table(parent, player, r, ctx)
   plan_window.fill_rows(player, box.stoich_plan_rows, r, ctx)
 end
 
---- Factories keep the order they had when the window opened, so a row doesn't jump
---- away under the cursor when − / + changes its shortage; new ones go at the end.
-local function stable_order(state, ids)
+--- Factories keep their order while the player works in the window, so a row doesn't
+--- jump away under the cursor when − / + changes its shortage; new ones go at the end.
+--- A hidden window (a child window is open in its place) sorts afresh.
+local function stable_order(player, state, ids)
+  local w = window.get(player)
+  if not (w and w.visible) then state.plan_order = nil end
   local wanted, placed, out = {}, {}, {}
   for _, id in ipairs(ids) do wanted[id] = true end
   for _, id in ipairs(state.plan_order or {}) do
@@ -345,7 +348,7 @@ function plan_window.fill_rows(player, holder, r, ctx)
       tags = { fp = "split_remove", mode = "plan", index = index } })
   end
   local sinks, rest = row_order(r)
-  rest = stable_order(state, rest)
+  rest = stable_order(player, state, rest)
   for _, id in ipairs(sinks) do factory_row(id) end
   for i, split in ipairs(model.plan().splits) do split_row(i, split) end
   for _, id in ipairs(rest) do factory_row(id) end

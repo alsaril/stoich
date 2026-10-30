@@ -163,6 +163,7 @@ function window.destroy_child(player, name)
   if c then c.destroy() end
   local w = get(player)
   if w and not model.player(player.index).recapture then w.visible = true end
+  model.player(player.index).plan_order = nil -- the next refresh sorts afresh
   window.refocus(player)
 end
 

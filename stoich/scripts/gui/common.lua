@@ -147,10 +147,8 @@ function common.rate_display(ctx, per_second, key, fluid_keys, opts)
       tooltip = L("chokes-tooltip", fp_util.format_count(check.belts), common.entity_name(tier.name), capacity, lane),
     }
   end
-  -- the basic belt is the usual case: only a faster one gets its icon (the tooltip names it)
-  local basic = ctx.tiers[1] and ctx.tiers[1].name == tier.name
   return {
-    text = text, belt = basic and "" or "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
+    text = text, belt = "[entity=" .. tier.name .. "]", fill = math.floor(check.belts * 100 + 0.5) .. "%",
     fill_color = check.belts >= 0.9 and YELLOW or nil, -- near capacity
     tooltip = L("belt-tooltip", common.entity_name(tier.name), capacity, math.floor(check.belts * 100 + 0.5), lane),
   }
