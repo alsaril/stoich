@@ -157,13 +157,14 @@ function window.child_content(player, name)
   return c and c.stoich_inner.stoich_content or nil
 end
 
---- Close a child window: the main window comes back.
+--- Close a child window: the main window comes back, sorted afresh.
 function window.destroy_child(player, name)
   local c = window.child(player, name)
   if c then c.destroy() end
   local w = get(player)
   if w and not model.player(player.index).recapture then w.visible = true end
-  model.player(player.index).plan_order = nil -- the next refresh sorts afresh
+  model.player(player.index).plan_order = nil
+  window.refresh(player)
   window.refocus(player)
 end
 

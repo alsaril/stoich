@@ -284,7 +284,8 @@ function draft.split_candidates(lines, split)
   return out
 end
 
---- Switch the split to another shared item, keeping the current machine ratio.
+--- Switch the split to another shared item, keeping the current machine ratio (and
+--- whether it matches usage).
 --- The new split covers every line that makes the new item.
 function draft.switch_split_item(holder, index, item, lines, counts)
   local split = holder.splits[index]
@@ -298,7 +299,7 @@ function draft.switch_split_item(holder, index, item, lines, counts)
     flows[id] = by[id].flow
     cnt[id] = counts and counts[id] or by[id].count or 0
   end
-  holder.splits[index] = { item = item, shares = solver.shares_from_counts(item, ids, flows, cnt) }
+  holder.splits[index] = { item = item, shares = solver.shares_from_counts(item, ids, flows, cnt), match_usage = split.match_usage }
 end
 
 -- Rescan ---------------------------------------------------------------------------------------

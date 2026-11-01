@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2026-11-01
+  Changes:
+    - Plan splits can match usage: every factory in the split runs at the same share of its built copies (two ore mines, say), so the shares follow copies, factory edits and new factories making the item. New plan splits start this way; untick "Match usage" in the split window to set the shares by hand. Existing splits stay as they were. In the plan a split that matches usage is marked "match".
+    - A sink has a Scale from 0 to 1 (a slider in the sink editor): how much of its rates the plan delivers, 0 to keep it in the plan asking for nothing. The plan row shows it ("sink ×0.5") and the sink's rates at that scale.
+    - The plan table sorts afresh when you come back from the editor, statistics or a split window; it keeps its order only while you work in it.
+    - Icons in the plan do something when clicked: an item opens it in Statistics, a split's icons open the split.
+    - A split's icons in the plan show whole percents; the tooltip keeps the exact share.
+  Bugfixes:
+    - The basic belt shows its icon again: on a yellow-belt base no flow showed a belt icon.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-29
   Changes:

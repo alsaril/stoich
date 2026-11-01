@@ -53,13 +53,22 @@ end
 
 -- Pieces of the table -----------------------------------------------------------------------
 
+--- Net flow of one copy, or what a sink asks for at its scale.
+local function shown_net(f)
+  local net = f.result and f.result.net or {}
+  if f.kind ~= "sink" or plan.sink_scale(f) == 1 then return net end
+  local scaled = {}
+  for key, v in pairs(net) do scaled[key] = v * plan.sink_scale(f) end
+  return scaled
+end
+
 --- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
 --- The arrow is always there, so a sink reads "inputs →" and a mine "→ outputs".
 local function flow_chips(parent, f, ctx, max_chips)
   local flow = parent.add({ type = "flow", direction = "horizontal" })
   flow.style.horizontal_spacing = 2
   flow.style.vertical_align = "center"
-  local net = f.result and f.result.net or {}
+  local net = shown_net(f)
   local inputs, outputs = {}, {}
   for _, key in ipairs(fp_util.sorted_keys(net)) do
     table.insert(net[key] > 0 and outputs or inputs, key)
@@ -76,7 +85,8 @@ local function flow_chips(parent, f, ctx, max_chips)
     local b = flow.add({
       type = "sprite-button", style = "slot_button", sprite = common.key_sprite(key),
       number = math.abs(common.from_per_second(ctx, v)),
-      tooltip = { "", fp_util.localised(key), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) },
+      tooltip = { "", fp_util.localised(key), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true), "\n", L("item-click") },
+      tags = { fp = "plan_item", item = key },
     })
     b.style.size = 32
     shown = shown + 1
@@ -157,10 +167,8 @@ end
 
 --- Factories keep their order while the player works in the window, so a row doesn't
 --- jump away under the cursor when − / + changes its shortage; new ones go at the end.
---- A hidden window (a child window is open in its place) sorts afresh.
-local function stable_order(player, state, ids)
-  local w = window.get(player)
-  if not (w and w.visible) then state.plan_order = nil end
+--- Closing a child window clears the order, so the plan comes back sorted afresh.
+local function stable_order(state, ids)
   local wanted, placed, out = {}, {}, {}
   for _, id in ipairs(ids) do wanted[id] = true end
   for _, id in ipairs(state.plan_order or {}) do
@@ -177,7 +185,7 @@ local function stable_order(player, state, ids)
 end
 
 --- Row order: sinks by name (then the plan splits), factories by shortage (as when the
---- window opened), then the ones the plan can't use.
+--- window opened or a child window closed), then the ones the plan can't use.
 --- @return number[] sinks, number[] factories
 local function row_order(r)
   local p = model.plan()
@@ -203,7 +211,8 @@ end
 local function name_cell(t, f, name, ctx, max_width)
   local cell = t.add({ type = "flow", direction = "horizontal" })
   cell.style.vertical_align = "center"
-  local label = cell.add({ type = "label", caption = name, tooltip = common.flow_tooltip(ctx, f.result and f.result.net or {}, L("per-copy")) })
+  local label = cell.add({ type = "label", caption = name,
+    tooltip = common.flow_tooltip(ctx, shown_net(f), L(f.kind == "sink" and "sink-demand" or "per-copy")) })
   label.style.maximal_width = max_width
   if f.invalid then
     label.style.font_color = common.RED
@@ -213,9 +222,11 @@ local function name_cell(t, f, name, ctx, max_width)
     warn.style.stretch_image_to_widget_size = true
   end
   if f.kind == "sink" then
-    local mark = cell.add({ type = "label", caption = L("sink-mark"), style = "info_label", tooltip = L("sink-explain") })
+    local scale = plan.sink_scale(f)
+    local mark = cell.add({ type = "label", caption = scale < 1 and L("sink-mark-scale", fp_util.format_count(scale)) or L("sink-mark"),
+      style = "info_label", tooltip = L("sink-explain") })
     mark.style.single_line = true
-    mark.style.minimal_width = 36
+    mark.style.minimal_width = scale < 1 and 70 or 36
   end
 end
 
@@ -325,17 +336,23 @@ function plan_window.fill_rows(player, holder, r, ctx)
     cell.style.vertical_align = "center"
     local label = cell.add({ type = "label", caption = fp_util.localised(split.item) })
     label.style.maximal_width = name_width
-    local mark = cell.add({ type = "label", caption = L("split-mark"), style = "info_label", tooltip = L("split-mark-tooltip") })
+    local usage = split.match_usage
+    local mark = cell.add({ type = "label", caption = L(usage and "split-mark-usage" or "split-mark"), style = "info_label",
+      tooltip = L(usage and "split-mark-usage-tooltip" or "split-mark-tooltip") })
     mark.style.single_line = true
-    mark.style.minimal_width = 36
+    mark.style.minimal_width = usage and 40 or 36
     local chips = t.add({ type = "flow", direction = "horizontal" })
     chips.style.horizontal_spacing = 2
+    -- a click on an icon opens the split window, as the pencil does
+    local open_tags = { fp = "plan_split_edit", item = split.item }
     for _, id in ipairs(draft.split_lines(list, split)) do
       local f = model.get(id)
       local share = split.shares[id] or 0
+      -- whole percents on the icon, the exact share in its tooltip
       local chip = chips.add({
         type = "sprite-button", style = "slot_button", sprite = f and common.factory_sprite(f) or "utility/missing_icon",
-        number = share, tooltip = { "", names[id] or "?", "\n", L("split-share", fp_util.format_count(share)) },
+        number = math.floor(share + 0.5), tooltip = { "", names[id] or "?", "\n", L("split-share", fp_util.format_count(share)) },
+        tags = open_tags,
       })
       chip.style.size = 32
     end
@@ -348,7 +365,7 @@ function plan_window.fill_rows(player, holder, r, ctx)
       tags = { fp = "split_remove", mode = "plan", index = index } })
   end
   local sinks, rest = row_order(r)
-  rest = stable_order(player, state, rest)
+  rest = stable_order(state, rest)
   for _, id in ipairs(sinks) do factory_row(id) end
   for i, split in ipairs(model.plan().splits) do split_row(i, split) end
   for _, id in ipairs(rest) do factory_row(id) end
@@ -465,6 +482,10 @@ scopes.plan = {
     end
   end,
   can_edit = function(player) return model.can_edit(player) end,
+  match_usage = true,
+  log_match_usage = function(player, split)
+    model.log(player.index, { split.match_usage and "stoich.log-split-match-usage" or "stoich.log-split-manual", fp_util.rich(split.item) }, nil)
+  end,
   -- problem actions
   add_sink = function(player, item)
     local f = draft.new_sink()
@@ -477,6 +498,8 @@ scopes.plan = {
   add_split = function(player, item)
     local list = units()
     local index = draft.add_split(model.plan(), item, solver.producers_of(list, item), list)
+    -- the plan knows what is built: a new split matches usage until the player unticks it
+    model.plan().splits[index].match_usage = true
     model.log(player.index, { "stoich.log-plan-split", fp_util.rich(item) }, nil)
     window.plan_changed()
     plan_window.open_split(player, model.plan().splits[index].item)
@@ -492,6 +515,10 @@ handlers.plan_all_problems = function(player)
   local state = model.player(player.index)
   state.all_problems = not state.all_problems or nil
   window.refresh(player)
+end
+
+handlers.plan_item = function(player, element)
+  items.open(player, element.tags.item)
 end
 
 handlers.plan_split_edit = function(player, element)

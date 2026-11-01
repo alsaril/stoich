@@ -10,6 +10,8 @@
 --   changed(player, structural, index?, line?) -> after a split change (index: the split
 --     whose item was switched or whose share moved; line: the share moved)
 --   can_edit(player) -> bool
+--   match_usage? -> true when its splits can match usage (plan)
+--   log_match_usage(player, split)? -> log a split's switch to or from matching usage
 --   problem actions: add_sink(player, item), add_split(player, item), and optionally
 --     mark_external(player, item), anchor(player, line_id), show_item(player, item)
 return {}

@@ -352,6 +352,79 @@ t.test("plan: two designs for one item need a plan split", function()
   t.near(r.counts[b.id], 1)
 end)
 
+t.test("plan: a split that matches usage follows copies, edits and new factories", function()
+  fake.reset()
+  local ore = "item/iron-ore"
+  local a = custom_factory("mine A", { [ore] = 30 }, 4) -- 120/s built
+  local b = custom_factory("mine B", { [ore] = 45 }, 2) -- 90/s built
+  sink("smelting", { [ore] = 150 * 60 })
+  local p = model.plan()
+  p.splits = { { item = ore, shares = { [a.id] = 50, [b.id] = 50 }, match_usage = true } }
+  local r = plan.rebalance()
+  t.eq(r.status, "EXACT")
+  -- 150 of 210/s built: both at 5/7, whatever the shares said
+  t.near(p.splits[1].shares[a.id], 100 * 120 / 210)
+  t.near(r.counts[a.id], 4 * 150 / 210)
+  t.near(r.counts[b.id], 2 * 150 / 210)
+  -- another copy of B: 255/s built
+  model.set_copies(b.id, 3, 1)
+  r = plan.rebalance()
+  t.near(r.counts[a.id] / 4, 150 / 255)
+  t.near(r.counts[b.id] / 3, 150 / 255)
+  -- B upgraded to 60/s per copy: saved, the split follows
+  local edited = fp_util.deep_copy(model.get(b.id))
+  edited.lines[1].flow = { [ore] = 60 }
+  plan.balance_factory(edited)
+  assert(model.save_factory(edited, { revision = edited.revision }, 1))
+  r = plan.rebalance()
+  t.near(r.counts[a.id] / 4, 150 / 300)
+  t.near(r.counts[b.id] / 3, 150 / 300)
+  -- a third mine joins without a prompt
+  local c = custom_factory("mine C", { [ore] = 30 }, 5)
+  r = plan.rebalance()
+  t.eq(r.status, "EXACT")
+  t.truthy(p.splits[1].shares[c.id])
+  t.near(r.counts[c.id] / 5, 150 / 450)
+  -- a mine with no copies gets nothing; none built at all counts one copy each
+  model.set_copies(c.id, 0, 1)
+  t.near(plan.rebalance().counts[c.id], 0)
+  model.set_copies(a.id, 0, 1)
+  model.set_copies(b.id, 0, 1)
+  r = plan.rebalance()
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[a.id], r.counts[c.id])
+  t.near(r.counts[a.id] * 30 + r.counts[b.id] * 60 + r.counts[c.id] * 30, 150)
+end)
+
+t.test("plan: a split set by hand keeps its shares when copies change", function()
+  fake.reset()
+  local ore = "item/iron-ore"
+  local a = custom_factory("mine A", { [ore] = 30 }, 4)
+  local b = custom_factory("mine B", { [ore] = 45 }, 2)
+  sink("smelting", { [ore] = 150 * 60 })
+  model.plan().splits = { { item = ore, shares = { [a.id] = 50, [b.id] = 50 } } }
+  model.set_copies(b.id, 3, 1)
+  local r = plan.rebalance()
+  t.near(model.plan().splits[1].shares[a.id], 50)
+  t.near(r.counts[a.id] * 30, 75)
+  t.near(r.counts[b.id] * 45, 75)
+end)
+
+t.test("plan: a sink's scale multiplies its demand; 0 asks for nothing", function()
+  fake.reset()
+  local a = custom_factory("plates", { ["item/iron-plate"] = 1 }, 1)
+  local s = sink("use", { ["item/iron-plate"] = 180 }) -- 3/s
+  t.near(plan.rebalance().counts[a.id], 3)
+  model.get(s.id).scale = 0.4
+  local r = plan.rebalance()
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[a.id], 1.2)
+  model.get(s.id).scale = 0
+  r = plan.rebalance()
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[a.id], 0)
+end)
+
 t.test("plan: removed mod marks factory invalid, keeps data, drops it from the plan", function()
   fake.reset()
   local f = draft.from_scan(gear_scan())

@@ -559,6 +559,19 @@ function editor.build(player, parent, ctx)
     local explain = pane.add({ type = "label", caption = L("sink-explain"), style = "info_label" })
     explain.style.single_line = false
     explain.style.maximal_width = window.SINK_WIDTH - 40
+    -- scale: how much of the rates the plan delivers (1 as typed, 0 none)
+    local scale = plan.sink_scale(f)
+    local bar = pane.add({ type = "flow", direction = "horizontal" })
+    bar.style.vertical_align = "center"
+    bar.style.horizontal_spacing = 8
+    bar.add({ type = "label", caption = L("sink-scale"), tooltip = L("sink-scale-tooltip") })
+    local slider = bar.add({ type = "slider", name = "stoich_scale_slider", minimum_value = 0, maximum_value = 1, value = scale,
+      value_step = 0.05, enabled = ctx.can_edit, tags = { fp = "sink_scale" } })
+    slider.style.width = 200
+    local field = bar.add({ type = "textfield", name = "stoich_scale_field", text = fp_util.format_count(scale), numeric = true,
+      allow_decimal = true, lose_focus_on_confirm = true, enabled = ctx.can_edit, tags = { fp = "sink_scale_field" } })
+    field.style.width = 64
+    field.style.horizontal_align = "right"
     rows.build(pane, player, "sink", ctx, ctx.can_edit, { stretch = true })
   else
     -- one column: recipe lines, splits, then the items
@@ -665,6 +678,30 @@ handlers.editor_name = { text = with_draft(function(player, element, event, d)
   d.factory.name = element.text
   editor.update_results(player)
 end) }
+
+-- The scale row updates in place (no rebuild), so a dragged slider keeps working;
+-- 1 is stored as nothing, so dragging back to 1 leaves the sink unchanged.
+local function set_scale(d, value)
+  value = math.max(0, math.min(1, value))
+  d.factory.scale = value < 1 and value or nil
+  return value
+end
+
+handlers.sink_scale = { value = with_draft(function(player, element, event, d)
+  local value = set_scale(d, element.slider_value)
+  local field = element.parent.stoich_scale_field
+  if field then field.text = fp_util.format_count(value) end
+end) }
+
+local function typed_scale(player, element, event, d)
+  local v = fp_util.parse_number(element.text)
+  if not v then return end
+  local value = set_scale(d, v)
+  local slider = element.parent.stoich_scale_slider
+  if slider then slider.slider_value = value end
+end
+
+handlers.sink_scale_field = { text = with_draft(typed_scale), confirmed = with_draft(typed_scale) }
 
 handlers.editor_icon = { elem = with_draft(function(player, element, event, d)
   local v = element.elem_value

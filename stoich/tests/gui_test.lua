@@ -235,6 +235,61 @@ local function add_sink(p, item, per_min)
   mock.click(p, mock.named(scr(p), "stoich_save"))
 end
 
+t.test("gui: a sink's scale sets what the plan delivers", function()
+  local p = boot()
+  local plates = custom_factory("plates", { ["item/iron-plate"] = 1 }) -- 60/min a copy
+  add_sink(p, "iron-plate", 120)
+  local sink
+  for id, f in pairs(storage.plans.main.factories) do if f.kind == "sink" then sink = id end end
+  t.near(storage.plans.main.result.counts[plates.id], 2)
+  go(p, "plan")
+  click(p, "fac_edit", { id = sink })
+  local slider = mock.named(scr(p), "stoich_scale_slider")
+  t.eq(slider.slider_value, 1, "as typed")
+  mock.slide(p, slider, 0.5)
+  t.truthy(slider.valid, "the slider survives a drag")
+  t.eq(mock.named(scr(p), "stoich_scale_field").text, "0.5")
+  t.truthy(require("scripts.draft").is_dirty(draft_of(p)), "an unsaved change")
+  mock.type_text(p, mock.named(scr(p), "stoich_scale_field"), "0.25")
+  t.near(slider.slider_value, 0.25)
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.near(storage.plans.main.factories[sink].scale, 0.25)
+  t.near(storage.plans.main.result.counts[plates.id], 0.5)
+  t.truthy(mock.text(win(p)):find("<stoich.sink-mark-scale>", 1, true), "the plan row shows the scale")
+  -- back to 1: stored as nothing, the sink as it was
+  click(p, "fac_edit", { id = sink })
+  mock.slide(p, mock.named(scr(p), "stoich_scale_slider"), 1)
+  t.eq(draft_of(p).factory.scale, nil)
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.near(storage.plans.main.result.counts[plates.id], 2)
+end)
+
+t.test("gui: an item icon in the plan opens statistics; a closed child window sorts the plan afresh", function()
+  local p = boot()
+  local a = custom_factory("a iron", { ["item/iron-plate"] = 1 })
+  local b = custom_factory("b copper", { ["item/copper-plate"] = 1 })
+  add_sink(p, "iron-plate", 120)
+  local sink
+  for id, f in pairs(storage.plans.main.factories) do if f.kind == "sink" then sink = id end end
+  storage.plans.main.factories[sink].sink_items[2] = { key = "item/copper-plate", rate = 2 }
+  require("scripts.plan").balance_factory(storage.plans.main.factories[sink])
+  require("scripts.gui.window").plan_changed()
+  go(p, "plan")
+  local function order() return table.concat(storage.players[1].plan_order, ",") end
+  t.eq(order(), a.id .. "," .. b.id, "equal shortage: by name")
+  -- a gets more than it needs: it stays put while the player clicks
+  for _ = 1, 4 do click(p, "plan_copies", { id = a.id, delta = 1 }, win(p)) end
+  t.eq(order(), a.id .. "," .. b.id)
+  -- the item icon opens statistics on it; closing it sorts at once, not on the next click
+  click(p, "plan_item", { item = "item/copper-plate" }, win(p))
+  t.truthy(stats_win(p), "statistics window")
+  t.eq(storage.players[1].expanded["item/copper-plate"], true)
+  click(p, "child_close", nil, stats_win(p))
+  t.eq(order(), b.id .. "," .. a.id, "short first")
+  click(p, "plan_copies", { id = a.id, delta = 1 }, win(p))
+  t.eq(order(), b.id .. "," .. a.id, "no jump on the next click")
+end)
+
 t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins", function()
   local p = boot()
   local id = saved_oil(p)
@@ -355,8 +410,30 @@ t.test("gui: plan split between two factories, slider in its window", function()
   t.eq(storage.plans.main.result.status, "NEEDS_SPLIT")
   click(p, "problem_split", { mode = "plan" })
   t.eq(storage.plans.main.result.status, "EXACT")
+  local split = storage.plans.main.splits[1]
+  t.truthy(split.match_usage, "a new plan split matches usage")
+  local ids = {}
+  for id in pairs(split.shares) do ids[#ids + 1] = id end
+  table.sort(ids)
+  -- two alike designs, one copy each: half each; the sliders show it, frozen
+  t.near(split.shares[ids[1]], 50)
+  t.eq(mock.find(scr(p), "split_slider", { mode = "plan" }).enabled, false)
+  t.eq(mock.find(scr(p), "split_share", { mode = "plan" }).enabled, false)
+  t.truthy(mock.text(split_win(p)):find("<stoich.needed-count>", 1, true), "what each factory needs")
+  -- a second copy of the first design: the shares follow, both run at the same usage
+  click(p, "child_close", nil, split_win(p))
+  click(p, "plan_copies", { id = ids[1], delta = 1 }, win(p))
+  split = storage.plans.main.splits[1]
+  t.near(split.shares[ids[1]], 200 / 3)
+  local r = storage.plans.main.result
+  t.near(r.counts[ids[1]] / 2, r.counts[ids[2]] / 1)
+  -- unticked, the shares stay and the sliders work again
+  click(p, "plan_split_edit")
+  click(p, "split_match_usage", { mode = "plan" }, split_win(p))
+  t.eq(storage.plans.main.splits[1].match_usage, nil)
+  t.near(storage.plans.main.splits[1].shares[ids[1]], 200 / 3)
   local slider = mock.find(scr(p), "split_slider", { mode = "plan" })
-  t.truthy(slider)
+  t.truthy(slider and slider.enabled)
   mock.slide(p, slider, 80)
   t.truthy(slider.valid, "plan slider survives")
   t.near(storage.plans.main.splits[1].shares[slider.tags.line], 80)
@@ -1012,21 +1089,27 @@ t.test("gui: a plan split is a row of the plan; its pencil opens the split windo
   t.truthy(p.opened == split_win(p))
   local text = mock.text(split_win(p))
   t.truthy(text:find("#", 1, true), "same-named factories get their id")
-  t.truthy(text:find("<stoich.needed-count>", 1, true), "needed copies per factory")
   click(p, "child_close", nil, split_win(p))
   t.eq(split_win(p), nil)
   -- the plan lists the split as a row: a "split" mark, one chip per factory with its share
   t.eq(mock.find(win(p), "split_slider", { mode = "plan" }), nil, "no sliders in the main window")
-  t.truthy(mock.text(win(p)):find("<stoich.split-mark>", 1, true))
-  local shares = {}
-  for _, e in ipairs(mock.all(win(p))) do
-    if e.type == "sprite-button" and e.style.name == "slot_button" and e.parent.children[1].type == "sprite-button"
-      and #e.parent.children == 2 and e.parent.children[2].type == "sprite-button" then shares[#shares + 1] = e.number end
+  t.truthy(mock.text(win(p)):find("<stoich.split-mark-usage>", 1, true), "a new plan split matches usage")
+  local function chips()
+    local out = {}
+    for _, e in ipairs(mock.all(win(p))) do
+      -- a split row's chips: a flow of factory icons (and its usage), no "→" as in a recipe
+      local kids, arrow = e.parent and e.parent.children or {}, false
+      for _, k in ipairs(kids) do if k.type == "label" and k.caption == "→" then arrow = true end end
+      if e.type == "sprite-button" and e.style.name == "slot_button" and not arrow then out[#out + 1] = e end
+    end
+    return out
   end
-  t.eq(#shares, 2, "two factory chips")
-  t.near(shares[1] + shares[2], 100)
-  -- the pencil opens the window again; a dragged slider survives, the row follows
+  t.eq(#chips(), 2, "one icon per factory")
+  t.eq(chips()[1].number + chips()[2].number, 100, "whole percents")
+  -- the pencil opens the window again; set by hand, a dragged slider survives, the row follows
   click(p, "plan_split_edit")
+  click(p, "split_match_usage", { mode = "plan" }, split_win(p))
+  t.near(chips()[1].number + chips()[2].number, 100) -- by hand the shares show
   local slider = mock.find(split_win(p), "split_slider", { mode = "plan" })
   mock.slide(p, slider, 25)
   t.truthy(slider.valid, "slider survives")
@@ -1035,6 +1118,7 @@ t.test("gui: a plan split is a row of the plan; its pencil opens the split windo
     if e.type == "sprite-button" and e.number and math.abs(e.number - 25) < 1e-9 then found = true end
   end
   t.truthy(found, "the plan row shows the new share")
+  t.truthy(mock.text(win(p)):find("<stoich.split-mark>", 1, true), "set by hand")
   -- removing the split from its row closes its window
   click(p, "split_remove", { mode = "plan" }, win(p))
   t.eq(#storage.plans.main.splits, 0)

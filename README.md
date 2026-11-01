@@ -24,9 +24,8 @@ live by every player in multiplayer. Krastorio 2 is the main test case; any mod 
   every sink, split and factory with its recipe (what one copy takes in and sends out), how
   many copies you have of how many are **needed**, and what is still **to build**.
 - **Belts.** Every flow shows how full the slowest belt that carries it is, and that belt's
-  icon when it is faster than the basic one; belts are read from your game (Krastorio 2's
-  included). A factory whose one copy needs more than the best allowed belt is flagged.
-  Fluids are never limited.
+  icon; belts are read from your game (Krastorio 2's included). A factory whose one copy
+  needs more than the best allowed belt is flagged. Fluids are never limited.
 - **Statistics.** Every item in the plan with its total flow, belts needed for it, and
   which factories make and use it.
 - **Multiplayer.** Everyone sees the same plan; edits are private drafts until saved; a
@@ -57,13 +56,19 @@ on the shortcut bar).
 3. **Save**, then set **Copies** (− / + in the plan) to how many of that block you have.
 4. **Add sinks** (**New sink**) for what the plan must deliver: science per
    minute, fuel for boilers, items you ship elsewhere. Capturing only boilers or generators
-   creates a sink with their fuel filled in.
+   creates a sink with their fuel filled in. A sink's **Scale** (0 to 1) sets how much of
+   its rates the plan delivers: 0.5 for half, 0 to keep it in the plan asking for nothing.
 5. **Read the plan.** Each factory shows its copies against the need (`2 of 3.05`) and
    what is still to build: a red `+1.1`, or a green ✓ when demand is covered. Factories are
-   sorted by shortage when the window opens. If two factories make the same item, the plan
-   asks for a split; it shows as a row with each factory's share, and its pencil opens the
-   sliders. The plan is closed: everything it uses must be made by one of its factories,
-   and a surplus can go to a sink with one click. **Statistics** shows every item's flow.
+   sorted by shortage when the plan opens or comes back from the editor, statistics or a
+   split, and keep their place while you click − / +. Clicking an item opens it in
+   Statistics. If two factories make the same item, the plan asks for a split; it shows as
+   a row with each factory's share, and its pencil opens it. A new plan split **matches
+   usage**: every factory in it runs at the same share of its built copies (two ore mines,
+   say), so the shares follow copies, edits and new factories making the item; its row
+   says "match". Untick it to set the shares by hand with the sliders. The plan is closed:
+   everything it uses must be made by one of its factories, and a surplus can go to a sink
+   with one click. **Statistics** shows every item's flow.
 
 Esc or E closes the open window: the editor (asking first if there are unsaved changes),
 statistics or a split go back to the plan, then the plan itself closes.

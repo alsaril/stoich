@@ -1,7 +1,8 @@
 -- Split cards, shared by the factory editor (mode "factory") and the split window
 -- (mode "plan"). A card shows the split item with a dropdown of shared items,
 -- then one row per line: icon, name, slider and % field. The last line shows
--- 100% minus the rest.
+-- 100% minus the rest. A plan split can match usage instead: its shares follow the
+-- built copies, and its sliders only show them.
 
 local common = require("scripts.gui.common")
 local scopes = require("scripts.gui.scopes")
@@ -41,6 +42,11 @@ function splits.build_card(parent, player, mode, index, split)
   common.spacer(head)
   head.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("split-remove"),
     enabled = enabled, tags = { fp = "split_remove", mode = mode, index = index } })
+  local matched = target.match_usage and split.match_usage
+  if target.match_usage then
+    card.add({ type = "checkbox", caption = L("split-match-usage"), tooltip = L("split-match-usage-tooltip"), state = matched or false,
+      enabled = enabled, tags = { fp = "split_match_usage", mode = mode, index = index } })
+  end
 
   local extra = target.extra_of
   local names = target.names(player)
@@ -54,12 +60,13 @@ function splits.build_card(parent, player, mode, index, split)
     name.style.maximal_width = 180
     local share = split.shares[id] or 0
     if i < #ids then
+      -- matching usage the shares follow the copies: shown, not set
       local slider = t.add({ type = "slider", name = "s_" .. id, minimum_value = 0, maximum_value = 100, value = share,
-        value_step = 0.5, enabled = enabled, tags = { fp = "split_slider", mode = mode, index = index, line = id } })
+        value_step = 0.5, enabled = enabled and not matched, tags = { fp = "split_slider", mode = mode, index = index, line = id } })
       slider.style.width = 140
       -- shown with at most 2 decimals; the share itself keeps full precision
       local field = t.add({ type = "textfield", name = "f_" .. id, text = fp_util.format_count(share), numeric = true,
-        allow_decimal = true, lose_focus_on_confirm = true, enabled = enabled,
+        allow_decimal = true, lose_focus_on_confirm = true, enabled = enabled and not matched,
         tags = { fp = "split_share", mode = mode, index = index, line = id } })
       field.style.width = 64
       field.style.horizontal_align = "right"
@@ -104,6 +111,8 @@ local function apply_share(player, element, value)
   local target = scopes[tags.mode]
   if not target.can_edit(player) then return end
   local holder = target.holder(player)
+  local split = holder.splits[tags.index]
+  if not split or (target.match_usage and split.match_usage) then return end
   draft.set_share(holder, tags.index, tags.line, value, target.units(player))
   target.changed(player, false, tags.index, tags.line)
 end
@@ -136,6 +145,18 @@ handlers.split_item = { selection = function(player, element, event)
   draft.switch_split_item(target.holder(player), tags.index, item, target.units(player), target.counts(player))
   target.changed(player, true, tags.index)
 end }
+
+handlers.split_match_usage = function(player, element)
+  local tags = element.tags
+  local target = scopes[tags.mode]
+  if not (target.match_usage and target.can_edit(player)) then return end
+  local split = target.holder(player).splits[tags.index]
+  if not split then return end
+  -- the plan balance works the shares out; unticked, they stay where they are
+  split.match_usage = element.state or nil
+  target.log_match_usage(player, split)
+  target.changed(player, true, tags.index)
+end
 
 handlers.split_remove = function(player, element)
   local tags = element.tags

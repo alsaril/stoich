@@ -46,6 +46,11 @@ function plan.sink_flow(sink)
   return flow
 end
 
+--- How much of a sink's rates the plan delivers, 0 to 1 (as typed when not set).
+function plan.sink_scale(sink)
+  return sink.scale or 1
+end
+
 --- Balance one factory (or sink) and store the result on it.
 function plan.balance_factory(factory)
   local result
@@ -101,14 +106,38 @@ function plan.units()
   return units, excluded
 end
 
---- Re-run the plan balance and cache it in the plan. Sinks are the anchors; the plan
---- is closed (nothing comes from or goes outside it).
+--- Shares of a split that matches usage: each factory's built capacity of the item
+--- (copies × output per copy), so all of them run at the same share of what is built.
+--- Every unit that makes the item takes part, a new one too; when none is built, each
+--- counts as one copy.
+function plan.usage_shares(item, units)
+  local ids, flows, counts, built = {}, {}, {}, false
+  for _, unit in ipairs(units) do
+    if (unit.flow[item] or 0) > 0 then
+      ids[#ids + 1] = unit.id
+      flows[unit.id] = unit.flow
+      counts[unit.id] = unit.count or 0
+      if counts[unit.id] > 0 then built = true end
+    end
+  end
+  if not built then
+    for _, id in ipairs(ids) do counts[id] = 1 end
+  end
+  return solver.shares_from_counts(item, ids, flows, counts)
+end
+
+--- Re-run the plan balance and cache it in the plan. Sinks are the anchors, at their
+--- scale; the plan is closed (nothing comes from or goes outside it).
 function plan.rebalance()
   local p = model.plan()
   local lines, excluded = plan.units()
+  for _, split in ipairs(p.splits) do
+    if split.match_usage then split.shares = plan.usage_shares(split.item, lines) end
+  end
   local anchors = {}
   for _, line in ipairs(lines) do
-    if p.factories[line.id].kind == "sink" then anchors[line.id] = 1 end
+    local f = p.factories[line.id]
+    if f.kind == "sink" then anchors[line.id] = plan.sink_scale(f) end
   end
   local r = solver.balance(lines, anchors, p.splits, {}, {})
   r.excluded = excluded

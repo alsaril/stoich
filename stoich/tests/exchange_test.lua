@@ -59,7 +59,7 @@ t.test("exchange: plan import remaps split factory ids", function()
   end
   local a = custom("a", { ["item/electronic-circuit"] = 1 })
   local b = custom("b", { ["item/electronic-circuit"] = 2 })
-  model.plan().splits = { { item = "item/electronic-circuit", shares = { [a.id] = 25, [b.id] = 75 } } }
+  model.plan().splits = { { item = "item/electronic-circuit", shares = { [a.id] = 25, [b.id] = 75 }, match_usage = true } }
   local data = through_json(exchange.pack({ a, b }))
 
   fake.reset() -- another save
@@ -71,6 +71,7 @@ t.test("exchange: plan import remaps split factory ids", function()
   t.truthy(split)
   t.near(split.shares[added[1].id], 25)
   t.near(split.shares[added[2].id], 75)
+  t.eq(split.match_usage, true, "still matches usage")
 end)
 
 t.test("exchange: rejects strings that are not ours", function()
@@ -98,4 +99,22 @@ t.test("exchange: malformed strings are rejected without errors", function()
       for _, e in ipairs(unpacked.factories) do plan.balance_factory(e.factory) end
     end
   end
+end)
+
+t.test("exchange: a sink keeps its scale; odd values are checked", function()
+  fake.reset()
+  local s = draft.new_sink()
+  s.sink_items[1] = { key = "item/iron-plate", rate = 2 }
+  s.scale = 0.4
+  local copy = exchange.deserialize_factory(through_json(exchange.serialize_factory(s)))
+  t.near(copy.scale, 0.4)
+  s.scale = nil
+  t.eq(exchange.deserialize_factory(through_json(exchange.serialize_factory(s))).scale, nil, "1 stays as nothing")
+  local data = through_json(exchange.serialize_factory(s))
+  data.scale = -3
+  t.eq(exchange.deserialize_factory(data).scale, 0)
+  data.scale = 7
+  t.eq(exchange.deserialize_factory(data).scale, nil)
+  data.scale = "x"
+  t.eq(exchange.deserialize_factory(data).scale, nil)
 end)

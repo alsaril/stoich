@@ -48,7 +48,7 @@ function exchange.serialize_factory(f)
   return {
     id = f.id, name = f.name, icon = f.icon, kind = f.kind, copies = f.copies,
     lines = lines, anchors = pairs_of(f.anchors), splits = splits, external = key_list(f.external),
-    sink_items = sink_items, next_line_id = f.next_line_id, removed_keys = key_list(f.removed_keys),
+    sink_items = sink_items, scale = f.kind == "sink" and f.scale or nil, next_line_id = f.next_line_id, removed_keys = key_list(f.removed_keys),
   }
 end
 
@@ -134,6 +134,8 @@ function exchange.deserialize_factory(s)
         f.sink_items[#f.sink_items + 1] = { key = key, rate = math.abs(num(row.rate) or 0), fluid = fluid }
       end
     end
+    local scale = num(s.scale)
+    if scale and scale < 1 then f.scale = math.max(0, scale) end
     return f
   end
   -- line ids must be unique positive integers: others get a new id after the highest
@@ -174,7 +176,9 @@ end
 function exchange.pack(factories)
   local out = { fp = exchange.FORMAT, kind = "plan", factories = {}, splits = {} }
   for _, f in ipairs(factories) do out.factories[#out.factories + 1] = exchange.serialize_factory(f) end
-  for _, s in ipairs(model.plan().splits) do out.splits[#out.splits + 1] = { item = s.item, shares = pairs_of(s.shares) } end
+  for _, s in ipairs(model.plan().splits) do
+    out.splits[#out.splits + 1] = { item = s.item, shares = pairs_of(s.shares), match_usage = s.match_usage or nil }
+  end
   return out
 end
 
@@ -205,7 +209,7 @@ function exchange.unpack_unchecked(data)
         local v = type(pair) == "table" and num(pair[2])
         if id and v then shares[id] = v end
       end
-      out.splits[#out.splits + 1] = { item = item, shares = shares }
+      out.splits[#out.splits + 1] = { item = item, shares = shares, match_usage = sp.match_usage == true or nil }
     end
   end
   return out
@@ -235,7 +239,7 @@ function exchange.add_to_plan(unpacked, player_index)
         n = n + 1
       end
     end
-    if n >= 2 then p.splits[#p.splits + 1] = { item = sp.item, shares = shares } end
+    if n >= 2 then p.splits[#p.splits + 1] = { item = sp.item, shares = shares, match_usage = sp.match_usage } end
   end
   return added
 end
