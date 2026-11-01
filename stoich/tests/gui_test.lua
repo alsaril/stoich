@@ -290,6 +290,26 @@ t.test("gui: an item icon in the plan opens statistics; a closed child window so
   t.eq(order(), b.id .. "," .. a.id, "no jump on the next click")
 end)
 
+t.test("gui: a save that changes the shortages sorts the plan by the new ones", function()
+  local p = boot()
+  local a = custom_factory("a iron", { ["item/iron-plate"] = 1 })
+  local b = custom_factory("b copper", { ["item/copper-plate"] = 1 })
+  add_sink(p, "iron-plate", 120) -- a short by 1
+  add_sink(p, "copper-plate", 240) -- b short by 3
+  local copper_sink
+  for id, f in pairs(storage.plans.main.factories) do
+    if f.kind == "sink" and f.sink_items[1].key == "item/copper-plate" then copper_sink = id end
+  end
+  go(p, "plan")
+  local function order() return table.concat(storage.players[1].plan_order, ",") end
+  t.eq(order(), b.id .. "," .. a.id, "most short first")
+  -- a quarter of the copper: b needs 1 copy, covered; a is short now
+  click(p, "fac_edit", { id = copper_sink })
+  mock.slide(p, mock.named(scr(p), "stoich_scale_slider"), 0.25)
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.eq(order(), a.id .. "," .. b.id, "sorted by the saved scale")
+end)
+
 t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins", function()
   local p = boot()
   local id = saved_oil(p)

@@ -871,8 +871,9 @@ local function do_save(player, force)
     editor.conflict_dialog(player, result)
     return
   end
-  close_editor(player)
+  -- balance first: closing the editor sorts the plan, by the shortages after this save
   window.plan_changed()
+  close_editor(player)
 end
 
 handlers.editor_save = function(player)
