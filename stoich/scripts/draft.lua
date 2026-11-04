@@ -315,7 +315,7 @@ function draft.apply_rescan(f, scan)
   for key in pairs(f.removed_keys or {}) do seen[key] = true end
   for _, line in ipairs(f.lines) do
     if line.assigned_from then
-      -- machines that got a recipe in the editor are still idle on the map: follow their count
+      -- machines that got a recipe in the editor (before 0.3.1) are still idle on the map: follow their count
       seen[line.assigned_from] = true
       local idle = by_key[line.assigned_from]
       if idle and not line.overridden then

@@ -18,7 +18,8 @@ window.SIZE = { width = 960, height = 680 }
 window.EDITOR_WIDTH = 900
 window.SINK_WIDTH = 460
 
--- Builds the main window's content, set by the plan module: builder(player, container, ctx)
+-- Builds the main window's content, set by the plan module: builder(player, container, ctx);
+-- called again on every refresh with the same container, it rebuilds what it made in place
 window.builder = nil
 
 -- Child windows by frame name, registered by their modules:
@@ -227,12 +228,11 @@ function window.toggle(player)
   if get(player) then window.close_by_player(player) else window.open(player) end
 end
 
---- Rebuild the main window's content.
+--- Rebuild the main window's content (the builder keeps the scroll position).
 function window.refresh(player, ctx)
   local w = get(player)
   if not w then return end
   local container = w.stoich_inner.stoich_content
-  container.clear()
   if window.builder then window.builder(player, container, ctx or common.ctx(player)) end
 end
 

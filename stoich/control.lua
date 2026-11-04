@@ -347,5 +347,12 @@ if debug_setting and debug_setting.value then
     factories = function()
       return model.plan().factories
     end,
+    --- Scroll the plan list to its end (mods can't scroll each other's elements).
+    scroll_plan = function(player_index)
+      local w = window.get(game.get_player(player_index))
+      local pane = w and common.find(w, "stoich_plan_pane")
+      if pane then pane.scroll_to_bottom() end
+      return pane ~= nil
+    end,
   })
 end

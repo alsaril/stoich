@@ -145,6 +145,7 @@ end
 local function build_table(parent, player, r, ctx)
   local state = model.player(player.index)
   if #model.factory_ids() == 0 then
+    parent.clear()
     -- the empty plan explains the three steps
     local guide = parent.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
     guide.add({ type = "label", caption = L("empty-title"), style = "caption_label" })
@@ -154,7 +155,14 @@ local function build_table(parent, player, r, ctx)
     end
     return
   end
-  local box = parent.add({ type = "flow", name = "stoich_plan_table_box", direction = "vertical" })
+  -- kept between refreshes: the filter field and the scroll position stay as they are
+  local box = parent.stoich_plan_table_box
+  if box then
+    plan_window.fill_rows(player, box.stoich_plan_rows, r, ctx)
+    return
+  end
+  parent.clear()
+  box = parent.add({ type = "flow", name = "stoich_plan_table_box", direction = "vertical" })
   local filters = box.add({ type = "flow", direction = "horizontal" })
   filters.style.vertical_align = "center"
   filters.add({ type = "label", caption = L("filter") })
@@ -280,12 +288,17 @@ local function plan_cells(t, f, r, ctx)
 end
 
 function plan_window.fill_rows(player, holder, r, ctx)
-  holder.clear()
   local state = model.player(player.index)
   local filter = state.filter or ""
-  local pane = holder.add({ type = "scroll-pane", style = "scroll_pane" })
-  pane.style.vertically_stretchable = true
-  pane.style.horizontally_stretchable = true
+  -- the scroll pane outlives its rows, so − / + doesn't scroll the list back to the top
+  local pane = holder.stoich_plan_pane
+  if pane then
+    pane.clear()
+  else
+    pane = holder.add({ type = "scroll-pane", name = "stoich_plan_pane", style = "scroll_pane" })
+    pane.style.vertically_stretchable = true
+    pane.style.horizontally_stretchable = true
+  end
   -- widths: nil = natural, true = takes the spare width (the flow, so it starts right after the name)
   -- the recipe column gets the room: long recipes show up to MAX_CHIPS slots
   local heads = { { "", 24 }, { "col-name" }, { "col-recipe", true }, { "col-copies", 130 }, { "col-to-build", 50 }, { "", 24 }, { "" } }
@@ -369,7 +382,7 @@ function plan_window.fill_rows(player, holder, r, ctx)
   for _, id in ipairs(sinks) do factory_row(id) end
   for i, split in ipairs(model.plan().splits) do split_row(i, split) end
   for _, id in ipairs(rest) do factory_row(id) end
-  if shown == 0 then holder.add({ type = "label", caption = L("plan-filtered") }) end
+  if shown == 0 then pane.add({ type = "label", caption = L("plan-filtered") }) end
 end
 
 -- A long list shows its first rows only, so the factory table keeps its room.
@@ -397,19 +410,27 @@ local function build_problems(box, player, r, ctx)
   end
 end
 
-local function section(parent, name)
-  local box = parent.add({ type = "flow", name = name, direction = "vertical" })
+--- A section of the window, made on the first build and reused after (the table keeps
+--- its scroll position); cleared unless the builder keeps parts of it.
+local function section(parent, name, keep)
+  local box = parent[name]
+  if box then
+    if not keep then box.clear() end
+    return box
+  end
+  box = parent.add({ type = "flow", name = name, direction = "vertical" })
   box.style.vertical_spacing = 6
   box.style.horizontally_stretchable = true
   return box
 end
 
+--- Build the main window's content, or rebuild it in place.
 function plan_window.build(player, parent, ctx)
   local r = result()
   build_header(section(parent, "stoich_plan_header"), player, r, ctx)
   -- problems first: they are what needs doing
   build_problems(section(parent, "stoich_plan_problems"), player, r, ctx)
-  build_table(section(parent, "stoich_plan_main"), player, r, ctx)
+  build_table(section(parent, "stoich_plan_main", true), player, r, ctx)
 end
 
 window.builder = plan_window.build

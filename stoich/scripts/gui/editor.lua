@@ -443,28 +443,7 @@ local function build_lines(parent, player, d, ctx)
       local m = common.machine_sprite(line)
       if m then t.add({ type = "sprite", sprite = m }) else t.add({ type = "empty-widget" }) end
       t.add({ type = "label", caption = fp_util.format_count(line.count) })
-      if line.kind == "recipe" then
-        -- only recipes this machine can craft
-        local machine = line.machine and prototypes.entity[line.machine]
-        local filters
-        if machine and machine.crafting_categories then
-          filters = {}
-          for _, cat in ipairs(fp_util.sorted_keys(machine.crafting_categories)) do
-            filters[#filters + 1] = { filter = "category", category = cat }
-          end
-        end
-        -- labelled, so it doesn't read as another empty field
-        local assign = t.add({ type = "flow", direction = "horizontal" })
-        assign.style.vertical_align = "center"
-        assign.style.left_margin = 16
-        assign.add({ type = "label", caption = L("assign-recipe-label") })
-        local picker = assign.add({ type = "choose-elem-button", elem_type = "recipe", elem_filters = filters, enabled = ctx.can_edit,
-          tooltip = L("assign-recipe"), tags = { fp = "editor_assign_recipe", line = id } })
-        picker.style.size = 28
-      else
-        t.add({ type = "empty-widget" })
-      end
-      for _ = 1, 7 do t.add({ type = "empty-widget" }) end
+      for _ = 1, 8 do t.add({ type = "empty-widget" }) end
     else
       t.add({ type = "sprite", sprite = common.line_sprite(line), tooltip = common.flow_tooltip(ctx, line.flow, { "", line_name(line), " ", L("per-machine") }) })
       -- the Machine column already tells same-recipe lines apart; split cards use the suffixed names
@@ -754,34 +733,6 @@ handlers.editor_delete_line = with_draft(function(player, element, _, d)
   rebalance(player)
   editor.rebuild(player)
 end)
-
-handlers.editor_assign_recipe = { elem = with_draft(function(player, element, event, d)
-  local line = find_line(d, element.tags.line)
-  local name = element.elem_value
-  if not (line and name) then return end
-  local recipe = prototypes.recipe[name]
-  local machine = line.machine and prototypes.entity[line.machine]
-  if not (recipe and machine) then return end
-  local can = false
-  for _, m in ipairs(scanner.machines_for_recipe(recipe)) do
-    if m == line.machine then can = true end
-  end
-  if not can then
-    player.print(L("recipe-not-for-machine"))
-    editor.rebuild(player)
-    return
-  end
-  line.recipe = name
-  line.idle = nil
-  line.manual = true
-  line.prod_pct = scanner.research_productivity_pct(player.force, name)
-  line.flow = scanner.manual_recipe_flow(recipe, machine, 0, line.prod_pct)
-  -- Rescan won't touch this line, nor re-add the idle machines it came from.
-  line.assigned_from = line.key
-  line.key = nil
-  rebalance(player)
-  editor.rebuild(player)
-end) }
 
 -- Bottom actions ---------------------------------------------------------------------------------------
 

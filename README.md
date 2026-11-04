@@ -14,7 +14,7 @@ live by every player in multiplayer. Krastorio 2 is the main test case; any mod 
 - **Capture from the map.** Drag the capture tool over machines: assemblers, furnaces,
   rocket silos, mining drills, pumpjacks and offshore pumps become recipe lines with rates
   read from the game, including modules, beacons and productivity research (quality isn't
-  modelled yet). Machines with no recipe are listed so you can assign one or drop them.
+  modelled yet). Machines with no recipe are listed, left out of the balance.
 - **Exact balancing.** Each factory is solved exactly from the lines you anchor. When
   several recipes make the same item (oil processing vs coal liquefaction), you set a
   **split** in percent; a captured build comes pre-filled with the split it was built with.

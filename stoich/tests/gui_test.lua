@@ -334,8 +334,13 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   -- 8 plastic plants make 16/s per copy at the anchored count; demand 1/s
   t.truthy(r.counts[id] > 0)
   local before = r.shortage[id]
+  local pane = mock.named(win(p), "stoich_plan_pane")
+  local filter_field = mock.find(win(p), "plan_filter")
   click(p, "plan_copies", { id = id, delta = 1 })
   t.eq(storage.plans.main.factories[id].copies, 2)
+  -- the list is refilled, not rebuilt: its scroll pane (and scroll position) stays
+  t.truthy(pane and pane.valid, "the scroll pane outlives − / +")
+  t.truthy(filter_field.valid, "so does the filter field")
   t.near(storage.plans.main.result.shortage[id], before - 1)
   -- with no copies built the whole need is short, shown with one decimal
   click(p, "plan_copies", { id = id, delta = -1 })
@@ -815,23 +820,13 @@ t.test("gui: remaining controls", function()
   t.eq(win(p), nil)
 end)
 
-t.test("gui: idle machines get a recipe; add sink fixes surpluses", function()
+t.test("gui: idle machines can be deleted; add sink fixes surpluses", function()
   local p = boot()
   capture(p, oil_build())
   local d = draft_of(p)
   local idle
   for _, l in ipairs(d.factory.lines) do if l.idle then idle = l end end
   t.truthy(idle, "idle line from the empty assembler")
-  -- an assembler can't make plastic: rejected, the line stays idle
-  mock.pick(p, mock.find(scr(p), "editor_assign_recipe", { line = idle.id }), "plastic-bar")
-  t.eq(idle.idle, true)
-  t.truthy(#p.printed > 0)
-  -- research productivity of the recipe is applied
-  mock.force.recipes["copper-cable"].productivity_bonus = 0.1
-  mock.pick(p, mock.find(scr(p), "editor_assign_recipe", { line = idle.id }), "copper-cable")
-  t.eq(idle.recipe, "copper-cable")
-  t.eq(idle.idle, nil)
-  t.near(idle.flow["item/copper-cable"], 2 * 0.75 / 0.5 * 1.1)
   click(p, "editor_delete_line", { line = idle.id })
   -- factory mode: a byproduct nobody consumes gets a void line
   mock.click(p, mock.find(scr(p), "editor_external", { item = "item/plastic-bar" }))
