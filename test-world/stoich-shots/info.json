@@ -1,0 +1,9 @@
+{
+  "name": "stoich-shots",
+  "version": "0.0.1",
+  "title": "Stoich test driver",
+  "author": "test",
+  "description": "Turns on Stoich's debug interface; on the stoich-test world, drives the GUI and takes screenshots.",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1", "stoich"]
+}

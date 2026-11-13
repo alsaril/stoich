@@ -117,6 +117,10 @@ The solver, rate formulas, storage model and the whole GUI run offline in plain 
 cd stoich && lua tests/run.lua
 ```
 
+In the real game, `test-world/` builds test worlds, drives the GUI like a player, checks
+rates against real machines and looks for desyncs, in a Factorio data folder of its own:
+see [`test-world/README.md`](test-world/README.md).
+
 GUI tests drive `control.lua` through `tests/mock_runtime.lua`, a strict stand-in for the
 game that rejects GUI parameters, styles, sprites and attribute writes the real 2.1 API
 would reject; a locale test checks every interface text key both ways. Its API data (`tests/fixtures/api.lua`) is generated from a local Factorio

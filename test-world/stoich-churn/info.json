@@ -1,0 +1,9 @@
+{
+  "name": "stoich-churn",
+  "version": "0.0.1",
+  "title": "Stoich churn driver",
+  "author": "test",
+  "description": "Turns on Stoich's debug interface; on the stoich-test world, keeps changing machines, modules, beacons and research while capturing, rescanning and editing factories (for heavy-mode desync checks).",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1", "stoich"]
+}

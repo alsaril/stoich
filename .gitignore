@@ -1,6 +1,12 @@
 .DS_Store
-# local test world, screenshots and the old calculator archive are kept out of the repo
-test-world/
+# what the in-game tests generate (test-world/README.md): the game's data folder, the
+# built world, screenshots, reports, dumps of your saves, your local paths
+test-world/.game/
+test-world/screenshots/
+test-world/stoich-test-k2.zip
+test-world/*.txt
+test-world/dump-*.json
+test-world/local.env
 calculator.zip
 .idea/
 dist/

@@ -1,0 +1,9 @@
+{
+  "name": "stoich-dump",
+  "version": "0.0.1",
+  "title": "Stoich plan dump",
+  "author": "test",
+  "description": "Writes every Stoich plan of a loaded save to script-output/dump (test only).",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1", "stoich", "stoich-shots"]
+}
