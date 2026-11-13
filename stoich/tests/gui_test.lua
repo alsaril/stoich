@@ -1402,21 +1402,19 @@ t.test("gui: voids and imports close the plan, from the toolbar or a problem", f
   click(p, "items_toggle", { item = "item/copper-plate" })
   t.truthy(mock.find(scr(p), "items_open", { id = void.id }), "the void under copper plate")
   mock.press_esc(p)
-  -- a new void from the toolbar: items only, no rates
-  click(p, "fac_new_boundary", { kind = "void" })
+  -- the toolbar's Void opens the plan's one void: items only, no rates
+  click(p, "fac_boundary", { kind = "void" })
+  t.eq(draft_of(p).factory.id, void.id, "the existing void")
   t.eq(mock.find(scr(p), "row_rate"), nil, "no rate column")
-  t.eq(mock.named(scr(p), "stoich_save").enabled, false, "needs an item")
-  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "coal" })
-  t.eq(mock.named(scr(p), "stoich_save").enabled, true)
-  t.eq(draft_of(p).factory.name, "Coal", "named after its first item")
-  t.eq(draft_of(p).factory.icon.name, "coal")
   click(p, "row_add", { mode = "boundary" })
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary", i = 2 }), { type = "item", name = "coal" })
   mock.click(p, mock.named(scr(p), "stoich_save"))
-  local voids = 0
+  local voids = {}
   for _, f in pairs(storage.plans.nauvis.factories) do
-    if f.kind == "void" then voids = voids + 1 end
+    if f.kind == "void" then voids[#voids + 1] = f end
   end
-  t.eq(voids, 2)
+  t.eq(#voids, 1)
+  t.eq(#voids[1].sink_items, 2)
   t.eq(storage.plans.nauvis.result.status, "EXACT")
   -- export / import strings are the icons now
   click(p, "fac_export_all")
@@ -1522,6 +1520,50 @@ t.test("gui: a split between a factory and an import is set by hand, the import 
   require("scripts.gui.window").plan_changed("nauvis")
   mock.slide(p, mock.find(split_win(p), "split_slider", { line = recycler.id }), 10)
   t.eq(storage.plans.nauvis.splits[1].match_usage, nil)
+end)
+
+t.test("gui: one void per plan: made on first use, then opened; an imported one joins it", function()
+  local p = boot()
+  open(p)
+  click(p, "fac_boundary", { kind = "void" })
+  t.eq(draft_of(p).factory.id, nil, "a new void")
+  t.eq(mock.named(scr(p), "stoich_save").enabled, false, "needs an item")
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "coal" })
+  t.eq(draft_of(p).factory.name, "Coal", "named after its first item")
+  t.eq(draft_of(p).factory.icon.name, "coal")
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  local id = next(storage.plans.nauvis.factories)
+  click(p, "fac_boundary", { kind = "void" })
+  t.eq(draft_of(p).factory.id, id, "opened, not made again")
+  click(p, "editor_cancel")
+  -- a string with a void of its own: its items join the plan's void
+  local exchange = require("scripts.exchange")
+  local other = require("scripts.draft").new_boundary("void")
+  other.id, other.sink_items = 999, { { key = "item/iron-plate" }, { key = "item/coal" } }
+  local text = exchange.encode(exchange.pack({ other }, "nauvis"))
+  click(p, "fac_import")
+  mock.type_text(p, mock.named(dialog(p), "stoich_import_text"), text)
+  click(p, "fac_import_ok")
+  local voids = {}
+  for _, f in pairs(storage.plans.nauvis.factories) do
+    if f.kind == "void" then voids[#voids + 1] = f end
+  end
+  t.eq(#voids, 1, "still one void")
+  t.eq(#voids[1].sink_items, 2, "coal once, iron plate added")
+  t.eq(storage.log[#storage.log].action[1], "stoich.log-merged")
+  -- a save from before with two voids: the update merges them
+  local stray = require("scripts.draft").new_boundary("void")
+  stray.sink_items = { { key = "item/copper-plate" } }
+  require("scripts.plan").balance_factory(stray)
+  storage.plans.nauvis.factories[5000] = stray
+  stray.id = 5000
+  mock.init.on_configuration_changed({})
+  voids = {}
+  for _, f in pairs(storage.plans.nauvis.factories) do
+    if f.kind == "void" then voids[#voids + 1] = f end
+  end
+  t.eq(#voids, 1, "merged on update")
+  t.eq(#voids[1].sink_items, 3)
 end)
 
 t.test("gui: every handler is reached by some scenario", function()

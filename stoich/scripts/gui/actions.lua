@@ -34,7 +34,10 @@ handlers.fac_new_sink = function(player)
   editor.open_factory(player, f, { auto_name = true })
 end
 
-handlers.fac_new_boundary = function(player, element)
+-- One void and one import per plan: the button opens it, or makes it when there is none.
+handlers.fac_boundary = function(player, element)
+  local existing = draft.boundary_of(model.selected(player.index), element.tags.kind)
+  if existing then return editor.open_saved(player, existing.id) end
   if not check_edit(player) then return end
   local f = draft.new_boundary(element.tags.kind)
   f.sink_items[1] = {}

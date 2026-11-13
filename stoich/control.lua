@@ -41,6 +41,8 @@ end)
 
 script.on_configuration_changed(function()
   model.migrate()
+  -- one void and one import per plan (saves from before could have several)
+  for _, key in ipairs(model.plan_keys()) do draft.merge_boundaries(key, nil) end
   local bad = model.validate_all()
   for _, key in ipairs(model.plan_keys()) do
     for _, id in ipairs(model.factory_ids(key)) do plan.balance_factory(model.get(id)) end

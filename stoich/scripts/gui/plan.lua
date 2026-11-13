@@ -128,8 +128,11 @@ local function add_buttons(bar, ctx)
   bar.add({ type = "button", caption = L("new-factory"), enabled = ctx.can_edit, tags = { fp = "fac_new" } })
   bar.add({ type = "button", caption = L("new-recipe"), tooltip = L("new-recipe-tooltip"), enabled = ctx.can_edit, tags = { fp = "fac_new_recipe" } })
   bar.add({ type = "button", caption = L("new-sink"), enabled = ctx.can_edit, tags = { fp = "fac_new_sink" } })
-  bar.add({ type = "button", caption = L("new-void"), tooltip = L("void-explain"), enabled = ctx.can_edit, tags = { fp = "fac_new_boundary", kind = "void" } })
-  bar.add({ type = "button", caption = L("new-import"), tooltip = L("import-explain"), enabled = ctx.can_edit, tags = { fp = "fac_new_boundary", kind = "import" } })
+  -- the plan's one void and one import: opened, or made on first use
+  bar.add({ type = "button", caption = L("void-button"), tooltip = { "", L("void-explain"), "\n", L("one-per-plan") },
+    tags = { fp = "fac_boundary", kind = "void" } })
+  bar.add({ type = "button", caption = L("import-button"), tooltip = { "", L("import-explain"), "\n", L("one-per-plan") },
+    tags = { fp = "fac_boundary", kind = "import" } })
   bar.add({ type = "empty-widget" }).style.width = 8
   -- the rest needs a plan to work on
   local empty = next(model.plan(ctx.plan).factories) == nil

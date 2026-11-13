@@ -842,6 +842,8 @@ local function do_save(player, force)
     editor.conflict_dialog(player, result)
     return
   end
+  -- one void and one import per plan: another player may have made one meanwhile
+  if plan.is_boundary(result) then draft.merge_boundaries(key, player.index) end
   -- balance first: closing the editor sorts the plan, by the shortages after this save
   window.plan_changed(key)
   close_editor(player)

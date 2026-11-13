@@ -5,7 +5,7 @@ local fp_util = require("scripts.util")
 
 local model = {}
 
-model.SCHEMA = 3
+model.SCHEMA = 4
 model.LOG_SIZE = 50
 -- One plan per surface, keyed by the surface's name. The plan a player looks at
 -- before choosing one, and where saves from before plans per surface went.
@@ -72,6 +72,9 @@ local function migrate_to_3()
     if state.draft then state.draft.plan = model.DEFAULT_PLAN end
   end
 end
+
+-- Schema 4 (one void and one import per plan) is merged by draft.merge_boundaries,
+-- which needs the plan balance: control.lua runs it after migrate().
 
 --- Bring older storage up to date. Called from on_configuration_changed.
 function model.migrate()

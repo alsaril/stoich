@@ -4,6 +4,7 @@
 local fp_util = require("scripts.util")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local draft = require("scripts.draft")
 
 local exchange = {}
 
@@ -245,6 +246,8 @@ function exchange.add_to_plan(unpacked, player_index, key)
     end
     if n >= 2 then p.splits[#p.splits + 1] = { item = sp.item, shares = shares, match_usage = sp.match_usage } end
   end
+  -- a void or import that came along joins the plan's own (one of each per plan)
+  draft.merge_boundaries(key, player_index)
   return added
 end
 

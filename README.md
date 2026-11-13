@@ -74,9 +74,9 @@ on the shortcut bar).
    minute, fuel for boilers, items you ship elsewhere. Capturing only boilers or generators
    creates a sink with their fuel filled in. A sink's **Scale** (0 to 1) sets how much of
    its rates the plan delivers: 0.5 for half, 0 to keep it in the plan asking for nothing.
-   **New void** and **New import** take a list of items, no rates. A problem row offers
-   them in one click: **Void it** for an item nothing uses, **Import it** for one nothing
-   makes.
+   Each plan has one **Void** and one **Import** (the toolbar buttons open them, made on
+   first use): a list of items, no rates. A problem row adds to them in one click:
+   **Void it** for an item nothing uses, **Import it** for one nothing makes.
 5. **Read the plan.** Each factory shows its copies against the need (`2 of 3.05`) and
    what is still to build: a red `+1.1`, or a green ✓ when demand is covered. Factories are
    sorted by shortage when the plan opens or comes back from the editor, statistics or a

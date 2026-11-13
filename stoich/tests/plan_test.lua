@@ -620,7 +620,7 @@ t.test("model: a save from before plans per surface becomes the plan of Nauvis",
   storage.plans = { main = storage.plans.nauvis }
   storage.players[1] = { draft = { factory = model.new_factory("factory"), base = {} } }
   model.migrate()
-  t.eq(storage.schema, 3)
+  t.eq(storage.schema, model.SCHEMA)
   t.eq(storage.plans.main, nil)
   t.eq(model.get(a.id).copies, 2)
   t.eq(model.plan_of(a.id), "nauvis")
@@ -658,4 +658,32 @@ t.test("plan: an import isn't held at 0 when that would drive a factory negative
   t.eq(r.status, "EXACT")
   t.near(r.counts[cables.id], 0.5)
   t.near(plan.boundary_rates(import, r)["item/copper-plate"], 0.5)
+end)
+
+t.test("draft: strays merge into the plan's one void and import, split shares too", function()
+  fake.reset()
+  local cables = custom_factory("cables", { ["item/copper-plate"] = -1, ["item/copper-cable"] = 2 }, 1)
+  local recycler = custom_factory("recycler", { ["item/copper-cable"] = -1, ["item/copper-plate"] = 0.125 }, 1)
+  sink("use", { ["item/copper-cable"] = 60 })
+  local a = boundary("import", { "item/coal" })
+  local b = boundary("import", { "item/copper-plate", "item/coal" })
+  local v1 = boundary("void", { "item/iron-plate" })
+  local v2 = boundary("void", { "item/stone" })
+  local stray = b.id .. ":item/copper-plate"
+  model.plan("nauvis").splits = { { item = "item/copper-plate", shares = { [recycler.id] = 0, [stray] = 100 } } }
+  t.eq(draft.merge_boundaries("nauvis", 1), true)
+  t.eq(model.get(b.id), nil)
+  t.eq(model.get(v2.id), nil)
+  local items = {}
+  for _, row in ipairs(model.get(a.id).sink_items) do items[#items + 1] = row.key end
+  t.eq(table.concat(items, ","), "item/coal,item/copper-plate")
+  t.eq(#model.get(v1.id).sink_items, 2)
+  t.eq(model.get(a.id).revision, 2, "an open editor on it sees the change")
+  local shares = model.plan("nauvis").splits[1].shares
+  t.eq(shares[stray], nil)
+  t.eq(shares[a.id .. ":item/copper-plate"], 100)
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[cables.id], 0.5)
+  t.eq(draft.merge_boundaries("nauvis", 1), false, "nothing left to merge")
 end)

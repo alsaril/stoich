@@ -3,7 +3,7 @@ Version: 0.4.0
 Date: 2026-11-13
   Features:
     - Every surface has its own plan. The window opens on the plan of the surface you are on, or the one the map shows; a selector in its title bar switches to another (every planet, and any other surface once something was captured there). A capture goes to the plan of the surface it was made on. The plan of an older save becomes the plan of Nauvis.
-    - Voids and imports (New void, New import): lists of items whose rates the plan balance sets. A void takes whatever the plan has left over, an import brings in whatever is missing; nothing extra is made to be voided, and the factories make what they can before anything is imported. A problem row offers Void it or Import it in one click.
+    - A void and an import in every plan (the Void and Import buttons open them, made on first use): lists of items whose rates the plan balance sets. A void takes whatever the plan has left over, an import brings in whatever is missing; nothing extra is made to be voided, and the factories make what they can before anything is imported. A problem row offers Void it or Import it in one click.
     - New recipe: a factory of one recipe on a machine, without building it (a recycler for one item, say). The recipe is picked by item, its recycling first, or directly; one copy is that many machines.
     - Module slots and beacons in the recipe dialog (New recipe, and Add recipe in the editor): modules for each slot, the beacon count, type and modules. The dialog shows the resulting speed and productivity, worked out as the game does (normal quality).
   Changes:

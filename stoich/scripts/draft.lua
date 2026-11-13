@@ -177,17 +177,65 @@ function draft.new_boundary(kind)
   return f
 end
 
---- Add an item to a plan's first void or import (by id), or to a new one, and save it.
+--- A plan's void or import (one of each per plan): the first by id if strays exist.
+function draft.boundary_of(key, kind)
+  for _, id in ipairs(model.factory_ids(key)) do
+    local f = model.get(id)
+    if f.kind == kind then return f end
+  end
+  return nil
+end
+
+--- One void and one import per plan: fold any other into the first, items and split
+--- shares too (two players made one at once, or a string brought one in).
+--- @return boolean merged
+function draft.merge_boundaries(key, player_index)
+  local p = model.plan(key)
+  local merged = false
+  for _, kind in ipairs({ "void", "import" }) do
+    local first
+    for _, id in ipairs(model.factory_ids(key)) do
+      local f = p.factories[id]
+      if f.kind == kind then
+        if not first then
+          first = f
+        else
+          local have = {}
+          for _, row in ipairs(first.sink_items) do
+            if row.key then have[row.key] = true end
+          end
+          for _, row in ipairs(f.sink_items or {}) do
+            if row.key and not have[row.key] then
+              have[row.key] = true
+              first.sink_items[#first.sink_items + 1] = { key = row.key, fluid = row.fluid }
+            end
+            -- an import's share in a plan split goes with its item
+            local from, to = plan.unit_id(f.id, row.key or ""), plan.unit_id(first.id, row.key or "")
+            for _, split in ipairs(p.splits) do
+              if split.shares[from] ~= nil then
+                if split.shares[to] == nil then split.shares[to] = split.shares[from] end
+                split.shares[from] = nil
+              end
+            end
+          end
+          p.factories[id] = nil
+          merged = true
+          first.revision = (first.revision or 0) + 1
+          first.modified_by = player_index
+          first.modified_tick = game.tick
+          model.log(player_index, { "stoich.log-merged" }, f.name, key)
+        end
+      end
+    end
+    if first and merged then plan.balance_factory(first) end
+  end
+  return merged
+end
+
+--- Add an item to a plan's void or import, or to a new one, and save it.
 --- @return boolean added (false: already there)
 function draft.add_boundary_item(key, kind, item, player_index)
-  local f
-  for _, id in ipairs(model.factory_ids(key)) do
-    local x = model.get(id)
-    if x.kind == kind then
-      f = x
-      break
-    end
-  end
+  local f = draft.boundary_of(key, kind)
   local copy = f and fp_util.deep_copy(f) or draft.new_boundary(kind)
   for _, row in ipairs(copy.sink_items) do
     if row.key == item then return false end
