@@ -359,7 +359,7 @@ function plan_window.fill_rows(player, holder, r, ctx)
   end
   local shown = 0
   local names = common.factory_names(ctx)
-  local max_chips, name_width = 10, 180
+  local max_chips, name_width = 8, 180
   local function factory_row(id)
     local f = model.get(id)
     local class = f and not plan.is_list(f) and plan.shortage_class(r.shortage[id])
