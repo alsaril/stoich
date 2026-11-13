@@ -42,10 +42,13 @@ function splits.build_card(parent, player, mode, index, split)
   common.spacer(head)
   head.add({ type = "sprite-button", style = "tool_button", sprite = "utility/trash", tooltip = L("split-remove"),
     enabled = enabled, tags = { fp = "split_remove", mode = mode, index = index } })
-  local matched = target.match_usage and split.match_usage
+  -- an import has nothing built, so a split with one can't match usage
+  local can_match = not target.can_match_usage or target.can_match_usage(player, split)
+  local matched = target.match_usage and split.match_usage and can_match
   if target.match_usage then
-    card.add({ type = "checkbox", caption = L("split-match-usage"), tooltip = L("split-match-usage-tooltip"), state = matched or false,
-      enabled = enabled, tags = { fp = "split_match_usage", mode = mode, index = index } })
+    card.add({ type = "checkbox", caption = L("split-match-usage"), state = matched or false, enabled = enabled and can_match,
+      tooltip = L(can_match and "split-match-usage-tooltip" or "split-match-usage-import"),
+      tags = { fp = "split_match_usage", mode = mode, index = index } })
   end
 
   local extra = target.extra_of
@@ -112,7 +115,12 @@ local function apply_share(player, element, value)
   if not target.can_edit(player) then return end
   local holder = target.holder(player)
   local split = holder.splits[tags.index]
-  if not split or (target.match_usage and split.match_usage) then return end
+  if not split then return end
+  if target.match_usage and split.match_usage then
+    -- a split that matches usage takes no hand-set shares, unless it can't match (an import joined)
+    if not target.can_match_usage or target.can_match_usage(player, split) then return end
+    split.match_usage = nil
+  end
   draft.set_share(holder, tags.index, tags.line, value, target.units(player))
   target.changed(player, false, tags.index, tags.line)
 end

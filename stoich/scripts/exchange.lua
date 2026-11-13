@@ -41,7 +41,7 @@ function exchange.serialize_factory(f)
   local splits = {}
   for _, s in ipairs(f.splits or {}) do splits[#splits + 1] = { item = s.item, shares = pairs_of(s.shares) } end
   local sink_items
-  if f.kind == "sink" then
+  if model.LIST_KINDS[f.kind] then
     sink_items = {}
     for i, row in ipairs(f.sink_items or {}) do sink_items[i] = model.clean_sink_row(row) end
   end
@@ -117,24 +117,26 @@ end
 
 function exchange.deserialize_factory(s)
   if type(s) ~= "table" then error("factory is not a table") end
-  local f = model.new_factory(s.kind == "sink" and "sink" or "factory")
+  local f = model.new_factory(model.LIST_KINDS[s.kind] and s.kind or "factory")
   f.name = str(s.name) or "Imported"
   local icon = s.icon
   if type(icon) == "table" and model.ICON_TABLES[icon.type or "item"] and str(icon.name) then
     f.icon = { type = icon.type or "item", name = str(icon.name) }
   end
   f.copies = math.max(0, num(s.copies) or 1)
-  if f.kind == "sink" then
-    -- a sink is its items: lines, anchors and splits of older strings are ignored
+  if model.LIST_KINDS[f.kind] then
+    -- a sink, void or import is its items: lines, anchors and splits of older strings are ignored
     f.sink_items = {}
+    local sink = f.kind == "sink"
     for _, row in ipairs(type(s.sink_items) == "table" and s.sink_items or {}) do
       local key = type(row) == "table" and item_key(row.key)
       if key then
         local fluid = row.fluid == true and key:sub(1, 7) == "custom/" or nil
-        f.sink_items[#f.sink_items + 1] = { key = key, rate = math.abs(num(row.rate) or 0), fluid = fluid }
+        -- a void or import has no rates of its own
+        f.sink_items[#f.sink_items + 1] = { key = key, rate = sink and math.abs(num(row.rate) or 0) or nil, fluid = fluid }
       end
     end
-    local scale = num(s.scale)
+    local scale = sink and num(s.scale)
     if scale and scale < 1 then f.scale = math.max(0, scale) end
     return f
   end
@@ -171,12 +173,13 @@ function exchange.deserialize_factory(s)
   return f
 end
 
---- Envelope for factories with the plan's splits between them (kept on import when
+--- Envelope for factories with their plan's splits between them (kept on import when
 --- at least two of their factories come along).
-function exchange.pack(factories)
+--- @param key string the plan they come from
+function exchange.pack(factories, key)
   local out = { fp = exchange.FORMAT, kind = "plan", factories = {}, splits = {} }
   for _, f in ipairs(factories) do out.factories[#out.factories + 1] = exchange.serialize_factory(f) end
-  for _, s in ipairs(model.plan().splits) do
+  for _, s in ipairs(model.plan(key).splits) do
     out.splits[#out.splits + 1] = { item = s.item, shares = pairs_of(s.shares), match_usage = s.match_usage or nil }
   end
   return out
@@ -215,11 +218,12 @@ function exchange.unpack_unchecked(data)
   return out
 end
 
---- Add unpacked factories to the plan with new ids. Plan splits are remapped.
+--- Add unpacked factories to a plan with new ids. Plan splits are remapped.
 --- All or nothing: every factory is checked and balanced before the first one is saved.
+--- @param key string the plan (surface name) they go to
 --- @return table[] new factories
-function exchange.add_to_plan(unpacked, player_index)
-  local p = model.plan()
+function exchange.add_to_plan(unpacked, player_index, key)
+  local p = model.plan(key)
   for _, entry in ipairs(unpacked.factories) do
     entry.factory.id = nil
     model.validate_factory(entry.factory)
@@ -227,7 +231,7 @@ function exchange.add_to_plan(unpacked, player_index)
   end
   local remap, added = {}, {}
   for _, entry in ipairs(unpacked.factories) do
-    local _, saved = model.save_factory(entry.factory, {}, player_index, true)
+    local _, saved = model.save_factory(entry.factory, {}, player_index, true, key)
     if entry.old_id then remap[entry.old_id] = saved.id end
     added[#added + 1] = saved
   end

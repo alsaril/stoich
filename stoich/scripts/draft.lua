@@ -36,7 +36,9 @@ local function same(a, b)
 end
 
 --- Open a draft for a player: a private copy of a factory (or a new one).
-function draft.open(player_index, factory)
+--- @param key string? the plan it is saved to: a saved factory's own plan, else this
+---   (default: the plan the player looks at)
+function draft.open(player_index, factory, key)
   local state = model.player(player_index)
   local copy = fp_util.deep_copy(factory)
   state.draft = {
@@ -44,6 +46,7 @@ function draft.open(player_index, factory)
     base = { revision = factory.revision },
     snapshot = strip(factory),
     name_auto = false,
+    plan = model.plan_of(factory.id) or key or model.selected(player_index),
   }
   plan.balance_factory(copy)
   return state.draft
@@ -163,6 +166,39 @@ function draft.new_sink()
   f.sink_items = {}
   f.name = "Sink"
   return f
+end
+
+--- New empty void or import: a list of items whose rates the plan balance sets.
+--- @param kind string "void" or "import"
+function draft.new_boundary(kind)
+  local f = model.new_factory(kind)
+  f.sink_items = {}
+  f.name = kind == "void" and "Void" or "Import"
+  return f
+end
+
+--- Add an item to a plan's first void or import (by id), or to a new one, and save it.
+--- @return boolean added (false: already there)
+function draft.add_boundary_item(key, kind, item, player_index)
+  local f
+  for _, id in ipairs(model.factory_ids(key)) do
+    local x = model.get(id)
+    if x.kind == kind then
+      f = x
+      break
+    end
+  end
+  local copy = f and fp_util.deep_copy(f) or draft.new_boundary(kind)
+  for _, row in ipairs(copy.sink_items) do
+    if row.key == item then return false end
+  end
+  -- a new one is named after its first item, and shows it
+  if not f then copy.name = fp_util.pretty_name(select(2, fp_util.parse_key(item))) end
+  copy.sink_items[#copy.sink_items + 1] = { key = item }
+  draft.sink_icon(copy)
+  plan.balance_factory(copy)
+  model.save_factory(copy, { revision = f and f.revision }, player_index, false, key)
+  return true
 end
 
 --- No icon chosen yet: a sink shows its first item or fluid.

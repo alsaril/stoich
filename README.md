@@ -6,8 +6,8 @@ Capture a block from the map, let the mod balance it exactly, and it tells you h
 copies of each block your goals need, which ones you're short of, and which belts will choke.
 
 Everything happens in game: one plan window; the factory editor, statistics and a split
-open in its place and give it back when closed. The plan is stored in the save and shared
-live by every player in multiplayer. Krastorio 2 is the main test case; any mod set should work.
+open in its place and give it back when closed. Every surface (Nauvis, Fulgora…) has its
+own plan. Plans are stored in the save and shared live by every player in multiplayer. Krastorio 2 is the main test case; any mod set should work.
 
 ## What it does
 
@@ -23,6 +23,18 @@ live by every player in multiplayer. Krastorio 2 is the main test case; any mod 
   you type, such as "10 science/min" or "30 coal/min for boilers". The plan window lists
   every sink, split and factory with its recipe (what one copy takes in and sends out), how
   many copies you have of how many are **needed**, and what is still **to build**.
+- **Voids and imports.** A **void** takes whatever the plan has left over of its items (a
+  recycler loop, a flare stack); an **import** brings in whatever is missing (rockets from
+  another planet). The balance sets their rates, and only to what the plan can't do
+  without: the factories make what they can, and nothing extra is made to be voided.
+- **One plan per surface.** The window opens on the plan of the surface you are on, or the
+  one the map shows; the selector in its title bar switches to another. It lists every
+  planet, and any other surface (a space platform, a modded factory floor) once something
+  was captured there. Plans don't interact; what moves between planets is an import on one
+  and a sink on the other. Saves from before 0.4 keep their plan on Nauvis.
+- **Recipes without a build.** New recipe makes a factory of one recipe on a machine, with
+  its modules and beacons, worked out as the game does (normal quality): a recycler for one
+  item, say, picked by the item.
 - **Belts.** Every flow shows how full the slowest belt that carries it is, and that belt's
   icon; belts are read from your game (Krastorio 2's included). A factory whose one copy
   needs more than the best allowed belt is flagged. Fluids are never limited.
@@ -51,13 +63,20 @@ on the shortcut bar).
    - **Solved** vs **Built** shows where the build is off (e.g. 5 assemblers built,
      4.3 needed).
    - Use **Add recipe** or **Add custom line** for things you didn't capture (imports,
-     rocket launches, flare stacks), and the pencil on a line to override its flow.
+     rocket launches, flare stacks), and the pencil on a line to override its flow. Add
+     recipe picks a recipe by item (its recycling first) or directly, on a machine with
+     its module slots and beacons; the dialog shows the resulting speed and productivity.
+   - **New recipe** in the plan makes a factory of one such recipe without building
+     anything: a recycler for copper cable, say. One copy is that many machines.
    - **Recapture area** hides the windows while you drag the new area (Q cancels).
 3. **Save**, then set **Copies** (− / + in the plan) to how many of that block you have.
 4. **Add sinks** (**New sink**) for what the plan must deliver: science per
    minute, fuel for boilers, items you ship elsewhere. Capturing only boilers or generators
    creates a sink with their fuel filled in. A sink's **Scale** (0 to 1) sets how much of
    its rates the plan delivers: 0.5 for half, 0 to keep it in the plan asking for nothing.
+   **New void** and **New import** take a list of items, no rates. A problem row offers
+   them in one click: **Void it** for an item nothing uses, **Import it** for one nothing
+   makes.
 5. **Read the plan.** Each factory shows its copies against the need (`2 of 3.05`) and
    what is still to build: a red `+1.1`, or a green ✓ when demand is covered. Factories are
    sorted by shortage when the plan opens or comes back from the editor, statistics or a
@@ -66,16 +85,16 @@ on the shortcut bar).
    a row with each factory's share, and its pencil opens it. A new plan split **matches
    usage**: every factory in it runs at the same share of its built copies (two ore mines,
    say), so the shares follow copies, edits and new factories making the item; its row
-   says "match". Untick it to set the shares by hand with the sliders. The plan is closed:
-   everything it uses must be made by one of its factories, and a surplus can go to a sink
-   with one click. **Statistics** shows every item's flow.
+   says "match". Untick it to set the shares by hand with the sliders. The plan is closed
+   but for its voids and imports: everything else it uses must be made by one of its
+   factories. **Statistics** shows every item's flow.
 
 Esc or E closes the open window: the editor (asking first if there are unsaved changes),
 statistics or a split go back to the plan, then the plan itself closes.
 
-The settings button in the window title bar holds the rate unit (/s, /min, /h), who can
-edit, the highest belt to plan with, and one-lane planning. Next to it, the clock button
-opens the edit log.
+The title bar holds the surface selector, the settings button (rate unit, who can edit, the
+highest belt to plan with, one-lane planning) and the edit log (the clock). The two icons at
+the end of the toolbar export the plan as a string and import one into the plan shown.
 
 ## Install
 

@@ -5,9 +5,17 @@ local fp_util = require("scripts.util")
 
 local model = {}
 
-model.SCHEMA = 2
+model.SCHEMA = 3
 model.LOG_SIZE = 50
-model.PLAN = "main"
+-- One plan per surface, keyed by the surface's name. The plan a player looks at
+-- before choosing one, and where saves from before plans per surface went.
+model.DEFAULT_PLAN = "nauvis"
+
+-- Kinds whose content is a list of items (sink_items) instead of recipe lines:
+-- a sink asks for fixed rates; a void takes what is left over of its items, an
+-- import brings in what is missing, both at whatever rate the plan balance needs.
+model.LIST_KINDS = { sink = true, void = true, import = true }
+model.BOUNDARY_KINDS = { void = true, import = true }
 
 local function new_plan()
   return { factories = {}, splits = {}, result = nil }
@@ -17,7 +25,6 @@ function model.init()
   storage.schema = model.SCHEMA
   storage.next_id = storage.next_id or 1
   storage.plans = storage.plans or {}
-  storage.plans[model.PLAN] = storage.plans[model.PLAN] or new_plan()
   storage.log = storage.log or {}
   storage.players = storage.players or {}
 end
@@ -56,12 +63,23 @@ local function migrate_to_2()
   end
 end
 
+local function migrate_to_3()
+  -- the one plan becomes the plan of Nauvis
+  local old = storage.plans.main
+  storage.plans.main = nil
+  if old then storage.plans[model.DEFAULT_PLAN] = old end
+  for _, state in pairs(storage.players) do
+    if state.draft then state.draft.plan = model.DEFAULT_PLAN end
+  end
+end
+
 --- Bring older storage up to date. Called from on_configuration_changed.
 function model.migrate()
   if not storage.schema then
     model.init()
   end
   if storage.schema < 2 then migrate_to_2() end
+  if storage.schema < 3 then migrate_to_3() end
   storage.schema = model.SCHEMA
 end
 
@@ -77,8 +95,56 @@ function model.reset_transient(state)
   state.map_tick = nil
 end
 
-function model.plan()
-  return storage.plans[model.PLAN]
+--- The plan of a surface (by name), made empty on first use.
+function model.plan(key)
+  if type(key) ~= "string" then error("model.plan: a surface name is needed", 2) end
+  local p = storage.plans[key]
+  if not p then
+    p = new_plan()
+    storage.plans[key] = p
+  end
+  return p
+end
+
+--- Does this surface have a plan with something in it?
+function model.has_plan(key)
+  local p = storage.plans[key]
+  return p ~= nil and next(p.factories) ~= nil
+end
+
+--- Names of the surfaces that have a plan, sorted.
+function model.plan_keys()
+  return fp_util.sorted_keys(storage.plans)
+end
+
+--- The plan a player is looking at.
+function model.selected(player_index)
+  local state = storage.players[player_index]
+  return state and state.plan or model.DEFAULT_PLAN
+end
+
+--- A surface was renamed: its plan goes with it (unless the new name has a plan of its own).
+--- @return boolean moved
+function model.rename_plan(old, new)
+  local p = storage.plans[old]
+  if not p or old == new or model.has_plan(new) then return false end
+  storage.plans[new] = p
+  storage.plans[old] = nil
+  for _, state in pairs(storage.players) do
+    if state.plan == old then state.plan = new end
+    if state.draft and state.draft.plan == old then state.draft.plan = new end
+  end
+  return true
+end
+
+--- The plan a factory (or sink, void, import) belongs to; ids are unique across plans.
+--- @return string? key, table? plan
+function model.plan_of(id)
+  if id == nil then return nil end
+  for key, p in pairs(storage.plans) do
+    if p.factories[id] then return key, p end
+  end
+  return nil
 end
 
 function model.new_id()
@@ -149,13 +215,15 @@ function model.remove_line(factory, id)
   end
 end
 
---- Sorted factory ids of the plan.
-function model.factory_ids()
-  return fp_util.sorted_keys(model.plan().factories)
+--- Sorted factory ids of a plan.
+function model.factory_ids(key)
+  return fp_util.sorted_keys(model.plan(key).factories)
 end
 
+--- A saved factory by id, whichever plan it is in.
 function model.get(id)
-  return id and model.plan().factories[id]
+  local _, p = model.plan_of(id)
+  return p and p.factories[id]
 end
 
 -- Permissions ----------------------------------------------------------------
@@ -174,9 +242,10 @@ end
 -- Log ------------------------------------------------------------------------
 
 --- @param action LocalisedString what happened, e.g. { "stoich.log-deleted" }
-function model.log(player_index, action, factory_name)
+--- @param key string? the plan it happened in
+function model.log(player_index, action, factory_name, key)
   local log = storage.log
-  log[#log + 1] = { tick = game.tick, player = player_index, action = action, factory = factory_name }
+  log[#log + 1] = { tick = game.tick, player = player_index, action = action, factory = factory_name, plan = key }
   while #log > model.LOG_SIZE do table.remove(log, 1) end
 end
 
@@ -187,10 +256,14 @@ end
 --- @param base table { revision } as it was when the draft was opened
 --- @param player_index integer
 --- @param force boolean? overwrite even if someone saved or deleted it in between
+--- @param key string? plan of a new factory (a saved one stays in its own plan)
 --- @return boolean ok
 --- @return table result the saved factory, or the conflict { modified_by, modified_tick, deleted? }
-function model.save_factory(factory, base, player_index, force)
-  local plan = model.plan()
+--- @return string? key the plan it was saved in
+function model.save_factory(factory, base, player_index, force, key)
+  key = model.plan_of(factory.id) or key
+  if not key then error("model.save_factory: no plan for a new factory", 2) end
+  local plan = model.plan(key)
   base = base or {}
   local existing = factory.id and plan.factories[factory.id]
   if not force then
@@ -214,30 +287,31 @@ function model.save_factory(factory, base, player_index, force)
   saved.modified_by = player_index
   saved.modified_tick = game.tick
   plan.factories[saved.id] = saved
-  model.log(player_index, { "stoich.log-" .. action }, saved.name)
-  return true, saved
+  model.log(player_index, { "stoich.log-" .. action }, saved.name, key)
+  return true, saved, key
 end
 
+--- @return boolean deleted, string? key the plan it was in
 function model.delete_factory(id, player_index)
-  local plan = model.plan()
+  local key, plan = model.plan_of(id)
+  if not plan then return false end
   local f = plan.factories[id]
-  if not f then return false end
   plan.factories[id] = nil
   -- Drop this factory from plan splits.
   for _, split in ipairs(plan.splits) do split.shares[id] = nil end
-  model.log(player_index, { "stoich.log-deleted" }, f.name)
-  return true
+  model.log(player_index, { "stoich.log-deleted" }, f.name, key)
+  return true, key
 end
 
 function model.set_copies(id, copies, player_index)
   local f = model.get(id)
-  if not f or f.kind == "sink" then return false end
+  if not f or model.LIST_KINDS[f.kind] then return false end
   copies = math.max(0, copies)
   if f.copies == copies then return false end
   f.copies = copies
   f.modified_by = player_index
   f.modified_tick = game.tick
-  model.log(player_index, { "stoich.log-copies", fp_util.format_count(copies) }, f.name)
+  model.log(player_index, { "stoich.log-copies", fp_util.format_count(copies) }, f.name, model.plan_of(id))
   return true
 end
 
@@ -271,7 +345,7 @@ function model.collect_invalid(f)
   for _, line in ipairs(f.lines) do
     for _, p in ipairs(line.invalid or {}) do missing[#missing + 1] = p end
   end
-  for _, row in ipairs(f.kind == "sink" and f.sink_items or {}) do
+  for _, row in ipairs(model.LIST_KINDS[f.kind] and f.sink_items or {}) do
     if row.key and not fp_util.key_exists(row.key) then missing[#missing + 1] = row.key end
   end
   return #missing > 0 and missing or nil
@@ -297,8 +371,10 @@ end
 
 function model.validate_all()
   local bad = 0
-  for _, id in ipairs(model.factory_ids()) do
-    if model.validate_factory(model.plan().factories[id]) then bad = bad + 1 end
+  for _, key in ipairs(model.plan_keys()) do
+    for _, id in ipairs(model.factory_ids(key)) do
+      if model.validate_factory(model.plan(key).factories[id]) then bad = bad + 1 end
+    end
   end
   for _, p in pairs(storage.players) do
     if p.draft and p.draft.factory then model.validate_factory(p.draft.factory) end

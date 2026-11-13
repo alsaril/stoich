@@ -30,9 +30,9 @@ t.test("exchange: factory survives a JSON round trip", function()
   fake.reset()
   local f = oil_factory()
   t.eq(f.result.status, "EXACT")
-  local ok, saved = model.save_factory(f, {}, 1)
+  local ok, saved = model.save_factory(f, {}, 1, false, "nauvis")
   t.truthy(ok)
-  local data = through_json(exchange.pack({ saved }))
+  local data = through_json(exchange.pack({ saved }, "nauvis"))
   local unpacked = assert(exchange.unpack(data))
   t.eq(#unpacked.factories, 1)
   local copy = unpacked.factories[1].factory
@@ -54,20 +54,20 @@ t.test("exchange: plan import remaps split factory ids", function()
     local line = model.add_line(f, { kind = "custom", label = name, count = 1, flow = net })
     f.name, f.anchors[line.id], f.external = name, 1, plan.flow_items(net)
     plan.balance_factory(f)
-    local _, saved = model.save_factory(f, {}, 1)
+    local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
     return saved
   end
   local a = custom("a", { ["item/electronic-circuit"] = 1 })
   local b = custom("b", { ["item/electronic-circuit"] = 2 })
-  model.plan().splits = { { item = "item/electronic-circuit", shares = { [a.id] = 25, [b.id] = 75 }, match_usage = true } }
-  local data = through_json(exchange.pack({ a, b }))
+  model.plan("nauvis").splits = { { item = "item/electronic-circuit", shares = { [a.id] = 25, [b.id] = 75 }, match_usage = true } }
+  local data = through_json(exchange.pack({ a, b }, "nauvis"))
 
   fake.reset() -- another save
   model.new_id(); model.new_id(); model.new_id() -- ids already taken there
   local unpacked = assert(exchange.unpack(data))
-  local added = exchange.add_to_plan(unpacked, 1)
+  local added = exchange.add_to_plan(unpacked, 1, "nauvis")
   t.eq(#added, 2)
-  local split = model.plan().splits[1]
+  local split = model.plan("nauvis").splits[1]
   t.truthy(split)
   t.near(split.shares[added[1].id], 25)
   t.near(split.shares[added[2].id], 75)
@@ -117,4 +117,22 @@ t.test("exchange: a sink keeps its scale; odd values are checked", function()
   t.eq(exchange.deserialize_factory(data).scale, nil)
   data.scale = "x"
   t.eq(exchange.deserialize_factory(data).scale, nil)
+end)
+
+t.test("exchange: voids and imports keep their items, without rates", function()
+  fake.reset()
+  local f = draft.new_boundary("import")
+  f.sink_items = { { key = "item/copper-plate" }, { key = "custom/space-data", fluid = true } }
+  plan.balance_factory(f)
+  local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
+  local data = through_json(exchange.pack({ saved }, "nauvis"))
+  -- a rate in a hand-edited string is dropped
+  data.factories[1].sink_items[1].rate = 5
+  local copy = assert(exchange.unpack(data)).factories[1].factory
+  t.eq(copy.kind, "import")
+  t.eq(#copy.sink_items, 2)
+  t.eq(copy.sink_items[1].key, "item/copper-plate")
+  t.eq(copy.sink_items[1].rate, nil)
+  t.eq(copy.sink_items[2].fluid, true)
+  t.eq(plan.balance_factory(copy).status, "EXACT")
 end)

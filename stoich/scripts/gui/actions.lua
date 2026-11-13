@@ -1,5 +1,6 @@
--- Factory actions of the main window: new factory or sink, capture, edit, show on
--- map, delete (with its question), export and import.
+-- Factory actions of the main window: new factory, sink, void or import, capture,
+-- edit, show on map, delete (with its question), export and import of strings.
+-- They act on the plan the player looks at.
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
@@ -29,6 +30,13 @@ end
 handlers.fac_new_sink = function(player)
   if not check_edit(player) then return end
   local f = draft.new_sink()
+  f.sink_items[1] = {}
+  editor.open_factory(player, f, { auto_name = true })
+end
+
+handlers.fac_new_boundary = function(player, element)
+  if not check_edit(player) then return end
+  local f = draft.new_boundary(element.tags.kind)
   f.sink_items[1] = {}
   editor.open_factory(player, f, { auto_name = true })
 end
@@ -76,13 +84,14 @@ handlers.fac_delete_ok = function(player, element)
   local id = element.tags.id -- read before the dialog (and this button) is destroyed
   common.close_dialog(player)
   if not check_edit(player) then return end
-  if model.delete_factory(id, player.index) then window.plan_changed() end
+  local deleted, key = model.delete_factory(id, player.index)
+  if deleted then window.plan_changed(key) end
 end
 
 -- Export / import ----------------------------------------------------------------------------------
 
-local function export_dialog(player, list)
-  local text = exchange.encode(exchange.pack(list))
+local function export_dialog(player, list, key)
+  local text = exchange.encode(exchange.pack(list, key))
   local frame = common.open_dialog(player, "export", L("export"))
   local box = frame.add({ type = "text-box", text = text or "" })
   box.style.width = 500
@@ -95,14 +104,15 @@ local function export_dialog(player, list)
 end
 
 handlers.fac_export_all = function(player)
+  local key = model.selected(player.index)
   local list = {}
-  for _, id in ipairs(model.factory_ids()) do list[#list + 1] = model.get(id) end
-  export_dialog(player, list)
+  for _, id in ipairs(model.factory_ids(key)) do list[#list + 1] = model.get(id) end
+  export_dialog(player, list, key)
 end
 
 handlers.fac_import = function(player)
   if not check_edit(player) then return end
-  local frame = common.open_dialog(player, "import", L("import"))
+  local frame = common.open_dialog(player, "import", L("import-string"))
   local box = frame.add({ type = "text-box", name = "stoich_import_text", text = "" })
   box.style.width = 500
   box.style.height = 200
@@ -115,10 +125,10 @@ handlers.fac_import = function(player)
   buttons.add({ type = "button", caption = L("import"), style = "confirm_button", tags = { fp = "fac_import_ok" } })
 end
 
-local function finish_import(player, added)
+local function finish_import(player, added, key)
   common.close_dialog(player)
   player.print(L("imported", #added))
-  window.plan_changed()
+  window.plan_changed(key)
 end
 
 handlers.fac_import_ok = function(player, element)
@@ -133,12 +143,13 @@ handlers.fac_import_ok = function(player, element)
     return
   end
   -- a last guard: add_to_plan checks everything before it saves anything
-  local ok, added = pcall(exchange.add_to_plan, unpacked, player.index)
+  local key = model.selected(player.index)
+  local ok, added = pcall(exchange.add_to_plan, unpacked, player.index, key)
   if not ok then
     if err then err.caption = L("import-error-not-a-planner-string") end
     return
   end
-  finish_import(player, added)
+  finish_import(player, added, key)
 end
 
 return actions

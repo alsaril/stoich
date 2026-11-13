@@ -16,13 +16,45 @@ local function flow_items(flow)
 end
 plan.flow_items = flow_items
 
---- Custom keys marked as fluid on any line of a factory (or row of a sink).
+--- A sink, void or import: a list of items instead of recipe lines.
+function plan.is_list(f)
+  return model.LIST_KINDS[f.kind] == true
+end
+
+--- A void or import: its items' rates come from the plan balance.
+function plan.is_boundary(f)
+  return model.BOUNDARY_KINDS[f.kind] == true
+end
+
+--- The items of a void or import, sorted, each once.
+function plan.boundary_items(f)
+  local set = {}
+  for _, row in ipairs(f.sink_items or {}) do
+    if row.key then set[row.key] = true end
+  end
+  return fp_util.sorted_keys(set)
+end
+
+--- Plan unit of one item of a void or import: "<factory id>:<item key>".
+function plan.unit_id(id, key)
+  return id .. ":" .. key
+end
+
+--- The factory id (and the item, for a void or import unit) behind a plan unit id.
+--- @return integer? id, string? item
+function plan.unit_owner(uid)
+  if type(uid) == "number" then return uid, nil end
+  local id, key = tostring(uid):match("^(%d+):(.+)$")
+  return tonumber(id), key
+end
+
+--- Custom keys marked as fluid on any line of a factory (or row of a sink, void or import).
 function plan.fluid_keys(factory)
   local set = {}
   for _, line in ipairs(factory.lines) do
     for k in pairs(line.fluid_keys or {}) do set[k] = true end
   end
-  for _, row in ipairs(factory.kind == "sink" and factory.sink_items or {}) do
+  for _, row in ipairs(plan.is_list(factory) and factory.sink_items or {}) do
     if row.key and row.fluid then set[row.key] = true end
   end
   return set
@@ -54,7 +86,13 @@ end
 --- Balance one factory (or sink) and store the result on it.
 function plan.balance_factory(factory)
   local result
-  if factory.kind == "sink" then
+  if plan.is_boundary(factory) then
+    -- nothing to solve: its rates come from the plan; it only needs an item
+    local any = #plan.boundary_items(factory) > 0
+    result = solver.balance({}, {}, {}, {})
+    result.status = any and "EXACT" or "NEEDS_SPLIT"
+    result.problems = any and {} or { { type = "empty_list" } }
+  elseif factory.kind == "sink" then
     local flow = plan.sink_flow(factory)
     local status = next(flow) and "EXACT" or "NEEDS_SPLIT"
     local problems = {}
@@ -86,21 +124,28 @@ function plan.usable(f)
   if f.invalid then return false end
   if not f.result or f.result.status ~= "EXACT" then return false end
   if f.kind == "sink" then return next(plan.sink_flow(f)) ~= nil end
+  if plan.is_boundary(f) then return #plan.boundary_items(f) > 0 end
   return next(f.result.net) ~= nil
 end
 
 --- The plan as the solver sees it: one unit per usable factory or sink (flow per copy),
---- and the factories it leaves out (invalid, not balanced, nothing in or out).
---- @return table[] units { id, flow, count }, number[] excluded
-function plan.units()
-  local p = model.plan()
+--- one per item of a void or import (one item per second each), and the factories it
+--- leaves out (invalid, not balanced, nothing in or out).
+--- @return table[] units { id, flow, count, factory, item? }, number[] excluded
+function plan.units(key)
+  local p = model.plan(key)
   local units, excluded = {}, {}
-  for _, id in ipairs(model.factory_ids()) do
+  for _, id in ipairs(model.factory_ids(key)) do
     local f = p.factories[id]
-    if plan.usable(f) then
-      units[#units + 1] = { id = id, flow = f.kind == "sink" and plan.sink_flow(f) or f.result.net, count = f.copies or 1 }
-    else
+    if not plan.usable(f) then
       excluded[#excluded + 1] = id
+    elseif plan.is_boundary(f) then
+      local sign = f.kind == "import" and 1 or -1
+      for _, item in ipairs(plan.boundary_items(f)) do
+        units[#units + 1] = { id = plan.unit_id(id, item), flow = { [item] = sign }, count = 0, factory = id, item = item }
+      end
+    else
+      units[#units + 1] = { id = id, flow = f.kind == "sink" and plan.sink_flow(f) or f.result.net, count = f.copies or 1, factory = id }
     end
   end
   return units, excluded
@@ -113,7 +158,8 @@ end
 function plan.usage_shares(item, units)
   local ids, flows, counts, built = {}, {}, {}, false
   for _, unit in ipairs(units) do
-    if (unit.flow[item] or 0) > 0 then
+    -- an import has nothing built: it covers what the factories don't
+    if not unit.item and (unit.flow[item] or 0) > 0 then
       ids[#ids + 1] = unit.id
       flows[unit.id] = unit.flow
       counts[unit.id] = unit.count or 0
@@ -126,26 +172,91 @@ function plan.usage_shares(item, units)
   return solver.shares_from_counts(item, ids, flows, counts)
 end
 
---- Re-run the plan balance and cache it in the plan. Sinks are the anchors, at their
---- scale; the plan is closed (nothing comes from or goes outside it).
-function plan.rebalance()
-  local p = model.plan()
-  local lines, excluded = plan.units()
-  for _, split in ipairs(p.splits) do
-    if split.match_usage then split.shares = plan.usage_shares(split.item, lines) end
+--- Does an import of the plan bring this item in? Its split can't match usage (an import
+--- has nothing built).
+function plan.imported(item, units)
+  for _, unit in ipairs(units) do
+    if unit.item and (unit.flow[item] or 0) > 0 then return true end
   end
-  local anchors = {}
+  return false
+end
+
+--- Re-run the balance of a plan and cache it in the plan. Sinks are the anchors, at
+--- their scale; the plan is closed but for its voids and imports. A void or import
+--- takes only what the plan can't do without: where the balance leaves its rate free,
+--- it is held at 0 (the factories make what is used, rather than import or void more).
+function plan.rebalance(key)
+  local p = model.plan(key)
+  local lines, excluded = plan.units(key)
+  for _, split in ipairs(p.splits) do
+    if split.match_usage and not plan.imported(split.item, lines) then split.shares = plan.usage_shares(split.item, lines) end
+  end
+  local anchors, boundary = {}, {}
   for _, line in ipairs(lines) do
-    local f = p.factories[line.id]
+    local f = p.factories[line.factory]
     if f.kind == "sink" then anchors[line.id] = plan.sink_scale(f) end
+    if line.item then boundary[#boundary + 1] = line.id end
+  end
+  -- what a balance settles below 0 (a free count is just 0): 0 nothing, 1 only voids or
+  -- imports (the plan is short of an item, or has too much: said as such), 2 a factory
+  local function negative_level(res)
+    local level = 0
+    for _, line in ipairs(lines) do
+      if not res.undetermined[line.id] and (res.counts[line.id] or 0) < -solver.NEGATIVE_TOL then
+        if not line.item then return 2 end
+        level = 1
+      end
+    end
+    return level
   end
   local r = solver.balance(lines, anchors, p.splits, {}, {})
+  -- one free rate at a time (holding one at 0 can settle another), the hold that leaves
+  -- the least negative: with an item in both a void and an import, the other one moves
+  -- it. Never one that drives a factory negative (a recycler that would have to make all
+  -- the plates its cables need): that choice stays the player's.
+  for _ = 1, #boundary do
+    local chosen, best = nil, 2
+    for _, uid in ipairs(boundary) do
+      if anchors[uid] == nil and r.undetermined[uid] then
+        anchors[uid] = 0
+        local tried = solver.balance(lines, anchors, p.splits, {}, {})
+        anchors[uid] = nil
+        local level = negative_level(tried)
+        if level < best then
+          chosen, best = { uid, tried }, level
+          if level == 0 then break end
+        end
+      end
+    end
+    if not chosen then break end
+    anchors[chosen[1]] = 0
+    r = chosen[2]
+  end
+  -- a void or import below 0: the plan is short of the item, or has too much of it
+  for _, problem in ipairs(r.problems) do
+    if problem.type == "negative" then
+      local rest = {}
+      for _, uid in ipairs(problem.lines) do
+        local id, item = plan.unit_owner(uid)
+        local f = item and p.factories[id]
+        if f then
+          r.problems[#r.problems + 1] = { type = f.kind == "void" and "void_short" or "import_surplus", item = item, id = id }
+        else
+          rest[#rest + 1] = uid
+        end
+      end
+      problem.lines = rest
+    end
+  end
+  for i = #r.problems, 1, -1 do
+    if r.problems[i].type == "negative" and #r.problems[i].lines == 0 then table.remove(r.problems, i) end
+  end
   r.excluded = excluded
   r.shortage = {}
   local order = {}
   for _, line in ipairs(lines) do
-    local f = p.factories[line.id]
-    if f.kind ~= "sink" then
+    local f = p.factories[line.factory]
+    if not plan.is_list(f) then
       local needed = r.counts[line.id]
       if r.undetermined[line.id] then needed = nil end
       r.shortage[line.id] = needed and (needed - f.copies) or nil
@@ -164,6 +275,21 @@ function plan.rebalance()
   r.order = order
   p.result = r
   return r
+end
+
+--- Rebalance every plan (after a mod update).
+function plan.rebalance_all()
+  for _, key in ipairs(model.plan_keys()) do plan.rebalance(key) end
+end
+
+--- Rate of each item of a void or import in its plan's balance (per second, never
+--- negative unless the plan is short of it).
+function plan.boundary_rates(f, r)
+  local rates = {}
+  for _, item in ipairs(plan.boundary_items(f)) do
+    rates[item] = r and r.counts and r.counts[plan.unit_id(f.id, item)] or 0
+  end
+  return rates
 end
 
 --- "short" when more copies are needed, "ok" when demand is covered (overbuilt counts as ok).

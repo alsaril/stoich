@@ -11,8 +11,8 @@ local handlers = common.handlers
 
 local rows = {}
 
---- targets[mode] = { rows(player) -> array, field = "rate"|"amount", changed(player, structural),
----   allow_negative? }
+--- targets[mode] = { rows(player) -> array, field = "rate"|"amount"|nil (no rate column),
+---   changed(player, structural), allow_negative? }
 rows.targets = {}
 
 --- The signal picker also offers recipes and buildings: turn those into the
@@ -58,7 +58,9 @@ function rows.build(parent, player, mode, ctx, enabled, opts)
     if not row.key or is_custom(row.key) then any_free = true end
   end
   local box = parent.add({ type = "flow", name = "stoich_rows_" .. mode, direction = "vertical" })
-  local t = box.add({ type = "table", name = "stoich_rows_table", column_count = any_custom and 5 or 4 })
+  local rated = target.field ~= nil
+  local columns = 3 + (rated and 1 or 0) + (any_custom and 1 or 0)
+  local t = box.add({ type = "table", name = "stoich_rows_table", column_count = columns })
   t.style.horizontal_spacing = 8
   if stretch then
     box.style.horizontally_stretchable = true
@@ -70,7 +72,7 @@ function rows.build(parent, player, mode, ctx, enabled, opts)
   else
     t.add({ type = "empty-widget" })
   end
-  t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" })
+  if rated then t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" }) end
   if any_custom then t.add({ type = "label", caption = L("row-fluid"), style = "bold_label", tooltip = L("row-fluid-tooltip") }) end
   t.add({ type = "empty-widget" })
   for i, row in ipairs(list) do
@@ -92,9 +94,11 @@ function rows.build(parent, player, mode, ctx, enabled, opts)
     else
       text.style.width = 140
     end
-    local v = row[target.field]
-    common.number_field(t, v and common.from_per_second(ctx, v) or nil, { fp = "row_rate", mode = mode, i = i },
-      { width = 80, enabled = enabled, negative = target.allow_negative })
+    if rated then
+      local v = row[target.field]
+      common.number_field(t, v and common.from_per_second(ctx, v) or nil, { fp = "row_rate", mode = mode, i = i },
+        { width = 80, enabled = enabled, negative = target.allow_negative })
+    end
     if any_custom then
       if is_custom(key) then
         t.add({ type = "checkbox", state = row.fluid and true or false, enabled = enabled, tooltip = L("row-fluid-tooltip"),

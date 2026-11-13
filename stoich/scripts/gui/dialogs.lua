@@ -92,12 +92,22 @@ handlers.open_log = function(player)
   for _, head in ipairs({ "log-when", "log-who", "log-what", "log-factory" }) do
     t.add({ type = "label", caption = L(head), style = "bold_label" })
   end
+  -- with plans on several surfaces, each entry says where
+  local several = 0
+  for _, key in ipairs(model.plan_keys()) do
+    if model.has_plan(key) then several = several + 1 end
+  end
   for i = #storage.log, 1, -1 do
     local e = storage.log[i]
     t.add({ type = "label", caption = common.time_ago(e.tick) })
     t.add({ type = "label", caption = common.player_name(e.player) })
     t.add({ type = "label", caption = e.action })
-    t.add({ type = "label", caption = e.factory or "" })
+    local where = ""
+    if several > 1 and e.plan then
+      local surface = game.get_surface(e.plan)
+      where = surface and surface.planet and ("[planet=" .. surface.planet.name .. "] ") or (e.plan .. ": ")
+    end
+    t.add({ type = "label", caption = where .. (e.factory or "") })
   end
 end
 

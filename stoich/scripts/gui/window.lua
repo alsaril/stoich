@@ -93,6 +93,20 @@ local function content_frame(frame)
   return content
 end
 
+--- The plan a player sees when the window opens: the one of an open editor draft, else
+--- the surface they are on, or look at on the map (player.surface is the map's in remote
+--- view). Planets have a plan; another surface only once something was saved there.
+--- Elsewhere the last choice stays.
+function window.pick_plan(player)
+  local state = model.player(player.index)
+  if state.draft then
+    state.plan = state.draft.plan
+    return
+  end
+  local surface = player.surface
+  if surface and surface.valid and (surface.planet or model.has_plan(surface.name)) then state.plan = surface.name end
+end
+
 function window.open(player, ctx)
   local w = get(player)
   if w then
@@ -100,12 +114,17 @@ function window.open(player, ctx)
     return w
   end
   local state = model.player(player.index)
+  window.pick_plan(player)
+  state.plan_order = nil
   w = player.gui.screen.add({ type = "frame", name = "stoich_window", direction = "vertical" })
   w.style.width = window.SIZE.width
   w.style.height = window.SIZE.height
   common.titlebar(w, L("title"), "window_close", {
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/clock", tooltip = L("log"), tags = { fp = "open_log" } },
     { type = "sprite-button", style = "frame_action_button", sprite = "utility/preset", tooltip = L("settings"), tags = { fp = "open_settings" } },
+  }, {
+    -- which surface's plan: filled in by the plan builder, which knows the plans
+    { type = "drop-down", name = "stoich_plan_select", items = {}, tooltip = L("surface-tooltip"), tags = { fp = "plan_surface" } },
   })
   content_frame(w)
   if state.location then
@@ -256,12 +275,14 @@ function window.rebuild_player(player)
   if name then window.children[name].rebuild(player, ctx) end
 end
 
---- After any change to factories, sinks, copies or splits: balance the plan once
+--- After any change to factories, sinks, copies or splits: balance that plan once
 --- and refresh every player's windows.
+--- @param key string the plan (surface name) that changed
 --- @param opts table? { keep_split = player_index, line = id }: that player's split
 ---   window is updated in place instead of rebuilt (they are dragging its slider)
-function window.plan_changed(opts)
-  plan.rebalance()
+function window.plan_changed(key, opts)
+  if type(key) ~= "string" then error("window.plan_changed: a plan key is needed", 2) end
+  plan.rebalance(key)
   window.refresh_all(opts)
 end
 

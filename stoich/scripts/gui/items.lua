@@ -13,9 +13,9 @@ local handlers = common.handlers
 
 local items = {}
 
-local function plan_fluid_keys()
+local function plan_fluid_keys(key)
   local set = {}
-  for _, id in ipairs(model.factory_ids()) do
+  for _, id in ipairs(model.factory_ids(key)) do
     for k in pairs(plan.fluid_keys(model.get(id))) do set[k] = true end
   end
   return set
@@ -40,10 +40,10 @@ local function total_cells(t, ctx, rate, key, fluid_keys)
 end
 
 function items.build(player, parent, ctx)
-  local r = model.plan().result or plan.rebalance()
+  local r = model.plan(ctx.plan).result or plan.rebalance(ctx.plan)
   local state = model.player(player.index)
   state.expanded = state.expanded or {}
-  local fluid_keys = plan_fluid_keys()
+  local fluid_keys = plan_fluid_keys(ctx.plan)
 
   local bar = parent.add({ type = "flow", direction = "horizontal" })
   bar.style.vertical_align = "center"
@@ -115,10 +115,12 @@ function items.build(player, parent, ctx)
           v.style.single_line = true
           total_cells(t, ctx, c.count, key, fluid_keys)
         else
-          local f = model.get(c.source)
+          -- a void or import shows under its own name: the item is the row's
+          local id = plan.unit_owner(c.source)
+          local f = model.get(id)
           src.add({ type = "sprite", sprite = f and common.factory_sprite(f) or "utility/missing_icon" })
-          src.add({ type = "button", caption = names[c.source] or "?", style = "list_box_item", tooltip = L("open-in-editor"),
-            tags = { fp = "items_open", id = c.source } })
+          src.add({ type = "button", caption = names[id] or "?", style = "list_box_item", tooltip = L("open-in-editor"),
+            tags = { fp = "items_open", id = id } })
           total_cells(t, ctx, c.count, key, fluid_keys)
         end
         local share = t.add({ type = "flow", direction = "horizontal" })

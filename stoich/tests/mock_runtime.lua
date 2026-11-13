@@ -367,6 +367,7 @@ function mock.new_player(index, opts)
       end
     end }),
     controller = nil,
+    surface = opts.surface or mock.surface,
     display_resolution = { width = 2560, height = 1440 }, display_scale = 1,
   }
   function p.print(msg) mock.check_localised(msg, "print") p.printed[#p.printed + 1] = msg end
@@ -447,6 +448,11 @@ function mock.recipe_protos()
     proto("transport-belt", { energy = 0.5, categories = { "crafting" }, ingredients = { I("iron-plate", 1), I("iron-gear-wheel", 1) }, products = { P("item", "transport-belt", 2) } }),
     proto("fast-transport-belt", { energy = 0.5, categories = { "crafting" }, ingredients = { I("iron-gear-wheel", 5), I("transport-belt", 1) }, products = { P("item", "fast-transport-belt", 1) } }),
     proto("express-transport-belt", { energy = 0.5, categories = { "crafting" }, ingredients = { I("iron-gear-wheel", 10), I("fast-transport-belt", 1) }, products = { P("item", "express-transport-belt", 1) } }),
+    -- as the recycler mod makes them: hidden, a quarter of the ingredients back
+    proto("copper-cable-recycling", { energy = 0.03125, categories = { "recycling" }, hidden = true, ingredients = { I("copper-cable", 1) },
+      products = { { type = "item", name = "copper-plate", amount = 0, extra_count_fraction = 0.125 } } }),
+    proto("copper-plate-recycling", { energy = 0.03125, categories = { "recycling" }, hidden = true, ingredients = { I("copper-plate", 1) },
+      products = { { type = "item", name = "copper-plate", amount = 1, independent_probability = 0.25 } } }),
   }
   local t = {}
   for _, r in ipairs(list) do
@@ -472,27 +478,18 @@ function mock.reset(opts)
     controllers = { character = 1, god = 2, editor = 3, remote = 4, spectator = 5, cutscene = 6, ghost = 7 },
     mouse_button_type = { left = 2, right = 4, middle = 8 },
   }
-  mock.surface = {
-    index = 1, name = "nauvis", valid = true, entities = {},
-    find_entities_filtered = function(f)
-      local out = {}
-      local types = {}
-      if type(f.type) == "table" then for _, t in ipairs(f.type) do types[t] = true end elseif f.type then types[f.type] = true end
-      for _, e in ipairs(mock.surface.entities) do
-        local p = e.position
-        local inside = not f.area or (p.x >= f.area.left_top.x and p.x <= f.area.right_bottom.x and p.y >= f.area.left_top.y and p.y <= f.area.right_bottom.y)
-        if e.valid and inside and (not f.type or types[e.type]) then out[#out + 1] = e end
-      end
-      return out
-    end,
-  }
   game = {
-    tick = 0, players = {}, connected_players = {},
+    tick = 0, players = {}, connected_players = {}, surfaces = {},
     get_player = function(i) return game.players[i] end,
-    get_surface = function(i) if i == 1 or i == "nauvis" then return mock.surface end end,
+    get_surface = function(i)
+      for _, s in pairs(game.surfaces) do
+        if s.index == i or s.name == i then return s end
+      end
+    end,
     printed = {},
     print = function(msg) mock.check_localised(msg, "game.print") game.printed[#game.printed + 1] = msg end,
   }
+  mock.surface = mock.add_surface("nauvis", { planet = true })
   local global_settings = {
     ["stoich-edit-permission"] = { value = opts.edit or "everyone" },
     ["stoich-max-belt"] = { value = "" },
@@ -513,9 +510,24 @@ function mock.reset(opts)
   local items, fluids = {}, {}
   for _, n2 in ipairs({ "iron-plate", "copper-plate", "copper-cable", "electronic-circuit", "iron-gear-wheel", "coal", "plastic-bar", "iron-ore",
     "automation-science-pack", "transport-belt", "fast-transport-belt", "express-transport-belt" }) do items[n2] = proto(n2) end
+  -- modules as in the game (Space Age values)
+  items["speed-module"] = proto("speed-module", { type = "module", category = "speed", tier = 1,
+    module_effects = { speed = 0.2, consumption = 0.5, quality = -0.01 } })
+  items["productivity-module"] = proto("productivity-module", { type = "module", category = "productivity", tier = 1,
+    module_effects = { productivity = 0.04, speed = -0.05, consumption = 0.4, pollution = 0.05 } })
+  items["quality-module"] = proto("quality-module", { type = "module", category = "quality", tier = 1,
+    module_effects = { quality = 0.01, speed = -0.05 } })
   for _, n2 in ipairs({ "water", "steam", "crude-oil", "heavy-oil", "light-oil", "petroleum-gas" }) do fluids[n2] = proto(n2) end
   local entities = {
-    ["assembling-machine-2"] = proto("assembling-machine-2", { type = "assembling-machine", crafting_categories = { crafting = true }, get_crafting_speed = function() return 0.75 end }),
+    ["assembling-machine-2"] = proto("assembling-machine-2", { type = "assembling-machine", crafting_categories = { crafting = true }, get_crafting_speed = function() return 0.75 end,
+      module_inventory_size = 2, allowed_effects = { consumption = true, speed = true, productivity = true, pollution = true, quality = true },
+      effect_receiver = { base_effect = {}, uses_module_effects = true, uses_beacon_effects = true, speed_limits = { low = -0.8, high = 1000 },
+        productivity_limits = { low = -0.8, high = 1000 } } }),
+    ["recycler"] = proto("recycler", { type = "furnace", crafting_categories = { recycling = true }, get_crafting_speed = function() return 0.5 end,
+      module_inventory_size = 4, allowed_effects = { consumption = true, speed = true, pollution = true, quality = true },
+      effect_receiver = { base_effect = {}, uses_module_effects = true, uses_beacon_effects = true } }),
+    ["beacon"] = proto("beacon", { type = "beacon", module_inventory_size = 2, distribution_effectivity = 1.5,
+      profile = { 1, 0.7071, 0.5773, 0.5 }, allowed_effects = { consumption = true, speed = true, pollution = true } }),
     ["oil-refinery"] = proto("oil-refinery", { type = "assembling-machine", crafting_categories = { ["oil-processing"] = true }, get_crafting_speed = function() return 1 end }),
     ["chemical-plant"] = proto("chemical-plant", { type = "assembling-machine", crafting_categories = { chemistry = true }, get_crafting_speed = function() return 1 end }),
     ["stone-furnace"] = proto("stone-furnace", { type = "furnace", crafting_categories = { smelting = true }, get_crafting_speed = function() return 1 end }),
@@ -592,6 +604,30 @@ function mock.reset(opts)
     if name:match("^scripts%.") or name == "control" then package.loaded[name] = nil end
   end
   return mock
+end
+
+--- A surface (game.surfaces[name]); opts.planet: it is a planet's surface (LuaSurface.planet).
+function mock.add_surface(name, opts)
+  opts = opts or {}
+  local n = 0
+  for _ in pairs(game.surfaces) do n = n + 1 end
+  local surface = { index = n + 1, name = name, valid = true, entities = {} }
+  if opts.planet then
+    surface.planet = { name = name, valid = true, prototype = { name = name, localised_name = { "space-location-name." .. name } } }
+  end
+  function surface.find_entities_filtered(f)
+    local out = {}
+    local types = {}
+    if type(f.type) == "table" then for _, t in ipairs(f.type) do types[t] = true end elseif f.type then types[f.type] = true end
+    for _, e in ipairs(surface.entities) do
+      local p = e.position
+      local inside = not f.area or (p.x >= f.area.left_top.x and p.x <= f.area.right_bottom.x and p.y >= f.area.left_top.y and p.y <= f.area.right_bottom.y)
+      if e.valid and inside and (not f.type or types[e.type]) then out[#out + 1] = e end
+    end
+    return out
+  end
+  game.surfaces[name] = surface
+  return surface
 end
 
 --- The player presses Esc / E: the GUI they have open closes.
@@ -745,12 +781,12 @@ function mock.crafter(type, name, recipe_name, x, y, opts)
   local e = {
     valid = true, type = type, name = name, position = { x = x, y = y }, unit_number = next_unit,
     crafting_speed = opts.speed or proto_.get_crafting_speed(), productivity_bonus = opts.prod or 0, speed_bonus = 0,
-    prototype = proto_, surface = mock.surface, quality = { name = "normal" },
+    prototype = proto_, surface = opts.surface or mock.surface, quality = { name = "normal" },
     get_recipe = function() if opts.idle then return nil end return r end,
     previous_recipe = opts.previous and { name = mock.force.recipes[opts.previous], quality = "normal" } or nil,
   }
   next_unit = next_unit + 1
-  mock.surface.entities[#mock.surface.entities + 1] = e
+  e.surface.entities[#e.surface.entities + 1] = e
   return e
 end
 

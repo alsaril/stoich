@@ -73,7 +73,8 @@ local function best_researched(tiers, force)
   return best
 end
 
---- Per-player view settings: unit, belt tiers and the highest allowed tier.
+--- Per-player view settings: unit, belt tiers, the highest allowed tier, and the plan
+--- (surface name) the player looks at.
 function common.ctx(player)
   local unit = player.mod_settings["stoich-rate-unit"].value
   local tiers = belts.read_tiers(player.force)
@@ -86,6 +87,7 @@ function common.ctx(player)
     max_index = max_index,
     one_lane = settings.global["stoich-one-lane"].value,
     can_edit = model.can_edit(player),
+    plan = model.selected(player.index),
   }
 end
 
@@ -209,6 +211,8 @@ end
 function common.factory_sprite(f)
   if f.icon then return common.icon_sprite(f.icon) end
   if f.kind == "sink" then return "utility/custom_tag_icon" end
+  if f.kind == "void" then return "utility/trash_white" end
+  if f.kind == "import" then return "utility/import_slot" end
   return "utility/missing_icon"
 end
 
@@ -263,7 +267,7 @@ end
 --- @return table<integer, string>
 function common.factory_names(ctx)
   local groups = {}
-  for _, id in ipairs(model.factory_ids()) do
+  for _, id in ipairs(model.factory_ids(ctx.plan)) do
     local name = model.get(id).name or ""
     groups[name] = groups[name] or {}
     table.insert(groups[name], id)
@@ -286,6 +290,22 @@ function common.factory_names(ctx)
         if used[caption] then caption = caption .. " #" .. id end
         used[caption] = true
         names[id] = caption
+      end
+    end
+  end
+  return names
+end
+
+--- Names for the units of the plan balance: factories by id, and each item of a void
+--- or import by its unit id ("Void · [item]").
+--- @return table<any, LocalisedString>
+function common.unit_names(ctx)
+  local names = common.factory_names(ctx)
+  for _, id in ipairs(model.factory_ids(ctx.plan)) do
+    local f = model.get(id)
+    if model.BOUNDARY_KINDS[f.kind] then
+      for _, row in ipairs(f.sink_items or {}) do
+        if row.key then names[id .. ":" .. row.key] = { "", names[id] or "", " · ", fp_util.rich(row.key) } end
       end
     end
   end
@@ -361,10 +381,13 @@ function common.spacer(parent)
   return s
 end
 
-function common.titlebar(frame, caption, close_action, extra)
+--- @param extra table[]? element definitions before the close button
+--- @param after_title table[]? element definitions right after the title
+function common.titlebar(frame, caption, close_action, extra, after_title)
   local bar = frame.add({ type = "flow", name = "stoich_titlebar", direction = "horizontal" })
   bar.drag_target = frame
   bar.add({ type = "label", caption = caption, style = "frame_title", ignored_by_interaction = true })
+  for _, b in ipairs(after_title or {}) do bar.add(b) end
   local filler = bar.add({ type = "empty-widget", style = "draggable_space_header", ignored_by_interaction = true })
   filler.style.height = 24
   filler.style.horizontally_stretchable = true

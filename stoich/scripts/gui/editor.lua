@@ -54,28 +54,32 @@ end
 
 -- Opening ------------------------------------------------------------------------------------
 
+local EDITOR_TITLE = { sink = "editor-title-sink", void = "editor-title-void", import = "editor-title-import" }
+
 --- Open the editor window on the player's draft (in place of the main window), built afresh.
 local function show_editor(player)
   local d = get_draft(player)
   if not d then return end
-  local caption = L(d.factory.kind == "sink" and "editor-title-sink" or "editor-title")
+  local list = plan.is_list(d.factory)
+  local caption = L(EDITOR_TITLE[d.factory.kind] or "editor-title")
   -- always the one-column layout, just wide enough for the recipe lines table;
-  -- a sink is only a short list of items and rates
-  local sink = d.factory.kind == "sink"
+  -- a sink, void or import is only a short list of items
   -- the width is set on every open: the same window can switch between a factory and a sink
   local _, content = window.open_child(player, "stoich_editor", caption,
-    { width = sink and window.SINK_WIDTH or window.EDITOR_WIDTH, height = window.SIZE.height })
+    { width = list and window.SINK_WIDTH or window.EDITOR_WIDTH, height = window.SIZE.height })
   content.clear()
   editor.build(player, content, common.ctx(player))
 end
 
 local function really_open(player, factory, opts)
-  local d = draft.open(player.index, factory)
+  local d = draft.open(player.index, factory, opts and opts.plan)
+  -- the plan behind the editor is the one it saves to
+  model.player(player.index).plan = d.plan
   if opts and opts.notice then d.notice = opts.notice end
   -- Default name: the localised name of the main product, once translated.
-  if opts and opts.translate then
+  if opts and (opts.translate or opts.translate_name) then
     d.name_auto = true
-    d.name_request = player.request_translation(fp_util.localised(opts.translate))
+    d.name_request = player.request_translation(opts.translate_name or fp_util.localised(opts.translate))
   elseif opts and opts.auto_name then
     d.name_auto = true -- named after the first item picked, unless the player types a name
   end
@@ -84,7 +88,9 @@ end
 
 --- Open a factory table (new or a copy of a saved one) in the player's editor.
 --- An unsaved draft is never dropped silently: the player is asked first.
---- @param opts table? { notice = LocalisedString, translate = item key for the default name }
+--- @param opts table? { notice = LocalisedString, translate = item key for the default name,
+---   translate_name = LocalisedString for the default name (instead of an item's),
+---   plan = surface name a new factory is saved to (default: the one the player looks at) }
 --- @return boolean opened now (false: waiting for the discard question)
 function editor.open_factory(player, factory, opts)
   local current = draft.get(player.index)
@@ -223,7 +229,8 @@ local function save_state(player, d, ctx)
   local r = f.result
   if not ctx.can_edit then return false, L("save-no-permission") end
   if (f.name or "") == "" then return false, L("save-no-name") end
-  if f.kind ~= "sink" and #plan.solvable_lines(f) == 0 then return false, L("save-no-lines") end
+  if not plan.is_list(f) and #plan.solvable_lines(f) == 0 then return false, L("save-no-lines") end
+  if plan.is_boundary(f) and r.status ~= "EXACT" then return false, L("empty-list") end
   if r.status ~= "EXACT" then return false, L("save-not-exact", L("status-" .. r.status)) end
   return true, nil
 end
@@ -398,8 +405,8 @@ local function build_header(parent, player, d, ctx)
   bar.add({ type = "choose-elem-button", elem_type = "signal", signal = f.icon and { type = f.icon.type, name = f.icon.name } or nil,
     enabled = ctx.can_edit, tooltip = L("icon"), tags = { fp = "editor_icon" } })
   common.spacer(bar)
-  -- a sink is always balanced: no status there
-  if f.kind ~= "sink" then
+  -- a sink, void or import is always balanced: no status there
+  if not plan.is_list(f) then
     common.status_label(bar, f.result.status, "stoich_status")
     bar.add({ type = "label", name = "stoich_problem_count", caption = "" })
   end
@@ -504,7 +511,7 @@ local function build_actions(parent, player, d, ctx)
   local bar = parent.add({ type = "flow", direction = "horizontal" })
   bar.style.horizontal_spacing = 8
   bar.style.top_margin = 4
-  if f.kind ~= "sink" then
+  if not plan.is_list(f) then
     bar.add({ type = "button", caption = L("add-recipe"), enabled = ctx.can_edit, tags = { fp = "editor_add_recipe" } })
     bar.add({ type = "button", caption = L("add-custom"), enabled = ctx.can_edit, tags = { fp = "editor_add_custom" } })
     local has_source = f.source and f.source.areas and #f.source.areas > 0
@@ -531,7 +538,16 @@ function editor.build(player, parent, ctx)
   local scroll = parent.add({ type = "scroll-pane", style = "scroll_pane" })
   scroll.style.vertically_stretchable = true
   scroll.style.horizontally_stretchable = true
-  if f.kind == "sink" then
+  if plan.is_boundary(f) then
+    -- a void or import: only its items, the plan sets their rates
+    local pane = scroll.add({ type = "flow", direction = "vertical" })
+    pane.style.vertical_spacing = 6
+    pane.style.horizontally_stretchable = true
+    local explain = pane.add({ type = "label", caption = L(f.kind == "void" and "void-explain" or "import-explain"), style = "info_label" })
+    explain.style.single_line = false
+    explain.style.maximal_width = window.SINK_WIDTH - 40
+    rows.build(pane, player, "boundary", ctx, ctx.can_edit, { stretch = true })
+  elseif f.kind == "sink" then
     local pane = scroll.add({ type = "flow", direction = "vertical" })
     pane.style.vertical_spacing = 6
     pane.style.horizontally_stretchable = true
@@ -620,29 +636,33 @@ scopes.factory = {
   end,
 }
 
-rows.targets.sink = {
-  rows = function(player)
-    local f = get_draft(player).factory
-    f.sink_items = f.sink_items or {}
-    return f.sink_items
-  end,
-  field = "rate",
-  changed = function(player, structural)
-    local d = get_draft(player)
-    draft.sink_icon(d.factory)
-    -- a new sink is named after its first item until the player types a name
-    local first = d.factory.sink_items[1]
-    if d.name_auto and first and first.key and first.key ~= d.name_key then
-      d.name_key = first.key
-      local _, n = fp_util.parse_key(first.key)
-      d.factory.name = fp_util.pretty_name(n)
-      d.name_request = player.request_translation(fp_util.localised(first.key))
-      editor.set_name_field(player, d.factory.name)
-    end
-    rebalance(player)
-    if structural then editor.rebuild(player) else editor.update_results(player) end
-  end,
-}
+local function list_items(player)
+  local f = get_draft(player).factory
+  f.sink_items = f.sink_items or {}
+  return f.sink_items
+end
+
+-- A sink, void or import shows its first item until the player picks an icon, and a new
+-- one is named after that item until the player types a name.
+local function list_changed(player, structural)
+  local d = get_draft(player)
+  draft.sink_icon(d.factory)
+  local first = d.factory.sink_items[1]
+  if d.name_auto and first and first.key and first.key ~= d.name_key then
+    d.name_key = first.key
+    local _, n = fp_util.parse_key(first.key)
+    d.factory.name = fp_util.pretty_name(n)
+    d.name_request = player.request_translation(fp_util.localised(first.key))
+    editor.set_name_field(player, d.factory.name)
+  end
+  rebalance(player)
+  if structural then editor.rebuild(player) else editor.update_results(player) end
+end
+
+rows.targets.sink = { rows = list_items, field = "rate", changed = list_changed }
+
+-- The items of a void or import: no rates (the plan balance sets them).
+rows.targets.boundary = { rows = list_items, changed = list_changed }
 
 -- Header handlers ---------------------------------------------------------------------------------
 
@@ -817,13 +837,13 @@ local function do_save(player, force)
     player.print(why)
     return
   end
-  local saved, result = model.save_factory(d.factory, d.base, player.index, force)
+  local saved, result, key = model.save_factory(d.factory, d.base, player.index, force, d.plan)
   if not saved then
     editor.conflict_dialog(player, result)
     return
   end
   -- balance first: closing the editor sorts the plan, by the shortages after this save
-  window.plan_changed()
+  window.plan_changed(key)
   close_editor(player)
 end
 
@@ -934,75 +954,13 @@ handlers.dlg_line_ok = function(player)
   editor.rebuild(player)
 end
 
--- Add recipe dialog
+-- Lines added by hand ---------------------------------------------------------------------------------
 
---- @param dlg table? its state; nil rebuilds the open one
-function editor.build_recipe_dialog(player, dlg)
-  dlg = dlg or model.player(player.index).dialog
-  local frame = common.open_dialog(player, "recipe", L("add-recipe"), dlg)
-  local body = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
-  local t = body.add({ type = "table", column_count = 2 })
-  t.style.vertical_spacing = 8
-  t.style.horizontal_spacing = 12
-  t.add({ type = "label", caption = L("recipe") })
-  t.add({ type = "choose-elem-button", elem_type = "recipe", recipe = dlg.recipe, tags = { fp = "dlg_recipe" } })
-  t.add({ type = "label", caption = L("machine") })
-  local machines = dlg.recipe and prototypes.recipe[dlg.recipe] and scanner.machines_for_recipe(prototypes.recipe[dlg.recipe]) or {}
-  dlg.machines = machines
-  local items = {}
-  for i, name in ipairs(machines) do items[i] = { "", "[entity=" .. name .. "] ", prototypes.entity[name].localised_name } end
-  t.add({ type = "drop-down", items = items, selected_index = (#items > 0) and math.min(dlg.machine_index or 1, #items) or 0, tags = { fp = "dlg_machine" } })
-  t.add({ type = "label", caption = L("count") })
-  common.number_field(t, dlg.count or 1, { fp = "dlg_num", field = "count" })
-  t.add({ type = "label", caption = L("speed-pct"), tooltip = L("speed-pct-tooltip") })
-  common.number_field(t, dlg.speed or 0, { fp = "dlg_num", field = "speed" }, { negative = true })
-  t.add({ type = "label", caption = L("prod-pct"), tooltip = L("prod-pct-tooltip") })
-  common.number_field(t, dlg.prod or 0, { fp = "dlg_num", field = "prod" })
-  local buttons = common.dialog_buttons(frame)
-  buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
-  common.spacer(buttons)
-  buttons.add({ type = "button", caption = L("add"), style = "confirm_button", enabled = dlg.recipe ~= nil and #machines > 0, tags = { fp = "dlg_recipe_ok" } })
-end
-
-handlers.editor_add_recipe = function(player)
-  editor.build_recipe_dialog(player, { kind = "recipe", count = 1, speed = 0, prod = 0, machine_index = 1 })
-end
-
-handlers.dlg_recipe = { elem = function(player, element, event)
-  local dlg = model.player(player.index).dialog
-  if not dlg then return end
-  dlg.recipe = element.elem_value
-  dlg.machine_index = 1
-  -- productivity research of this recipe as the default
-  if dlg.recipe then dlg.prod = scanner.research_productivity_pct(player.force, dlg.recipe) end
-  editor.build_recipe_dialog(player)
-end }
-
-handlers.dlg_machine = { selection = function(player, element, event)
-  local dlg = model.player(player.index).dialog
-  if dlg then dlg.machine_index = element.selected_index end
-end }
-
-handlers.dlg_num = { text = function(player, element, event)
-  local dlg = model.player(player.index).dialog
-  local v = fp_util.parse_number(element.text)
-  if dlg and v then dlg[element.tags.field] = v end
-end }
-
-handlers.dlg_recipe_ok = function(player)
-  local dlg = model.player(player.index).dialog
+--- Add a recipe line (from the recipe dialog) to the player's draft.
+function editor.add_manual_line(player, line)
   local d = get_draft(player)
-  if not (dlg and d and dlg.recipe) then return end
-  local recipe = prototypes.recipe[dlg.recipe]
-  local machine_name = dlg.machines and dlg.machines[dlg.machine_index or 1]
-  local machine = machine_name and prototypes.entity[machine_name]
-  if not (recipe and machine) then return end
-  model.add_line(d.factory, {
-    kind = "recipe", recipe = dlg.recipe, machine = machine_name, count = math.max(0, dlg.count or 1),
-    flow = scanner.manual_recipe_flow(recipe, machine, dlg.speed, dlg.prod),
-    manual = true, speed_pct = dlg.speed, prod_pct = dlg.prod,
-  })
-  common.close_dialog(player)
+  if not d then return end
+  model.add_line(d.factory, line)
   rebalance(player)
   editor.rebuild(player)
 end

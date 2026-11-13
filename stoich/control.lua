@@ -9,6 +9,7 @@ local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 require("scripts.gui.actions")
+require("scripts.gui.recipe")
 local dialogs = require("scripts.gui.dialogs")
 local plan_gui = require("scripts.gui.plan")
 local items = require("scripts.gui.items")
@@ -32,7 +33,6 @@ end
 
 script.on_init(function()
   model.init()
-  plan.rebalance()
 end)
 
 script.on_load(function()
@@ -42,12 +42,14 @@ end)
 script.on_configuration_changed(function()
   model.migrate()
   local bad = model.validate_all()
-  for _, id in ipairs(model.factory_ids()) do plan.balance_factory(model.get(id)) end
+  for _, key in ipairs(model.plan_keys()) do
+    for _, id in ipairs(model.factory_ids(key)) do plan.balance_factory(model.get(id)) end
+  end
   for _, state in pairs(storage.players) do
     if state.draft then plan.balance_factory(state.draft.factory) end
     model.reset_transient(state)
   end
-  plan.rebalance()
+  plan.rebalance_all()
   rebuild_all_guis()
   if bad > 0 then game.print(L("invalid-after-update", bad)) end
 end)
@@ -75,6 +77,13 @@ end)
 
 script.on_event(defines.events.on_player_removed, function(event)
   model.remove_player(event.player_index)
+end)
+
+-- A plan belongs to its surface's name: a renamed surface takes its plan along.
+script.on_event(defines.events.on_surface_renamed, function(event)
+  if model.rename_plan(event.old_name, event.new_name) then
+    for _, player in pairs(game.connected_players) do window.refresh(player) end
+  end
 end)
 
 -- Window and tool -----------------------------------------------------------------------------------
@@ -154,6 +163,8 @@ local function capture(event)
   local scan = scanner.scan_entities(event.entities, player.force)
   local area = { left_top = { x = event.area.left_top.x, y = event.area.left_top.y }, right_bottom = { x = event.area.right_bottom.x, y = event.area.right_bottom.y } }
   local source = { surface_index = event.surface.index, areas = { area } }
+  -- a capture goes to the plan of the surface it was made on
+  local key = event.surface.name
   player.clear_cursor()
   if recapture then
     if scan.production == 0 then
@@ -167,7 +178,7 @@ local function capture(event)
   if scan.production == 0 then
     if next(scan.generators) then
       local f = draft.sink_from_generators(scan.generators)
-      editor.open_factory(player, f, { notice = L("sink-from-generators") })
+      editor.open_factory(player, f, { notice = L("sink-from-generators"), plan = key })
     else
       player.print(L("nothing-selected"))
     end
@@ -178,7 +189,7 @@ local function capture(event)
   -- Idle machines get their own line with a recipe picker, so there is no notice for them.
   local main = f.main_product
   f.main_product = nil
-  editor.open_factory(player, f, { translate = main })
+  editor.open_factory(player, f, { translate = main, plan = key })
 end
 
 script.on_event(defines.events.on_string_translated, function(event)
@@ -232,8 +243,11 @@ commands.add_command("stoich-lines", { "stoich.command-lines" }, function(cmd)
 end)
 
 remote.add_interface("stoich", {
-  --- For other mods / console checks: the cached plan result.
-  plan_result = function() return model.plan().result end,
+  --- For other mods / console checks: the cached result of a surface's plan (Nauvis by default).
+  plan_result = function(surface_name)
+    local p = storage.plans[surface_name or model.DEFAULT_PLAN]
+    return p and p.result
+  end,
 })
 
 -- Test driver ----------------------------------------------------------------------------------------
@@ -270,10 +284,11 @@ if debug_setting and debug_setting.value then
     open = function(player_index, what)
       local player = game.get_player(player_index)
       window.open(player)
+      local p = model.plan(model.selected(player_index))
       if what == "statistics" then
         items.open(player)
-      elseif what == "splits" and model.plan().splits[1] then
-        plan_gui.open_split(player, model.plan().splits[1].item)
+      elseif what == "splits" and p.splits[1] then
+        plan_gui.open_split(player, p.splits[1].item)
       end
     end,
     --- Capture an area as if the player dragged the tool over it.
@@ -308,44 +323,58 @@ if debug_setting and debug_setting.value then
     draft = function(player_index)
       return draft.get(player_index)
     end,
+    --- The open dialog's state (the recipe dialog's recipes, machines, modules...).
+    dialog = function(player_index)
+      local state = storage.players[player_index]
+      return state and state.dialog
+    end,
     --- Close the plan of a test world that lacks mines for some inputs: a source factory
     --- (one custom line) for each item nothing makes, a void for each item nothing uses.
-    --- Returns how many factories it added.
-    plan_sources = function()
+    --- plan_key: default the plan player 1 looks at. Returns how many factories it added.
+    plan_sources = function(plan_key)
+      local key = plan_key or model.selected(1)
       local n = 0
       for _ = 1, 10 do
         local made, used, missing = {}, {}, {}
-        for _, u in ipairs(plan.units()) do
+        for _, u in ipairs(plan.units(key)) do
           for k, v in pairs(u.flow) do
             if v > 0 then made[k] = true else used[k] = true end
           end
         end
-        for _, problem in ipairs(model.plan().result.problems) do
+        local seen = {}
+        for _, problem in ipairs(model.plan(key).result.problems) do
           if problem.type == "conflict" then
-            for _, key in ipairs(problem.items) do missing[#missing + 1] = key end
+            -- an item can be named by several conflicts: one source (or void) for it
+            for _, item in ipairs(problem.items) do
+              if not seen[item] then
+                seen[item] = true
+                missing[#missing + 1] = item
+              end
+            end
           end
         end
         if #missing == 0 then break end
         table.sort(missing)
-        for _, key in ipairs(missing) do
-          local sign = (not made[key] and 1) or (not used[key] and -1) or nil
+        for _, item in ipairs(missing) do
+          local sign = (not made[item] and 1) or (not used[item] and -1) or nil
           if sign then
             local f = model.new_factory("factory")
-            local line = model.add_line(f, { kind = "custom", label = key, count = 1, flow = { [key] = sign } })
-            f.name = fp_util.pretty_name(select(2, fp_util.parse_key(key))) .. (sign > 0 and " source" or " void")
+            local line = model.add_line(f, { kind = "custom", label = item, count = 1, flow = { [item] = sign } })
+            f.name = fp_util.pretty_name(select(2, fp_util.parse_key(item))) .. (sign > 0 and " source" or " void")
             f.anchors[line.id] = 1
-            f.external = { [key] = true }
+            f.external = { [item] = true }
             plan.balance_factory(f)
-            model.save_factory(f, {}, 1)
+            model.save_factory(f, {}, 1, false, key)
             n = n + 1
           end
         end
-        window.plan_changed()
+        window.plan_changed(key)
       end
       return n
     end,
-    factories = function()
-      return model.plan().factories
+    --- The factories of a plan (default: the one player 1 looks at).
+    factories = function(key)
+      return model.plan(key or model.selected(1)).factories
     end,
     --- Scroll the plan list to its end (mods can't scroll each other's elements).
     scroll_plan = function(player_index)

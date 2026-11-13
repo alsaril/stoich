@@ -169,7 +169,7 @@ t.test("gui: capture an oil build, balance live, save", function()
 
   mock.click(p, save)
   t.eq(draft_of(p), nil)
-  local plan = storage.plans.main
+  local plan = storage.plans.nauvis
   local n = 0
   for _ in pairs(plan.factories) do n = n + 1 end
   t.eq(n, 1)
@@ -180,7 +180,7 @@ end)
 local function saved_oil(p)
   capture(p, oil_build())
   mock.click(p, mock.named(scr(p), "stoich_save"))
-  for id in pairs(storage.plans.main.factories) do return id end
+  for id in pairs(storage.plans.nauvis.factories) do return id end
 end
 
 -- A factory with one custom line, saved straight into the plan (what capturing a mine,
@@ -193,8 +193,8 @@ local function custom_factory(name, net)
   f.anchors[line.id] = 1
   f.external = plan.flow_items(net)
   plan.balance_factory(f)
-  local _, saved = model.save_factory(f, {}, 1)
-  require("scripts.gui.window").plan_changed()
+  local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
+  require("scripts.gui.window").plan_changed("nauvis")
   return saved
 end
 
@@ -204,12 +204,12 @@ local function close_plan()
   local plan = require("scripts.plan")
   for _ = 1, 10 do
     local made, used, missing = {}, {}, {}
-    for _, u in ipairs(plan.units()) do
+    for _, u in ipairs(plan.units("nauvis")) do
       for k, v in pairs(u.flow) do
         if v > 0 then made[k] = true else used[k] = true end
       end
     end
-    for _, problem in ipairs(storage.plans.main.result.problems) do
+    for _, problem in ipairs(storage.plans.nauvis.result.problems) do
       if problem.type == "conflict" then
         for _, key in ipairs(problem.items) do missing[#missing + 1] = key end
       end
@@ -240,8 +240,8 @@ t.test("gui: a sink's scale sets what the plan delivers", function()
   local plates = custom_factory("plates", { ["item/iron-plate"] = 1 }) -- 60/min a copy
   add_sink(p, "iron-plate", 120)
   local sink
-  for id, f in pairs(storage.plans.main.factories) do if f.kind == "sink" then sink = id end end
-  t.near(storage.plans.main.result.counts[plates.id], 2)
+  for id, f in pairs(storage.plans.nauvis.factories) do if f.kind == "sink" then sink = id end end
+  t.near(storage.plans.nauvis.result.counts[plates.id], 2)
   go(p, "plan")
   click(p, "fac_edit", { id = sink })
   local slider = mock.named(scr(p), "stoich_scale_slider")
@@ -253,15 +253,15 @@ t.test("gui: a sink's scale sets what the plan delivers", function()
   mock.type_text(p, mock.named(scr(p), "stoich_scale_field"), "0.25")
   t.near(slider.slider_value, 0.25)
   mock.click(p, mock.named(scr(p), "stoich_save"))
-  t.near(storage.plans.main.factories[sink].scale, 0.25)
-  t.near(storage.plans.main.result.counts[plates.id], 0.5)
+  t.near(storage.plans.nauvis.factories[sink].scale, 0.25)
+  t.near(storage.plans.nauvis.result.counts[plates.id], 0.5)
   t.truthy(mock.text(win(p)):find("<stoich.sink-mark-scale>", 1, true), "the plan row shows the scale")
   -- back to 1: stored as nothing, the sink as it was
   click(p, "fac_edit", { id = sink })
   mock.slide(p, mock.named(scr(p), "stoich_scale_slider"), 1)
   t.eq(draft_of(p).factory.scale, nil)
   mock.click(p, mock.named(scr(p), "stoich_save"))
-  t.near(storage.plans.main.result.counts[plates.id], 2)
+  t.near(storage.plans.nauvis.result.counts[plates.id], 2)
 end)
 
 t.test("gui: an item icon in the plan opens statistics; a closed child window sorts the plan afresh", function()
@@ -270,10 +270,10 @@ t.test("gui: an item icon in the plan opens statistics; a closed child window so
   local b = custom_factory("b copper", { ["item/copper-plate"] = 1 })
   add_sink(p, "iron-plate", 120)
   local sink
-  for id, f in pairs(storage.plans.main.factories) do if f.kind == "sink" then sink = id end end
-  storage.plans.main.factories[sink].sink_items[2] = { key = "item/copper-plate", rate = 2 }
-  require("scripts.plan").balance_factory(storage.plans.main.factories[sink])
-  require("scripts.gui.window").plan_changed()
+  for id, f in pairs(storage.plans.nauvis.factories) do if f.kind == "sink" then sink = id end end
+  storage.plans.nauvis.factories[sink].sink_items[2] = { key = "item/copper-plate", rate = 2 }
+  require("scripts.plan").balance_factory(storage.plans.nauvis.factories[sink])
+  require("scripts.gui.window").plan_changed("nauvis")
   go(p, "plan")
   local function order() return table.concat(storage.players[1].plan_order, ",") end
   t.eq(order(), a.id .. "," .. b.id, "equal shortage: by name")
@@ -297,7 +297,7 @@ t.test("gui: a save that changes the shortages sorts the plan by the new ones", 
   add_sink(p, "iron-plate", 120) -- a short by 1
   add_sink(p, "copper-plate", 240) -- b short by 3
   local copper_sink
-  for id, f in pairs(storage.plans.main.factories) do
+  for id, f in pairs(storage.plans.nauvis.factories) do
     if f.kind == "sink" and f.sink_items[1].key == "item/copper-plate" then copper_sink = id end
   end
   go(p, "plan")
@@ -315,7 +315,7 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   local id = saved_oil(p)
   add_sink(p, "plastic-bar", 60)
   go(p, "plan")
-  local r = storage.plans.main.result
+  local r = storage.plans.nauvis.result
   t.eq(r.status, "CONFLICT")
   -- an item in a plan problem opens the statistics window on it
   local item = mock.find(win(p), "problem_item", { mode = "plan" }).tags.item
@@ -329,7 +329,7 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   -- the plan has no "comes from outside" button; these test plans lack the mines and pumps
   t.eq(mock.find(win(p), "problem_external", { mode = "plan" }), nil, "no external buttons in the plan")
   close_plan()
-  r = storage.plans.main.result
+  r = storage.plans.nauvis.result
   t.eq(r.status, "EXACT")
   -- 8 plastic plants make 16/s per copy at the anchored count; demand 1/s
   t.truthy(r.counts[id] > 0)
@@ -337,16 +337,16 @@ t.test("gui: sink drives the plan; conflicts fixed in one click; copies and pins
   local pane = mock.named(win(p), "stoich_plan_pane")
   local filter_field = mock.find(win(p), "plan_filter")
   click(p, "plan_copies", { id = id, delta = 1 })
-  t.eq(storage.plans.main.factories[id].copies, 2)
+  t.eq(storage.plans.nauvis.factories[id].copies, 2)
   -- the list is refilled, not rebuilt: its scroll pane (and scroll position) stays
   t.truthy(pane and pane.valid, "the scroll pane outlives − / +")
   t.truthy(filter_field.valid, "so does the filter field")
-  t.near(storage.plans.main.result.shortage[id], before - 1)
+  t.near(storage.plans.nauvis.result.shortage[id], before - 1)
   -- with no copies built the whole need is short, shown with one decimal
   click(p, "plan_copies", { id = id, delta = -1 })
   click(p, "plan_copies", { id = id, delta = -1 })
-  t.eq(storage.plans.main.factories[id].copies, 0)
-  t.near(storage.plans.main.result.shortage[id], 0.0625)
+  t.eq(storage.plans.nauvis.factories[id].copies, 0)
+  t.near(storage.plans.nauvis.result.shortage[id], 0.0625)
   local shown = false
   for _, e in ipairs(mock.all(scr(p))) do
     if e.type == "label" and e.caption == "+0.1" then shown = true end
@@ -413,8 +413,8 @@ t.test("gui: a long problem list shows its first rows; split prompts come first"
   custom_factory("gears B", { ["item/iron-gear-wheel"] = 2 })
   sink.sink_items[7] = { key = "item/iron-gear-wheel", rate = 1 }
   require("scripts.plan").balance_factory(sink)
-  require("scripts.model").save_factory(sink, {}, 1)
-  require("scripts.gui.window").plan_changed()
+  require("scripts.model").save_factory(sink, {}, 1, false, "nauvis")
+  require("scripts.gui.window").plan_changed("nauvis")
   local list = mock.named(win(p), "stoich_problems")
   local first = list.children[1]
   t.eq(first.children[#first.children].tags.fp, "problem_split", "the split prompt first")
@@ -432,10 +432,10 @@ t.test("gui: plan split between two factories, slider in its window", function()
   add_sink(p, "plastic-bar", 60)
   go(p, "plan")
   close_plan()
-  t.eq(storage.plans.main.result.status, "NEEDS_SPLIT")
+  t.eq(storage.plans.nauvis.result.status, "NEEDS_SPLIT")
   click(p, "problem_split", { mode = "plan" })
-  t.eq(storage.plans.main.result.status, "EXACT")
-  local split = storage.plans.main.splits[1]
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+  local split = storage.plans.nauvis.splits[1]
   t.truthy(split.match_usage, "a new plan split matches usage")
   local ids = {}
   for id in pairs(split.shares) do ids[#ids + 1] = id end
@@ -448,21 +448,21 @@ t.test("gui: plan split between two factories, slider in its window", function()
   -- a second copy of the first design: the shares follow, both run at the same usage
   click(p, "child_close", nil, split_win(p))
   click(p, "plan_copies", { id = ids[1], delta = 1 }, win(p))
-  split = storage.plans.main.splits[1]
+  split = storage.plans.nauvis.splits[1]
   t.near(split.shares[ids[1]], 200 / 3)
-  local r = storage.plans.main.result
+  local r = storage.plans.nauvis.result
   t.near(r.counts[ids[1]] / 2, r.counts[ids[2]] / 1)
   -- unticked, the shares stay and the sliders work again
   click(p, "plan_split_edit")
   click(p, "split_match_usage", { mode = "plan" }, split_win(p))
-  t.eq(storage.plans.main.splits[1].match_usage, nil)
-  t.near(storage.plans.main.splits[1].shares[ids[1]], 200 / 3)
+  t.eq(storage.plans.nauvis.splits[1].match_usage, nil)
+  t.near(storage.plans.nauvis.splits[1].shares[ids[1]], 200 / 3)
   local slider = mock.find(scr(p), "split_slider", { mode = "plan" })
   t.truthy(slider and slider.enabled)
   mock.slide(p, slider, 80)
   t.truthy(slider.valid, "plan slider survives")
-  t.near(storage.plans.main.splits[1].shares[slider.tags.line], 80)
-  t.eq(storage.plans.main.result.status, "EXACT")
+  t.near(storage.plans.nauvis.splits[1].shares[slider.tags.line], 80)
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
 end)
 
 t.test("gui: export and import a factory string", function()
@@ -482,7 +482,7 @@ t.test("gui: export and import a factory string", function()
   click(p, "fac_import_ok")
   t.eq(dialog(p), nil)
   local n = 0
-  for _, f in pairs(storage.plans.main.factories) do
+  for _, f in pairs(storage.plans.nauvis.factories) do
     n = n + 1
     t.eq(f.result.status, "EXACT")
   end
@@ -512,7 +512,7 @@ t.test("gui: a hand-edited import is cleaned before anything is saved; every fac
   click(p, "fac_import_ok")
   t.eq(dialog(p), nil, "imported")
   local sink, f
-  for _, x in pairs(storage.plans.main.factories) do
+  for _, x in pairs(storage.plans.nauvis.factories) do
     if x.kind == "sink" then sink = x else f = x end
   end
   t.eq(sink.name, "Imported")
@@ -529,7 +529,7 @@ t.test("gui: a hand-edited import is cleaned before anything is saved; every fac
   t.eq(next(f.splits[1].shares), nil)
   t.eq(f.external["item/iron-gear-wheel"], true)
   -- everything opens in the editor
-  for _, id in ipairs(require("scripts.model").factory_ids()) do
+  for _, id in ipairs(require("scripts.model").factory_ids("nauvis")) do
     click(p, "fac_edit", { id = id })
     t.truthy(editor_win(p), "opens")
     click(p, "editor_cancel")
@@ -540,8 +540,8 @@ t.test("gui: a saved sink opens unchanged; it stores and exports only items and 
   local p = boot()
   add_sink(p, "plastic-bar", 60)
   local id
-  for fid, x in pairs(storage.plans.main.factories) do if x.kind == "sink" then id = fid end end
-  for k in pairs(storage.plans.main.factories[id].sink_items[1]) do
+  for fid, x in pairs(storage.plans.nauvis.factories) do if x.kind == "sink" then id = fid end end
+  for k in pairs(storage.plans.nauvis.factories[id].sink_items[1]) do
     t.truthy(k == "key" or k == "rate" or k == "fluid", "stored row field " .. k)
   end
   click(p, "fac_edit", { id = id })
@@ -615,7 +615,7 @@ t.test("gui: stale save shows the conflict dialog; overwrite and reload work", f
   click(p2, "fac_edit", { id = id })
   mock.type_text(p2, mock.find(scr(p2), "editor_name"), "by p2")
   mock.click(p2, mock.named(scr(p2), "stoich_save"))
-  t.eq(storage.plans.main.factories[id].name, "by p2")
+  t.eq(storage.plans.nauvis.factories[id].name, "by p2")
   -- p1 is in the editor, so only its status refreshes; p2 saved fine.
   mock.type_text(p1, mock.find(scr(p1), "editor_name"), "by p1")
   mock.click(p1, mock.named(scr(p1), "stoich_save"))
@@ -629,7 +629,7 @@ t.test("gui: stale save shows the conflict dialog; overwrite and reload work", f
   mock.click(p2, mock.named(scr(p2), "stoich_save"))
   mock.click(p1, mock.named(scr(p1), "stoich_save"))
   click(p1, "conflict_overwrite")
-  t.eq(storage.plans.main.factories[id].name, "by p1")
+  t.eq(storage.plans.nauvis.factories[id].name, "by p1")
 end)
 
 t.test("gui: other players' plan window refreshes live", function()
@@ -690,7 +690,7 @@ t.test("gui: delete with confirmation, rescan, show on map, add recipe and custo
   click(p, "fac_delete", { id = id })
   t.truthy(dialog(p))
   click(p, "fac_delete_ok", { id = id })
-  t.eq(storage.plans.main.factories[id], nil)
+  t.eq(storage.plans.nauvis.factories[id], nil)
 end)
 
 t.test("gui: removed mod marks factories invalid and the GUI still builds", function()
@@ -699,8 +699,8 @@ t.test("gui: removed mod marks factories invalid and the GUI still builds", func
   open(p)
   prototypes.recipe["coal-liquefaction"] = nil
   mock.init.on_configuration_changed({})
-  t.truthy(storage.plans.main.factories[id].invalid)
-  t.eq(storage.plans.main.factories[id].result.status, "INVALID")
+  t.truthy(storage.plans.nauvis.factories[id].invalid)
+  t.eq(storage.plans.nauvis.factories[id].result.status, "INVALID")
   t.truthy(win(p), "window rebuilt")
   go(p, "plan")
   go(p, "plan")
@@ -955,7 +955,7 @@ t.test("gui: an invalid factory is repaired by deleting its broken line", functi
   local id = saved_oil(p)
   prototypes.recipe["coal-liquefaction"] = nil
   mock.init.on_configuration_changed({})
-  t.eq(storage.plans.main.factories[id].result.status, "INVALID")
+  t.eq(storage.plans.nauvis.factories[id].result.status, "INVALID")
   go(p, "plan")
   click(p, "fac_edit", { id = id })
   local d = draft_of(p)
@@ -973,8 +973,8 @@ t.test("gui: an invalid factory is repaired by deleting its broken line", functi
   end
   t.eq(d.factory.result.status, "EXACT")
   mock.click(p, mock.named(scr(p), "stoich_save"))
-  t.eq(storage.plans.main.factories[id].invalid, nil)
-  t.eq(storage.plans.main.factories[id].result.status, "EXACT")
+  t.eq(storage.plans.nauvis.factories[id].invalid, nil)
+  t.eq(storage.plans.nauvis.factories[id].result.status, "EXACT")
 end)
 
 t.test("gui: split prompt offers every useful item in a dropdown", function()
@@ -1015,11 +1015,11 @@ t.test("gui: editor groups items; shortage never shows below 0", function()
   t.truthy(text:find("<stoich.items-inputs>", 1, true) and text:find("<stoich.items-outputs>", 1, true) and text:find("<stoich.items-inside>", 1, true))
   mock.click(p, mock.named(scr(p), "stoich_save"))
   local id
-  for fid in pairs(storage.plans.main.factories) do id = fid end
+  for fid in pairs(storage.plans.nauvis.factories) do id = fid end
   add_sink(p, "plastic-bar", 60)
   go(p, "plan")
   close_plan()
-  local r = storage.plans.main.result
+  local r = storage.plans.nauvis.result
   t.eq(r.status, "EXACT")
   t.truthy(r.shortage[id] < 0, "overbuilt in this plan")
   -- the "to build" cell reads a green tick, with the surplus in its tooltip
@@ -1095,7 +1095,7 @@ t.test("gui: a plan split is a row of the plan; its pencil opens the split windo
   saved_oil(p)
   saved_oil(p) -- a second design making the same items
   -- two factories with the same name, like several identical mines
-  for _, f in pairs(storage.plans.main.factories) do f.name = "Plastic bar" end
+  for _, f in pairs(storage.plans.nauvis.factories) do f.name = "Plastic bar" end
   add_sink(p, "plastic-bar", 60)
   go(p, "plan")
   close_plan()
@@ -1136,7 +1136,7 @@ t.test("gui: a plan split is a row of the plan; its pencil opens the split windo
   t.truthy(mock.text(win(p)):find("<stoich.split-mark>", 1, true), "set by hand")
   -- removing the split from its row closes its window
   click(p, "split_remove", { mode = "plan" }, win(p))
-  t.eq(#storage.plans.main.splits, 0)
+  t.eq(#storage.plans.nauvis.splits, 0)
   t.eq(split_win(p), nil, "window closed with its split")
 end)
 
@@ -1219,9 +1219,9 @@ t.test("gui: recapture area replaces the open factory's contents", function()
   t.eq(d.factory.result.status, "EXACT")
   mock.click(p, mock.named(scr(p), "stoich_save"))
   local n = 0
-  for _ in pairs(storage.plans.main.factories) do n = n + 1 end
+  for _ in pairs(storage.plans.nauvis.factories) do n = n + 1 end
   t.eq(n, 1, "replaced in place")
-  t.eq(storage.plans.main.factories[id].copies, 2, "copies kept")
+  t.eq(storage.plans.nauvis.factories[id].copies, 2, "copies kept")
 end)
 
 t.test("gui: dropping the tool cancels a recapture", function()
@@ -1287,12 +1287,246 @@ t.test("gui: the debug interface only exists when its hidden setting is on", fun
   add_sink(p, "plastic-bar", 60)
   t.truthy(debug.plan_sources() > 0)
   t.truthy(next(debug.factories()), "the factories, for the screenshot driver")
-  t.truthy(storage.plans.main.result.status ~= "CONFLICT")
+  t.eq(debug.dialog(p.index), nil)
+  click(p, "fac_new_recipe")
+  t.eq(debug.dialog(p.index).kind, "recipe", "the open dialog's state")
+  click(p, "dialog_close")
+  t.truthy(storage.plans.nauvis.result.status ~= "CONFLICT")
+end)
+
+-- Plans per surface ---------------------------------------------------------------------------------
+
+local function plan_count(key)
+  local n = 0
+  for _ in pairs(storage.plans[key] and storage.plans[key].factories or {}) do n = n + 1 end
+  return n
+end
+
+local function selector(p) return mock.named(win(p), "stoich_plan_select") end
+
+local function select_plan(p, key)
+  local dd = selector(p)
+  for i, k in ipairs(dd.tags.keys) do
+    if k == key then return mock.select(p, dd, i) end
+  end
+  error("no plan " .. key .. " in the selector")
+end
+
+t.test("gui: each surface has its own plan; the window opens on the player's surface", function()
+  local p = boot()
+  local fulgora = mock.add_surface("fulgora", { planet = true })
+  local floor = mock.add_surface("factory-floor-1") -- a modded surface, no planet
+  p.surface = fulgora
+  open(p)
+  t.eq(storage.players[1].plan, "fulgora")
+  local dd = selector(p)
+  t.eq(#dd.items, 2, "the planets: nauvis and fulgora")
+  t.eq(dd.items[dd.selected_index][2], "[planet=fulgora] ")
+  -- a capture on Fulgora goes to Fulgora's plan
+  local build = {}
+  for i = 1, 3 do build[i] = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", i, 0, { surface = fulgora }) end
+  mock.fire("on_player_selected_area", { player_index = 1, item = TOOL, entities = build, area = AREA, surface = fulgora })
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.eq(plan_count("fulgora"), 1)
+  t.eq(plan_count("nauvis"), 0)
+  -- on the map of Nauvis (remote view: player.surface is the viewed one), it opens there
+  mock.fire_custom("stoich-toggle-window", 1)
+  p.surface = mock.surface
+  open(p)
+  t.eq(storage.players[1].plan, "nauvis")
+  t.truthy(mock.text(win(p)):find("<stoich.empty-title>", 1, true), "Nauvis has nothing yet")
+  select_plan(p, "fulgora")
+  t.eq(storage.players[1].plan, "fulgora")
+  t.truthy(mock.find(win(p), "fac_edit"), "Fulgora's factory listed")
+  -- a surface that isn't a planet keeps the last choice...
+  mock.fire_custom("stoich-toggle-window", 1)
+  p.surface = floor
+  open(p)
+  t.eq(storage.players[1].plan, "fulgora")
+  -- ...until something is captured there: then it has a plan, listed after the planets
+  local m = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", 1, 0, { surface = floor })
+  mock.fire("on_player_selected_area", { player_index = 1, item = TOOL, entities = { m }, area = AREA, surface = floor })
+  t.eq(storage.players[1].plan, "factory-floor-1", "the editor's plan is the one shown")
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.eq(plan_count("factory-floor-1"), 1)
+  t.eq(#selector(p).items, 3)
+  -- the log says where each edit happened
+  click(p, "open_log")
+  t.truthy(mock.text(dialog(p)):find("[planet=fulgora]", 1, true), "planet icon in the log")
+  t.truthy(mock.text(dialog(p)):find("factory-floor-1: ", 1, true), "surface name in the log")
+  click(p, "dialog_close")
+  -- a renamed surface keeps its plan; a deleted one is marked
+  game.surfaces["factory-floor-1"] = nil
+  floor.name = "floor-a"
+  game.surfaces["floor-a"] = floor
+  mock.fire("on_surface_renamed", { surface_index = floor.index, old_name = "factory-floor-1", new_name = "floor-a" })
+  t.eq(plan_count("floor-a"), 1)
+  t.eq(storage.players[1].plan, "floor-a")
+  game.surfaces["floor-a"] = nil
+  require("scripts.gui.window").refresh(p)
+  local captions = selector(p).items
+  local gone = false
+  for _, c in ipairs(captions) do
+    if type(c) == "table" and c[2] == "floor-a" then gone = true end
+  end
+  t.truthy(gone, "a surface that is gone still lists its plan")
+end)
+
+t.test("gui: voids and imports close the plan, from the toolbar or a problem", function()
+  local p = boot()
+  -- plates make iron and copper; science uses only iron, and copper cable nobody makes
+  custom_factory("plates", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1 })
+  custom_factory("science", { ["item/iron-plate"] = -1, ["item/copper-cable"] = -1, ["item/automation-science-pack"] = 1 })
+  add_sink(p, "automation-science-pack", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  go(p, "plan")
+  -- the missing cable: import it; then the surplus copper shows: void it
+  t.eq(mock.find(win(p), "problem_boundary", { item = "item/copper-plate" }), nil)
+  click(p, "problem_boundary", { item = "item/copper-cable", kind = "import" })
+  t.eq(storage.plans.nauvis.result.status, "CONFLICT")
+  click(p, "problem_boundary", { item = "item/copper-plate", kind = "void" })
+  r = storage.plans.nauvis.result
+  t.eq(r.status, "EXACT")
+  local void, import
+  for _, f in pairs(storage.plans.nauvis.factories) do
+    if f.kind == "void" then void = f elseif f.kind == "import" then import = f end
+  end
+  t.truthy(void and import)
+  t.truthy(mock.text(win(p)):find("<stoich.void-mark>", 1, true), "void row")
+  t.truthy(mock.text(win(p)):find("<stoich.import-mark>", 1, true), "import row")
+  -- no copies for them
+  t.eq(mock.find(win(p), "plan_copies", { id = void.id }), nil)
+  -- statistics names them
+  go(p, "stats")
+  click(p, "items_toggle", { item = "item/copper-plate" })
+  t.truthy(mock.find(scr(p), "items_open", { id = void.id }), "the void under copper plate")
+  mock.press_esc(p)
+  -- a new void from the toolbar: items only, no rates
+  click(p, "fac_new_boundary", { kind = "void" })
+  t.eq(mock.find(scr(p), "row_rate"), nil, "no rate column")
+  t.eq(mock.named(scr(p), "stoich_save").enabled, false, "needs an item")
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "coal" })
+  t.eq(mock.named(scr(p), "stoich_save").enabled, true)
+  t.eq(draft_of(p).factory.name, "Coal", "named after its first item")
+  t.eq(draft_of(p).factory.icon.name, "coal")
+  click(p, "row_add", { mode = "boundary" })
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  local voids = 0
+  for _, f in pairs(storage.plans.nauvis.factories) do
+    if f.kind == "void" then voids = voids + 1 end
+  end
+  t.eq(voids, 2)
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+  -- export / import strings are the icons now
+  click(p, "fac_export_all")
+  click(p, "dialog_close")
+end)
+
+t.test("gui: a void the plan is short for says so and offers an import", function()
+  local p = boot()
+  custom_factory("plates", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1 })
+  custom_factory("science", { ["item/iron-plate"] = -2, ["item/automation-science-pack"] = 1 })
+  add_sink(p, "copper-plate", 60)
+  local draft = require("scripts.draft")
+  draft.add_boundary_item("nauvis", "void", "item/iron-plate", 1)
+  draft.add_boundary_item("nauvis", "void", "item/automation-science-pack", 1)
+  require("scripts.gui.window").plan_changed("nauvis")
+  go(p, "plan")
+  t.eq(storage.plans.nauvis.result.status, "EXACT", "science is free: its void and the science held at 0")
+  -- a sink on science fixes it: now iron is short and the void would have to make it
+  add_sink(p, "automation-science-pack", 60)
+  t.eq(storage.plans.nauvis.result.status, "NEGATIVE")
+  t.truthy(mock.text(win(p)):find("<stoich.void-short>", 1, true), "named")
+  click(p, "problem_boundary", { item = "item/iron-plate", kind = "import" })
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+end)
+
+t.test("gui: a recipe factory, picked by item, with modules and beacons", function()
+  local p = boot()
+  open(p)
+  click(p, "fac_new_recipe")
+  t.eq(mock.find(dialog(p), "dlg_recipe_ok").enabled, false, "nothing picked yet")
+  -- an item lists its recipes: its recycling first, then what uses it, then what makes it
+  mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
+  local dlg = storage.players[1].dialog
+  t.eq(table.concat(dlg.recipes, ","), "copper-cable-recycling,electronic-circuit,copper-cable")
+  t.eq(dlg.recipe, "copper-cable-recycling", "the recycling, picked at once")
+  t.eq(dlg.machines[1], "recycler")
+  t.eq(#mock.find_all(dialog(p), "dlg_module"), 4, "the recycler's four slots")
+  mock.select(p, mock.find(dialog(p), "dlg_recipe_pick"), 2)
+  t.eq(dlg.recipe, "electronic-circuit")
+  t.eq(#mock.find_all(dialog(p), "dlg_module"), 2, "an assembler's two")
+  mock.select(p, mock.find(dialog(p), "dlg_recipe_pick"), 1)
+  -- a speed module, and two beacons with one each: 0.2 + 2 × 1.5 × 0.7071 × 0.2
+  mock.pick(p, mock.find(dialog(p), "dlg_module", { slot = 1 }), "speed-module")
+  mock.type_text(p, mock.find(dialog(p), "dlg_num", { field = "beacon_count" }), "2")
+  mock.select(p, mock.find(dialog(p), "dlg_beacon"), 1)
+  mock.pick(p, mock.find(dialog(p), "dlg_beacon_module", { slot = 1 }), "speed-module")
+  local speed = 100 * (0.2 + 2 * 1.5 * 0.7071 * 0.2)
+  t.truthy(mock.text(dialog(p)):find("<stoich.module-result>", 1, true), "the result shows")
+  -- another machine keeps only the modules that still fit (the recycler has one machine)
+  mock.select(p, mock.find(dialog(p), "dlg_machine"), 1)
+  t.eq(dlg.modules[1], "speed-module")
+  click(p, "dlg_recipe_ok")
+  -- the editor opens on a factory of one line: a copy is one recycler
+  local d = draft_of(p)
+  t.truthy(d, "editor open")
+  t.eq(#d.factory.lines, 1)
+  local line = d.factory.lines[1]
+  t.near(line.speed_pct, speed, 1e-6)
+  t.eq(line.machine, "recycler")
+  -- 0.5 speed / 0.03125 s = 16 cables a second at base speed, an eighth of a plate each
+  local crafts = 16 * (1 + speed / 100)
+  t.near(line.flow["item/copper-cable"], -crafts, 1e-6)
+  t.near(line.flow["item/copper-plate"], crafts / 8, 1e-6)
+  t.eq(d.factory.result.status, "EXACT")
+  t.eq(d.factory.icon.type, "recipe")
+  t.eq(#p.translations, 1, "named after the recipe once translated")
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  t.eq(draft_of(p), nil)
+  t.eq(plan_count("nauvis"), 1)
+end)
+
+t.test("gui: a split between a factory and an import is set by hand, the import first", function()
+  local p = boot()
+  -- cables from plates; a recycler gives plates back; plates are also imported
+  local cables = custom_factory("cables", { ["item/copper-plate"] = -1, ["item/copper-cable"] = 2 })
+  local recycler = custom_factory("recycler", { ["item/copper-cable"] = -1, ["item/copper-plate"] = 0.125 })
+  add_sink(p, "copper-cable", 120)
+  require("scripts.draft").add_boundary_item("nauvis", "import", "item/copper-plate", 1)
+  require("scripts.gui.window").plan_changed("nauvis")
+  go(p, "plan")
+  t.eq(storage.plans.nauvis.result.status, "NEEDS_SPLIT")
+  click(p, "problem_split", { mode = "plan" })
+  local split = storage.plans.nauvis.splits[1]
+  t.eq(split.match_usage, nil, "nothing built to match")
+  t.eq(split.shares[recycler.id], 0)
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+  t.near(storage.plans.nauvis.result.counts[cables.id], 1)
+  -- the plan's split row shows the import with its own icon
+  mock.press_esc(p)
+  local import_chip = false
+  for _, chip in ipairs(mock.find_all(win(p), "plan_split_edit")) do
+    if chip.type == "sprite-button" and chip.sprite == "item/copper-plate" then import_chip = true end
+  end
+  t.truthy(import_chip, "the import's share shows its icon")
+  click(p, "plan_split_edit", { item = "item/copper-plate" })
+  local box = mock.find(split_win(p), "split_match_usage")
+  t.eq(box.enabled, false)
+  t.eq(box.tooltip[1], "stoich.split-match-usage-import")
+  -- the import's share shows its rate
+  t.truthy(mock.text(split_win(p)):find("/min", 1, true), "a rate, not copies")
+  -- an old split that matched usage before the import came: a share moved by hand takes over
+  split.match_usage = true
+  require("scripts.gui.window").plan_changed("nauvis")
+  mock.slide(p, mock.find(split_win(p), "split_slider", { line = recycler.id }), 10)
+  t.eq(storage.plans.nauvis.splits[1].match_usage, nil)
 end)
 
 t.test("gui: every handler is reached by some scenario", function()
   local missing = {}
-  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items" }) do
+  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items", "recipe" }) do
     local h = assert(io.open(TEST_ROOT .. "/scripts/gui/" .. file .. ".lua"))
     local src = h:read("*a")
     h:close()

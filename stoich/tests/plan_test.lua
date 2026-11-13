@@ -164,7 +164,7 @@ t.test("model: save, revision conflict, overwrite", function()
   fake.reset()
   game.tick = 100
   local f = draft.from_scan(gear_scan())
-  local ok, saved = model.save_factory(f, {}, 1)
+  local ok, saved = model.save_factory(f, {}, 1, false, "nauvis")
   t.truthy(ok)
   t.eq(saved.revision, 1)
   t.eq(saved.modified_by, 1)
@@ -174,35 +174,35 @@ t.test("model: save, revision conflict, overwrite", function()
   local d2 = draft.open(2, model.get(id))
   d2.factory.name = "Player 2 name"
   game.tick = 200
-  t.truthy(model.save_factory(d2.factory, d2.base, 2))
+  t.truthy(model.save_factory(d2.factory, d2.base, 2, false, "nauvis"))
   d1.factory.name = "Player 1 name"
-  local ok1, conflict = model.save_factory(d1.factory, d1.base, 1)
+  local ok1, conflict = model.save_factory(d1.factory, d1.base, 1, false, "nauvis")
   t.eq(ok1, false)
   t.eq(conflict.modified_by, 2)
   t.eq(conflict.modified_tick, 200)
   t.eq(model.get(id).name, "Player 2 name")
-  t.truthy(model.save_factory(d1.factory, d1.base, 1, true))
+  t.truthy(model.save_factory(d1.factory, d1.base, 1, true, "nauvis"))
   t.eq(model.get(id).name, "Player 1 name")
   t.eq(model.get(id).revision, 3)
 end)
 
 t.test("model: copies changed live survive a draft save", function()
   fake.reset()
-  local ok, saved = model.save_factory(draft.from_scan(gear_scan()), {}, 1)
+  local ok, saved = model.save_factory(draft.from_scan(gear_scan()), {}, 1, false, "nauvis")
   local d = draft.open(1, saved)
   model.set_copies(saved.id, 4, 2)
   d.factory.name = "renamed"
-  t.truthy(model.save_factory(d.factory, d.base, 1))
+  t.truthy(model.save_factory(d.factory, d.base, 1, false, "nauvis"))
   t.eq(model.get(saved.id).copies, 4)
   t.truthy(ok)
 end)
 
 t.test("model: saving a factory deleted meanwhile is a conflict", function()
   fake.reset()
-  local _, saved = model.save_factory(draft.from_scan(gear_scan()), {}, 1)
+  local _, saved = model.save_factory(draft.from_scan(gear_scan()), {}, 1, false, "nauvis")
   local d = draft.open(1, saved)
   model.delete_factory(saved.id, 2)
-  local ok, conflict = model.save_factory(d.factory, d.base, 1)
+  local ok, conflict = model.save_factory(d.factory, d.base, 1, false, "nauvis")
   t.eq(ok, false)
   t.truthy(conflict.deleted)
 end)
@@ -228,7 +228,7 @@ end)
 
 local function save(f)
   plan.balance_factory(f)
-  local ok, saved = model.save_factory(f, {}, 1)
+  local ok, saved = model.save_factory(f, {}, 1, false, "nauvis")
   assert(ok)
   return saved
 end
@@ -261,7 +261,7 @@ t.test("plan: science and boiler sinks drive the plan", function()
   local coal = custom_factory("coal", { ["item/coal"] = 2 }, 1)
   sink("science", { ["item/automation-science-pack"] = 600 }) -- 10/s
   sink("boilers", { ["item/coal"] = 30 }) -- 0.5/s
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[sci.id], 10)
   t.near(r.counts[gears.id], 10)
@@ -275,13 +275,13 @@ t.test("plan: the plan is closed: a surplus is a conflict until a sink takes it"
   local sci = custom_factory("red science", { ["item/iron-gear-wheel"] = -1, ["item/copper-plate"] = -1, ["item/automation-science-pack"] = 1 }, 1)
   local plates = custom_factory("plates", { ["item/iron-plate"] = 5, ["item/copper-plate"] = 5 }, 1)
   sink("science", { ["item/automation-science-pack"] = 600 })
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "CONFLICT")
   local p = find_problem(r, "conflict")
   t.truthy(p)
   -- a void for the surplus: whatever copper the plates make goes into it
   local void = custom_factory("copper void", { ["item/copper-plate"] = -1 }, 1)
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[plates.id], 4)
   t.near(r.shortage[plates.id], 3)
@@ -299,7 +299,7 @@ t.test("plan: research does not change sinks (fixed rates)", function()
   fake.reset()
   local sci = custom_factory("red science", { ["item/automation-science-pack"] = 0.5 }, 2)
   sink("science", { ["item/automation-science-pack"] = 60 })
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.near(r.counts[sci.id], 2)
   t.near(r.shortage[sci.id], 0)
   t.eq(plan.shortage_class(r.shortage[sci.id]), "ok")
@@ -312,7 +312,7 @@ t.test("plan: old saves lose fixed copies and plan externals; sinks keep only th
   -- as schema 1 stored them
   storage.schema = 1
   storage.settings = {}
-  model.plan().external = { ["item/iron-plate"] = true }
+  model.plan("nauvis").external = { ["item/iron-plate"] = true }
   model.get(a.id).pinned = true
   local old = model.get(s.id)
   old.lines = { { id = 1, kind = "custom", label = "consumption", count = 1, flow = { ["item/iron-plate"] = -1 } } }
@@ -320,14 +320,14 @@ t.test("plan: old saves lose fixed copies and plan externals; sinks keep only th
   old.sink_items[1].signal = { type = "item", name = "iron-plate" }
   model.migrate()
   t.eq(storage.schema, model.SCHEMA)
-  t.eq(model.plan().external, nil)
+  t.eq(model.plan("nauvis").external, nil)
   t.eq(model.get(a.id).pinned, nil)
   t.eq(#model.get(s.id).lines, 0)
   t.eq(next(model.get(s.id).anchors), nil)
   t.eq(model.get(s.id).sink_items[1].signal, nil, "editing state dropped")
   t.eq(model.get(s.id).sink_items[1].key, "item/iron-plate")
   plan.balance_factory(model.get(s.id))
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[a.id], 1) -- needed copies from the sink, not fixed at 3
 end)
@@ -337,15 +337,15 @@ t.test("plan: two designs for one item need a plan split", function()
   local a = custom_factory("circuits A", { ["item/electronic-circuit"] = 1 }, 1)
   local b = custom_factory("circuits B", { ["item/electronic-circuit"] = 2 }, 1)
   sink("use", { ["item/electronic-circuit"] = 180 }) -- 3/s
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "NEEDS_SPLIT")
   local p = find_problem(r, "split")
   t.eq(p.item, "item/electronic-circuit")
-  local p_ = model.plan()
+  local p_ = model.plan("nauvis")
   local units = {}
   for _, id in ipairs({ a.id, b.id }) do units[#units + 1] = { id = id, flow = model.get(id).result.net, count = model.get(id).copies } end
   draft.add_split(p_, p.item, p.lines, units)
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   -- copies 1 and 1 -> shares 1/3 and 2/3 of 3/s
   t.near(r.counts[a.id], 1)
@@ -358,9 +358,9 @@ t.test("plan: a split that matches usage follows copies, edits and new factories
   local a = custom_factory("mine A", { [ore] = 30 }, 4) -- 120/s built
   local b = custom_factory("mine B", { [ore] = 45 }, 2) -- 90/s built
   sink("smelting", { [ore] = 150 * 60 })
-  local p = model.plan()
+  local p = model.plan("nauvis")
   p.splits = { { item = ore, shares = { [a.id] = 50, [b.id] = 50 }, match_usage = true } }
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   -- 150 of 210/s built: both at 5/7, whatever the shares said
   t.near(p.splits[1].shares[a.id], 100 * 120 / 210)
@@ -368,29 +368,29 @@ t.test("plan: a split that matches usage follows copies, edits and new factories
   t.near(r.counts[b.id], 2 * 150 / 210)
   -- another copy of B: 255/s built
   model.set_copies(b.id, 3, 1)
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.near(r.counts[a.id] / 4, 150 / 255)
   t.near(r.counts[b.id] / 3, 150 / 255)
   -- B upgraded to 60/s per copy: saved, the split follows
   local edited = fp_util.deep_copy(model.get(b.id))
   edited.lines[1].flow = { [ore] = 60 }
   plan.balance_factory(edited)
-  assert(model.save_factory(edited, { revision = edited.revision }, 1))
-  r = plan.rebalance()
+  assert(model.save_factory(edited, { revision = edited.revision }, 1, false, "nauvis"))
+  r = plan.rebalance("nauvis")
   t.near(r.counts[a.id] / 4, 150 / 300)
   t.near(r.counts[b.id] / 3, 150 / 300)
   -- a third mine joins without a prompt
   local c = custom_factory("mine C", { [ore] = 30 }, 5)
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.truthy(p.splits[1].shares[c.id])
   t.near(r.counts[c.id] / 5, 150 / 450)
   -- a mine with no copies gets nothing; none built at all counts one copy each
   model.set_copies(c.id, 0, 1)
-  t.near(plan.rebalance().counts[c.id], 0)
+  t.near(plan.rebalance("nauvis").counts[c.id], 0)
   model.set_copies(a.id, 0, 1)
   model.set_copies(b.id, 0, 1)
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[a.id], r.counts[c.id])
   t.near(r.counts[a.id] * 30 + r.counts[b.id] * 60 + r.counts[c.id] * 30, 150)
@@ -402,10 +402,10 @@ t.test("plan: a split set by hand keeps its shares when copies change", function
   local a = custom_factory("mine A", { [ore] = 30 }, 4)
   local b = custom_factory("mine B", { [ore] = 45 }, 2)
   sink("smelting", { [ore] = 150 * 60 })
-  model.plan().splits = { { item = ore, shares = { [a.id] = 50, [b.id] = 50 } } }
+  model.plan("nauvis").splits = { { item = ore, shares = { [a.id] = 50, [b.id] = 50 } } }
   model.set_copies(b.id, 3, 1)
-  local r = plan.rebalance()
-  t.near(model.plan().splits[1].shares[a.id], 50)
+  local r = plan.rebalance("nauvis")
+  t.near(model.plan("nauvis").splits[1].shares[a.id], 50)
   t.near(r.counts[a.id] * 30, 75)
   t.near(r.counts[b.id] * 45, 75)
 end)
@@ -414,13 +414,13 @@ t.test("plan: a sink's scale multiplies its demand; 0 asks for nothing", functio
   fake.reset()
   local a = custom_factory("plates", { ["item/iron-plate"] = 1 }, 1)
   local s = sink("use", { ["item/iron-plate"] = 180 }) -- 3/s
-  t.near(plan.rebalance().counts[a.id], 3)
+  t.near(plan.rebalance("nauvis").counts[a.id], 3)
   model.get(s.id).scale = 0.4
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[a.id], 1.2)
   model.get(s.id).scale = 0
-  r = plan.rebalance()
+  r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
   t.near(r.counts[a.id], 0)
 end)
@@ -430,7 +430,7 @@ t.test("plan: removed mod marks factory invalid, keeps data, drops it from the p
   local f = draft.from_scan(gear_scan())
   local saved = save(f)
   sink("use", { ["item/electronic-circuit"] = 60 })
-  t.eq(plan.rebalance().status, "CONFLICT") -- plates are not produced in this plan
+  t.eq(plan.rebalance("nauvis").status, "CONFLICT") -- plates are not produced in this plan
   prototypes.recipe["copper-cable"] = nil
   local bad = model.validate_all()
   t.eq(bad, 1)
@@ -439,7 +439,7 @@ t.test("plan: removed mod marks factory invalid, keeps data, drops it from the p
   t.eq(#kept.lines, 3)
   plan.balance_factory(kept)
   t.eq(kept.result.status, "INVALID")
-  local r = plan.rebalance()
+  local r = plan.rebalance("nauvis")
   t.contains(r.excluded, saved.id)
 end)
 
@@ -478,4 +478,184 @@ t.test("draft: raising a share shrinks the other shares proportionally", functio
   draft.set_share(holder, 1, 1, 10)
   t.near(s[1] + s[2] + s[3] + s[4], 100)
   t.near(s[4], 60)
+end)
+
+-- Voids and imports -------------------------------------------------------------------------------
+
+local function boundary(kind, items, key)
+  local f = draft.new_boundary(kind)
+  for _, item in ipairs(items) do f.sink_items[#f.sink_items + 1] = { key = item } end
+  plan.balance_factory(f)
+  local ok, saved = model.save_factory(f, {}, 1, false, key or "nauvis")
+  assert(ok)
+  return saved
+end
+
+t.test("plan: a void takes the surplus the plan can't avoid, and nothing more", function()
+  fake.reset()
+  -- plates make iron and copper together; science uses iron only
+  local plates = custom_factory("plates", { ["item/iron-plate"] = 5, ["item/copper-plate"] = 5 }, 1)
+  local sci = custom_factory("science", { ["item/iron-plate"] = -1, ["item/automation-science-pack"] = 1 }, 1)
+  sink("science", { ["item/automation-science-pack"] = 600 })
+  t.eq(plan.rebalance("nauvis").status, "CONFLICT")
+  local void = boundary("void", { "item/copper-plate", "item/iron-plate" })
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[plates.id], 2)
+  t.near(r.counts[sci.id], 10)
+  local rates = plan.boundary_rates(void, r)
+  t.near(rates["item/copper-plate"], 10, nil, "all the copper")
+  -- iron could be made for the void too: it isn't
+  t.near(rates["item/iron-plate"], 0, nil, "no extra iron")
+  t.eq(plan.is_list(void), true)
+  t.eq(plan.is_boundary(void), true)
+  -- a void is never short of copies
+  t.eq(r.shortage[void.id], nil)
+  t.eq(model.set_copies(void.id, 3, 1), false)
+end)
+
+t.test("plan: an import brings in what nothing makes; factories make what they can", function()
+  fake.reset()
+  local sci = custom_factory("science", { ["item/iron-plate"] = -1, ["item/copper-plate"] = -1, ["item/automation-science-pack"] = 1 }, 1)
+  local plates = custom_factory("iron", { ["item/iron-plate"] = 2 }, 1)
+  sink("science", { ["item/automation-science-pack"] = 60 })
+  t.eq(plan.rebalance("nauvis").status, "CONFLICT")
+  local import = boundary("import", { "item/copper-plate", "item/iron-plate" })
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  local rates = plan.boundary_rates(import, r)
+  t.near(rates["item/copper-plate"], 1)
+  t.near(rates["item/iron-plate"], 0, nil, "the iron factory makes the iron")
+  t.near(r.counts[plates.id], 0.5)
+  t.near(r.counts[sci.id], 1)
+end)
+
+t.test("plan: an item in a void and an import: the import covers what is missing", function()
+  fake.reset()
+  custom_factory("science", { ["item/iron-plate"] = -1, ["item/automation-science-pack"] = 1 }, 1)
+  sink("science", { ["item/automation-science-pack"] = 60 })
+  -- the void comes first (the lower id): held at 0 it would leave the import... it must not go negative
+  local void = boundary("void", { "item/iron-plate" })
+  local import = boundary("import", { "item/iron-plate" })
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(plan.boundary_rates(import, r)["item/iron-plate"], 1)
+  t.near(plan.boundary_rates(void, r)["item/iron-plate"], 0)
+end)
+
+t.test("plan: a void the plan is short for is named, with its item", function()
+  fake.reset()
+  -- iron is made only alongside copper, which the sink fixes; science wants more iron
+  custom_factory("plates", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1 }, 1)
+  custom_factory("science", { ["item/iron-plate"] = -2, ["item/automation-science-pack"] = 1 }, 1)
+  sink("demand", { ["item/copper-plate"] = 60, ["item/automation-science-pack"] = 60 })
+  boundary("void", { "item/iron-plate" })
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "NEGATIVE")
+  local p = find_problem(r, "void_short")
+  t.truthy(p, "void_short")
+  t.eq(p.item, "item/iron-plate")
+  t.eq(find_problem(r, "negative"), nil, "not also a plain negative count")
+end)
+
+t.test("plan: a void or import needs an item; one click adds to the plan's own", function()
+  fake.reset()
+  local f = draft.new_boundary("void")
+  t.eq(plan.balance_factory(f).status, "NEEDS_SPLIT")
+  t.truthy(find_problem(f.result, "empty_list"))
+  t.eq(draft.add_boundary_item("nauvis", "void", "item/coal", 1), true)
+  t.eq(draft.add_boundary_item("nauvis", "void", "item/iron-plate", 1), true)
+  t.eq(draft.add_boundary_item("nauvis", "void", "item/coal", 1), false, "already there")
+  local voids = {}
+  for _, id in ipairs(model.factory_ids("nauvis")) do
+    if model.get(id).kind == "void" then voids[#voids + 1] = model.get(id) end
+  end
+  t.eq(#voids, 1, "one void, two items")
+  t.eq(#voids[1].sink_items, 2)
+  t.eq(voids[1].revision, 2)
+  t.eq(voids[1].name, "Coal", "named after its first item")
+  t.eq(voids[1].icon.name, "coal")
+end)
+
+-- Plans per surface -----------------------------------------------------------------------------------
+
+t.test("model: each surface has its own plan; ids are unique across them", function()
+  fake.reset()
+  local a = custom_factory("iron", { ["item/iron-plate"] = 1 }, 1)
+  sink("use", { ["item/iron-plate"] = 60 })
+  local f = model.new_factory("factory")
+  local line = model.add_line(f, { kind = "custom", label = "x", count = 1, flow = { ["item/iron-plate"] = 2 } })
+  f.name, f.anchors[line.id], f.external = "fulgora iron", 1, { ["item/iron-plate"] = true }
+  plan.balance_factory(f)
+  local _, b, key = model.save_factory(f, {}, 1, false, "fulgora")
+  t.eq(key, "fulgora")
+  t.truthy(a.id ~= b.id)
+  t.eq(model.plan_of(a.id), "nauvis")
+  t.eq(model.plan_of(b.id), "fulgora")
+  t.eq(model.get(b.id).name, "fulgora iron")
+  -- a saved factory stays in its plan whatever key the save names
+  local copy = fp_util.deep_copy(model.get(b.id))
+  copy.name = "renamed"
+  local ok, _, key2 = model.save_factory(copy, { revision = copy.revision }, 1, false, "nauvis")
+  t.truthy(ok)
+  t.eq(key2, "fulgora")
+  t.eq(#model.factory_ids("fulgora"), 1)
+  -- the plans balance apart: Nauvis's sink doesn't pull Fulgora's iron
+  t.near(plan.rebalance("nauvis").counts[a.id], 1)
+  t.near(plan.rebalance("fulgora").counts[b.id], 0)
+  t.eq(model.has_plan("fulgora"), true)
+  t.eq(model.has_plan("vulcanus"), false)
+  local deleted, from = model.delete_factory(b.id, 1)
+  t.truthy(deleted)
+  t.eq(from, "fulgora")
+  t.eq(model.has_plan("fulgora"), false)
+  t.eq(storage.log[#storage.log].plan, "fulgora")
+end)
+
+t.test("model: a save from before plans per surface becomes the plan of Nauvis", function()
+  fake.reset()
+  local a = custom_factory("iron", { ["item/iron-plate"] = 1 }, 2)
+  -- as schema 2 stored it: one plan, "main"
+  storage.schema = 2
+  storage.plans = { main = storage.plans.nauvis }
+  storage.players[1] = { draft = { factory = model.new_factory("factory"), base = {} } }
+  model.migrate()
+  t.eq(storage.schema, 3)
+  t.eq(storage.plans.main, nil)
+  t.eq(model.get(a.id).copies, 2)
+  t.eq(model.plan_of(a.id), "nauvis")
+  t.eq(storage.players[1].draft.plan, "nauvis")
+end)
+
+t.test("model: a renamed surface takes its plan along", function()
+  fake.reset()
+  local a = custom_factory("iron", { ["item/iron-plate"] = 1 }, 1)
+  storage.players[1] = { plan = "nauvis", draft = { plan = "nauvis" } }
+  t.eq(model.rename_plan("nauvis", "home"), true)
+  t.eq(model.plan_of(a.id), "home")
+  t.eq(storage.players[1].plan, "home")
+  t.eq(storage.players[1].draft.plan, "home")
+  -- never over a plan that has something in it
+  custom_factory("other", { ["item/coal"] = 1 }, 1)
+  t.eq(model.rename_plan("home", "nauvis"), false)
+end)
+
+t.test("plan: an import isn't held at 0 when that would drive a factory negative", function()
+  fake.reset()
+  -- cables from plates; a recycler turns cables back into an eighth of a plate
+  local cables = custom_factory("cables", { ["item/copper-plate"] = -1, ["item/copper-cable"] = 2 }, 1)
+  local recycler = custom_factory("recycler", { ["item/copper-cable"] = -1, ["item/copper-plate"] = 0.125 }, 1)
+  sink("use", { ["item/copper-cable"] = 60 })
+  local import = boundary("import", { "item/copper-plate" })
+  local r = plan.rebalance("nauvis")
+  -- held at 0 the recycler would make every plate: negative counts; so the player chooses
+  t.eq(r.status, "NEEDS_SPLIT")
+  t.truthy(find_problem(r, "split"))
+  t.eq(find_problem(r, "negative"), nil)
+  -- once the recycler gets nothing (a split of 100% import), it balances
+  model.plan("nauvis").splits = { { item = "item/copper-plate", shares = { [recycler.id] = 0, [import.id .. ":item/copper-plate"] = 100 } } }
+  r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[cables.id], 0.5)
+  t.near(plan.boundary_rates(import, r)["item/copper-plate"], 0.5)
 end)

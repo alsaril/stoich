@@ -100,14 +100,19 @@ local function conflict_row(list, player, mode, ctx, entry)
     end
   end
   row.add({ type = "label", caption = text })
-  local function button(caption, tooltip, action)
+  local function button(caption, tooltip, action, kind)
     row.add({ type = "button", caption = L(caption), tooltip = tooltip and L(tooltip) or nil, enabled = ctx.can_edit,
-      tags = { fp = action, mode = mode, item = key } })
+      tags = { fp = action, mode = mode, item = key, kind = kind } })
   end
   if mode == "plan" then
-    -- the plan is closed: no "comes from / leaves the plan" here (plan.external stays in
-    -- the model and still applies); a surplus can go to a sink
-    if reason == "no_consumer" then button("add-sink", "add-sink-tooltip-plan", "problem_sink") end
+    -- the plan is closed but for its voids and imports: a surplus goes to a sink or a
+    -- void, a missing item comes from an import
+    if reason == "no_consumer" then
+      button("add-sink", "add-sink-tooltip-plan", "problem_sink")
+      button("void-it", "void-it-tooltip", "problem_boundary", "void")
+    elseif reason == "no_producer" then
+      button("import-it", "import-it-tooltip", "problem_boundary", "import")
+    end
   else
     if reason == "no_producer" then
       button("mark-input", "mark-input-tooltip", "problem_external")
@@ -157,6 +162,16 @@ local function other_row(list, player, mode, ctx, p)
   elseif p.type == "empty_sink" then
     row.add({ type = "sprite", sprite = "utility/status_yellow" })
     row.add({ type = "label", caption = L("empty-sink") })
+  elseif p.type == "void_short" or p.type == "import_surplus" then
+    row.add({ type = "sprite", sprite = "utility/status_not_working" })
+    row.add({ type = "label", caption = L(p.type == "void_short" and "void-short" or "import-surplus", fp_util.rich(p.item), fp_util.localised(p.item)) })
+    if p.type == "void_short" then
+      row.add({ type = "button", caption = L("import-it"), tooltip = L("import-it-tooltip"), enabled = ctx.can_edit,
+        tags = { fp = "problem_boundary", mode = mode, item = p.item, kind = "import" } })
+    end
+  elseif p.type == "empty_list" then
+    row.add({ type = "sprite", sprite = "utility/status_yellow" })
+    row.add({ type = "label", caption = L("empty-list") })
   end
 end
 
@@ -194,6 +209,11 @@ end
 handlers.problem_sink = function(player, element)
   local a = scopes[element.tags.mode]
   if a and common.ctx(player).can_edit then a.add_sink(player, element.tags.item) end
+end
+
+handlers.problem_boundary = function(player, element)
+  local a = scopes[element.tags.mode]
+  if a and a.add_boundary and common.ctx(player).can_edit then a.add_boundary(player, element.tags.kind, element.tags.item) end
 end
 
 handlers.problem_split = function(player, element)

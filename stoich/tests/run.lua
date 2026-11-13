@@ -61,7 +61,7 @@ end
 
 package.loaded["tests.t"] = t
 
-local files = { "linalg_test", "solver_test", "belts_test", "scanner_test", "plan_test", "exchange_test", "format_test",
+local files = { "linalg_test", "solver_test", "belts_test", "scanner_test", "plan_test", "exchange_test", "modules_test", "format_test",
   "locale_test", "gui_test" }
 local filter = arg and arg[1]
 
