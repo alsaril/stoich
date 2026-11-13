@@ -29,28 +29,27 @@ local function has_item(list, item)
   return false
 end
 
---- Recipes for an item: those that use it (its recycling first), then those that make
---- it; each needs a machine that can craft it. Recycling recipes are hidden in the game:
---- they are the only hidden ones listed.
+--- Recipes for an item: its recycling, the recipes that make it, the ones that use it,
+--- then other items' recycling that gives it back; each needs a machine that can craft
+--- it. Recycling recipes are hidden in the game: they are the only hidden ones listed.
 function recipe_dialog.recipes_for_item(item)
-  local uses, makes = {}, {}
+  local own, makes, uses, recycled = {}, {}, {}, {}
   for name, r in pairs(prototypes.recipe) do
     local recycling = is_recycling(r)
     if not r.hidden or recycling then
+      local group
       if has_item(r.ingredients, item) then
-        uses[#uses + 1] = { name = name, recycling = recycling }
+        group = recycling and own or uses
       elseif has_item(r.products, item) then
-        makes[#makes + 1] = { name = name, recycling = recycling }
+        group = recycling and recycled or makes
       end
+      if group then group[#group + 1] = { name = name } end
     end
   end
-  table.sort(uses, function(a, b)
-    if a.recycling ~= b.recycling then return a.recycling end
-    return a.name < b.name
-  end)
-  table.sort(makes, function(a, b) return a.name < b.name end)
+  local by_name = function(a, b) return a.name < b.name end
   local out = {}
-  for _, group in ipairs({ uses, makes }) do
+  for _, group in ipairs({ own, makes, uses, recycled }) do
+    table.sort(group, by_name)
     for _, r in ipairs(group) do
       if #scanner.machines_for_recipe(prototypes.recipe[r.name]) > 0 then out[#out + 1] = r.name end
     end

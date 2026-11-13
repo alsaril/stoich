@@ -1451,14 +1451,14 @@ t.test("gui: a recipe factory, picked by item, with modules and beacons", functi
   open(p)
   click(p, "fac_new_recipe")
   t.eq(mock.find(dialog(p), "dlg_recipe_ok").enabled, false, "nothing picked yet")
-  -- an item lists its recipes: its recycling first, then what uses it, then what makes it
+  -- an item lists its recipes: its recycling first, then what makes it, then what uses it
   mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
   local dlg = storage.players[1].dialog
-  t.eq(table.concat(dlg.recipes, ","), "copper-cable-recycling,electronic-circuit,copper-cable")
+  t.eq(table.concat(dlg.recipes, ","), "copper-cable-recycling,copper-cable,electronic-circuit")
   t.eq(dlg.recipe, "copper-cable-recycling", "the recycling, picked at once")
   t.eq(dlg.machines[1], "recycler")
   t.eq(#mock.find_all(dialog(p), "dlg_module"), 4, "the recycler's four slots")
-  mock.select(p, mock.find(dialog(p), "dlg_recipe_pick"), 2)
+  mock.select(p, mock.find(dialog(p), "dlg_recipe_pick"), 3)
   t.eq(dlg.recipe, "electronic-circuit")
   t.eq(#mock.find_all(dialog(p), "dlg_module"), 2, "an assembler's two")
   mock.select(p, mock.find(dialog(p), "dlg_recipe_pick"), 1)

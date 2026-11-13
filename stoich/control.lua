@@ -330,23 +330,22 @@ if debug_setting and debug_setting.value then
       local state = storage.players[player_index]
       return state and state.dialog
     end,
-    --- Close the plan of a test world that lacks mines for some inputs: a source factory
-    --- (one custom line) for each item nothing makes, a void for each item nothing uses.
-    --- plan_key: default the plan player 1 looks at. Returns how many factories it added.
+    --- Close the plan of a test world that lacks mines for some inputs: each item nothing
+    --- makes goes to the plan's import, each item nothing uses to its void.
+    --- plan_key: default the plan player 1 looks at. Returns how many items it added.
     plan_sources = function(plan_key)
       local key = plan_key or model.selected(1)
       local n = 0
       for _ = 1, 10 do
-        local made, used, missing = {}, {}, {}
+        local made, used, missing, seen = {}, {}, {}, {}
         for _, u in ipairs(plan.units(key)) do
           for k, v in pairs(u.flow) do
             if v > 0 then made[k] = true else used[k] = true end
           end
         end
-        local seen = {}
         for _, problem in ipairs(model.plan(key).result.problems) do
           if problem.type == "conflict" then
-            -- an item can be named by several conflicts: one source (or void) for it
+            -- an item can be named by several conflicts: once is enough
             for _, item in ipairs(problem.items) do
               if not seen[item] then
                 seen[item] = true
@@ -358,17 +357,8 @@ if debug_setting and debug_setting.value then
         if #missing == 0 then break end
         table.sort(missing)
         for _, item in ipairs(missing) do
-          local sign = (not made[item] and 1) or (not used[item] and -1) or nil
-          if sign then
-            local f = model.new_factory("factory")
-            local line = model.add_line(f, { kind = "custom", label = item, count = 1, flow = { [item] = sign } })
-            f.name = fp_util.pretty_name(select(2, fp_util.parse_key(item))) .. (sign > 0 and " source" or " void")
-            f.anchors[line.id] = 1
-            f.external = { [item] = true }
-            plan.balance_factory(f)
-            model.save_factory(f, {}, 1, false, key)
-            n = n + 1
-          end
+          local kind = (not made[item] and "import") or (not used[item] and "void") or nil
+          if kind and draft.add_boundary_item(key, kind, item, 1) then n = n + 1 end
         end
         window.plan_changed(key)
       end
