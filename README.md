@@ -133,13 +133,22 @@ then run `./release.sh`. It stops on uncommitted changes, an existing tag or a m
 changelog entry, runs the tests, builds `dist/stoich_<version>.zip` from the committed
 code (without `tests/`) and tags `v<version>`. Push the tag yourself.
 
-## Design
+## Limits
 
-See [`Stoich — mod spec.md`](Stoich%20—%20mod%20spec.md)
-for the original spec. Changes made while building it: the old Kotlin JSON importer was
-dropped, there are no tabs (the plan window lists factories, sinks and splits; the
-editor, statistics and splits open in their own windows), and shortage is shown as copies
-still to build (never below 0).
+- **Not modelled:** quality (a quality module counts only its speed penalty), spoilage,
+  burner fuel of crafting machines, electricity (generators become a sink of their fuel).
+- **Captured from the map:** assemblers, furnaces, rocket silos, mining drills, pumpjacks
+  and offshore pumps; generators make a sink. Agricultural towers and asteroid collectors
+  aren't captured yet: add them as custom lines.
+- **Rates** were checked against real machines running in the game (`test-world`): within
+  0.25% for pumpjacks at any yield, drills, crafters with modules and up to eight beacons,
+  and exact for recipes added by hand with modules and beacons. A drill over mixed ores
+  mines one tile at a time, so its split between ores is a long-run average.
+- **Plans per surface don't interact:** what one surface ships to another is a sink on
+  one and an import on the other.
+- **Can't balance:** the list of what would close the plan comes from a bounded search,
+  a heuristic: it may miss a better set of voids on a large, badly broken plan.
+- Mod windows can't be resized by dragging (a Factorio API limit).
 
 ## License
 
