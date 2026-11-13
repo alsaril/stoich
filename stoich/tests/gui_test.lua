@@ -1597,6 +1597,30 @@ t.test("gui: a plan that can't balance lists what would close it, with one-click
   t.eq(storage.plans.nauvis.result.status, "EXACT")
 end)
 
+t.test("gui: a recipe with many outputs still shows its input in the plan", function()
+  local p = boot()
+  -- one input, twelve outputs (scrap recycling): ten slots in the plan's recipe column
+  local net = { ["custom/scrap"] = -15 }
+  for i = 1, 12 do net["custom/out " .. i] = i end
+  local f = custom_factory("scrap recycling", net)
+  go(p, "plan")
+  local shown = {}
+  for _, chip in ipairs(mock.find_all(win(p), "plan_item")) do shown[chip.tags.item] = true end
+  t.truthy(shown["custom/scrap"], "the input keeps a slot")
+  local n = 0
+  for _ in pairs(shown) do n = n + 1 end
+  t.eq(n, 10, "one input and nine outputs")
+  t.truthy(mock.text(win(p)):find("+3", 1, true), "the rest counted")
+  -- and the other way round: many inputs, one output
+  net = { ["custom/product"] = 1 }
+  for i = 1, 12 do net["custom/in " .. i] = -i end
+  custom_factory("assembly", net)
+  go(p, "plan")
+  shown = {}
+  for _, chip in ipairs(mock.find_all(win(p), "plan_item")) do shown[chip.tags.item] = true end
+  t.truthy(shown["custom/product"], "the output keeps a slot")
+end)
+
 t.test("gui: every handler is reached by some scenario", function()
   local missing = {}
   for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items", "recipe" }) do

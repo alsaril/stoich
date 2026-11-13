@@ -103,9 +103,9 @@ local function flow_chips(parent, f, ctx, max_chips, r)
     b.style.size = 32
     shown = shown + 1
   end
-  -- keep room for the outputs: inputs get what's left of the slots
-  local out_slots = math.min(#outputs, max_chips)
-  local in_slots = math.min(#inputs, max_chips - out_slots)
+  -- outputs get the room, but each side keeps a slot (scrap recycling: 1 in, 12 out)
+  local in_slots = math.min(#inputs, math.max(1, max_chips - #outputs))
+  local out_slots = math.min(#outputs, max_chips - in_slots)
   for i = 1, in_slots do chip(inputs[i]) end
   if #inputs + #outputs > 0 then
     flow.add({ type = "label", caption = "→", style = "bold_label" }).style.horizontal_align = "center"

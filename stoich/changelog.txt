@@ -13,6 +13,8 @@ Date: 2026-11-13
     - The recipe dialog's productivity field is extra productivity now: research productivity is added by itself.
     - A plan split with an import sets its shares by hand (an import has nothing built to match), starting with all of the item imported.
     - The edit log shows the surface of each entry when several surfaces have plans.
+  Bugfixes:
+    - A recipe with many outputs (scrap recycling) shows its input in the plan's recipe column again: outputs took every slot.
 ---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 2026-11-13
