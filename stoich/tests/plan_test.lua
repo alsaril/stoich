@@ -687,3 +687,58 @@ t.test("draft: strays merge into the plan's one void and import, split shares to
   t.near(r.counts[cables.id], 0.5)
   t.eq(draft.merge_boundaries("nauvis", 1), false, "nothing left to merge")
 end)
+
+-- Diagnosis ----------------------------------------------------------------------------------------
+
+t.test("plan: a plan that can't balance says which items would close it (a real Fulgora plan)", function()
+  fake.reset()
+  local json = require("tests.json")
+  local data = json.read_file(TEST_ROOT .. "/tests/fixtures/fulgora_plan.json")
+  -- the fake game knows only a few prototypes: make the ones this plan uses
+  for _, e in ipairs(data.factories) do
+    for key in pairs(e.net or {}) do
+      local kind, name = key:match("^(%a+)/(.+)$")
+      prototypes[kind][name] = prototypes[kind][name] or { name = name }
+    end
+    for _, row in ipairs(e.items or {}) do
+      local kind, name = row.key:match("^(%a+)/(.+)$")
+      prototypes[kind][name] = prototypes[kind][name] or { name = name }
+    end
+  end
+  for _, e in ipairs(data.factories) do
+    local f
+    if e.kind == "factory" then
+      f = model.new_factory("factory")
+      local line = model.add_line(f, { kind = "custom", label = e.name, count = 1, flow = e.net })
+      f.anchors[line.id] = 1
+      f.external = plan.flow_items(e.net)
+    else
+      f = e.kind == "sink" and draft.new_sink() or draft.new_boundary(e.kind)
+      for _, row in ipairs(e.items) do f.sink_items[#f.sink_items + 1] = { key = row.key, rate = row.rate } end
+    end
+    f.name, f.copies = e.name, e.copies
+    plan.balance_factory(f)
+    assert(model.save_factory(f, {}, 1, false, "fulgora"))
+  end
+  local r = plan.rebalance("fulgora")
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.fixes_close, true)
+  t.eq(#r.fixes, 3, "three loops to close")
+  local by = {}
+  for _, fix in ipairs(r.fixes) do
+    by[fix.item] = fix
+    t.truthy(fix.rate and fix.rate > 0, fix.item .. " is a surplus")
+  end
+  -- scrap's byproducts the plan can't use up: copper plate, plastic, and ice (or the
+  -- water and light oil it turns into)
+  t.truthy(by["item/copper-plate"] and by["item/plastic-bar"] and by["item/ice"], "copper, plastic, ice")
+  t.eq(table.concat(by["item/ice"].alternatives, ","), "fluid/light-oil,fluid/water")
+  -- never the science the sink asks for
+  t.eq(by["item/electromagnetic-science-pack"], nil)
+  -- voided, the plan balances with every factory running forwards
+  for _, fix in ipairs(r.fixes) do draft.add_boundary_item("fulgora", "void", fix.item, 1) end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT")
+  for id, c in pairs(r.counts) do t.truthy(c > -1e-6, "count of " .. tostring(id)) end
+  t.eq(r.fixes, nil)
+end)

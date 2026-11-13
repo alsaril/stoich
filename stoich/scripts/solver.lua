@@ -353,6 +353,7 @@ function solver.balance(lines, anchors, splits, external, opts)
     suggested_external = suggested_external,
     rank = rr.rank,
     unknowns = n,
+    inconsistent = #rr.inconsistent, -- equations that contradict the rest
   }
 end
 

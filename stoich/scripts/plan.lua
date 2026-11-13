@@ -131,7 +131,7 @@ end
 --- The plan as the solver sees it: one unit per usable factory or sink (flow per copy),
 --- one per item of a void or import (one item per second each), and the factories it
 --- leaves out (invalid, not balanced, nothing in or out).
---- @return table[] units { id, flow, count, factory, item? }, number[] excluded
+--- @return table[] units { id, flow, count, factory, item? (void/import), sink? }, number[] excluded
 function plan.units(key)
   local p = model.plan(key)
   local units, excluded = {}, {}
@@ -145,7 +145,8 @@ function plan.units(key)
         units[#units + 1] = { id = plan.unit_id(id, item), flow = { [item] = sign }, count = 0, factory = id, item = item }
       end
     else
-      units[#units + 1] = { id = id, flow = f.kind == "sink" and plan.sink_flow(f) or f.result.net, count = f.copies or 1, factory = id }
+      local sink = f.kind == "sink"
+      units[#units + 1] = { id = id, flow = sink and plan.sink_flow(f) or f.result.net, count = f.copies or 1, factory = id, sink = sink or nil }
     end
   end
   return units, excluded
@@ -179,6 +180,157 @@ function plan.imported(item, units)
     if unit.item and (unit.flow[item] or 0) > 0 then return true end
   end
   return false
+end
+
+-- Diagnosis of a plan that can't balance ------------------------------------------------------
+
+local FIX = "fix:"
+
+local function fix_unit(item)
+  return { id = FIX .. item, flow = { [item] = -1 }, item = item, fix = true }
+end
+
+local function with_fixes(lines, items)
+  local out = {}
+  for _, line in ipairs(lines) do out[#out + 1] = line end
+  for _, item in ipairs(items) do out[#out + 1] = fix_unit(item) end
+  return out
+end
+
+--- Items the contradicting equations of a result are about, sorted.
+local function conflict_items(r)
+  local set = {}
+  for _, p in ipairs(r.problems) do
+    if p.type == "conflict" then
+      for _, item in ipairs(p.involved or {}) do set[item] = true end
+      for _, item in ipairs(p.items or {}) do set[item] = true end
+    end
+  end
+  return fp_util.sorted_keys(set)
+end
+
+-- Diagnosis is a bounded search: at most this many solves, this many options per step.
+plan.DIAGNOSE_BUDGET = 400
+plan.DIAGNOSE_BRANCH = 3
+
+--- What closes a plan that can't balance: the fewest items that, left free to go out
+--- (a void) or come in (an import), make it balance with nothing negative. A bounded
+--- search: at each step the items that remove the most contradictions, a surplus before
+--- a shortage, and the one where the factories make least first; a set is kept only if
+--- the closed plan runs no factory backwards. With each item, the ones that would do as
+--- well instead (void ice or water: either closes that loop).
+--- @return table[] fixes { item, rate (per second; > 0 surplus, < 0 short, nil unknown), alternatives },
+---   boolean closed: with all of them the plan balances
+function plan.diagnose(lines, anchors, splits)
+  local solves = 0
+  local function solve(items)
+    solves = solves + 1
+    return solver.balance(with_fixes(lines, items), anchors, splits, {}, {})
+  end
+  -- what the sinks ask for is what the plan is for: never "import the science"
+  local demanded = {}
+  for _, line in ipairs(lines) do
+    if line.sink then
+      for item in pairs(line.flow) do demanded[item] = true end
+    end
+  end
+  -- how much the factories make, and whether one runs backwards
+  local function made(r)
+    local sum, negative = 0, false
+    for _, line in ipairs(lines) do
+      if not line.item and not line.sink and not r.undetermined[line.id] then
+        local c = r.counts[line.id] or 0
+        sum = sum + math.abs(c)
+        if c < -solver.NEGATIVE_TOL then negative = true end
+      end
+    end
+    return sum, negative
+  end
+  local function kind_of(r, item)
+    local id = FIX .. item
+    if r.undetermined[id] or r.counts[id] == nil then return 1 end
+    return r.counts[id] >= -solver.NEGATIVE_TOL and 0 or 2
+  end
+  local function less(a, b)
+    if a.n ~= b.n then return a.n < b.n end
+    if a.kind ~= b.kind then return a.kind < b.kind end
+    if math.abs(a.made - b.made) > 1e-9 then return a.made < b.made end
+    return a.item < b.item
+  end
+  local function copy(list)
+    local out = {}
+    for i, v in ipairs(list) do out[i] = v end
+    return out
+  end
+
+  local r0 = solve({})
+  local fallback -- the first closed set (even with a factory backwards), else the least contradicting
+  local function search(chosen, r)
+    if r.status ~= "CONFLICT" then
+      local _, negative = made(r)
+      if not negative then return copy(chosen), r end
+      if not fallback or fallback.r.status == "CONFLICT" then fallback = { items = copy(chosen), r = r } end
+      return nil
+    end
+    if not fallback or (fallback.r.status == "CONFLICT" and r.inconsistent < fallback.r.inconsistent) then
+      fallback = { items = copy(chosen), r = r }
+    end
+    if solves >= plan.DIAGNOSE_BUDGET then return nil end
+    local taken = {}
+    for item in pairs(demanded) do taken[item] = true end
+    for _, item in ipairs(chosen) do taken[item] = true end
+    local options = {}
+    for _, item in ipairs(conflict_items(r)) do
+      if not taken[item] and solves < plan.DIAGNOSE_BUDGET then
+        chosen[#chosen + 1] = item
+        local tried = solve(chosen)
+        chosen[#chosen] = nil
+        if tried.inconsistent < r.inconsistent then
+          options[#options + 1] = { item = item, r = tried, n = tried.inconsistent, kind = kind_of(tried, item), made = (made(tried)) }
+        end
+      end
+    end
+    table.sort(options, less)
+    for i = 1, math.min(#options, plan.DIAGNOSE_BRANCH) do
+      chosen[#chosen + 1] = options[i].item
+      local found, fr = search(chosen, options[i].r)
+      chosen[#chosen] = nil
+      if found then return found, fr end
+    end
+    return nil
+  end
+  local items, r = search({}, r0)
+  if not items then
+    if not fallback then return {}, false end
+    items, r = fallback.items, fallback.r
+  end
+  local closed = r.status ~= "CONFLICT"
+  local _, negative = made(r)
+  -- alternatives: the item swapped for another leaves the plan as closed (and as sound)
+  local pool = {}
+  local in_set = {}
+  for _, item in ipairs(items) do in_set[item] = true end
+  for _, item in ipairs(conflict_items(r0)) do
+    if not demanded[item] and not in_set[item] then pool[#pool + 1] = item end
+  end
+  local fixes = {}
+  for i, item in ipairs(items) do
+    local fix = { item = item, alternatives = {} }
+    local id = FIX .. item
+    if closed and not r.undetermined[id] then fix.rate = r.counts[id] end
+    if closed then
+      for _, other in ipairs(pool) do
+        if solves >= plan.DIAGNOSE_BUDGET + 100 then break end
+        local swapped = copy(items)
+        swapped[i] = other
+        local tried = solve(swapped)
+        local _, neg = made(tried)
+        if tried.status ~= "CONFLICT" and (negative or not neg) then fix.alternatives[#fix.alternatives + 1] = other end
+      end
+    end
+    fixes[i] = fix
+  end
+  return fixes, closed
 end
 
 --- Re-run the balance of a plan and cache it in the plan. Sinks are the anchors, at
@@ -251,6 +403,8 @@ function plan.rebalance(key)
   for i = #r.problems, 1, -1 do
     if r.problems[i].type == "negative" and #r.problems[i].lines == 0 then table.remove(r.problems, i) end
   end
+  -- can't balance: say which items would close it, and how much of each is left or missing
+  if r.status == "CONFLICT" then r.fixes, r.fixes_close = plan.diagnose(lines, anchors, p.splits) end
   r.excluded = excluded
   r.shortage = {}
   local order = {}

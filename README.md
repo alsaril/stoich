@@ -19,6 +19,8 @@ own plan. Plans are stored in the save and shared live by every player in multip
   several recipes make the same item (oil processing vs coal liquefaction), you set a
   **split** in percent; a captured build comes pre-filled with the split it was built with.
   Problems are named: "Hydrogen can't balance: nothing consumes it", with one-click fixes.
+  When the whole plan can't balance, it says which items would close it and how much of
+  each is left over or missing ("Ice: 42.5/min left over, or instead water or light oil").
 - **Plan balance.** All factories are balanced together against **sinks**: fixed demands
   you type, such as "10 science/min" or "30 coal/min for boilers". The plan window lists
   every sink, split and factory with its recipe (what one copy takes in and sends out), how

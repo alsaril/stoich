@@ -53,9 +53,18 @@ local function conflict_items(result)
   return out, split_involved
 end
 
+-- A plan that can't balance lists what would close it (plan.diagnose) instead of every
+-- item of the contradiction; the plain conflict rows stay when that isn't all of it.
+local function fixes_of(mode, result)
+  if mode == "plan" and result.fixes and #result.fixes > 0 then return result.fixes, result.fixes_close end
+  return nil, false
+end
+
 --- Number of problem rows shown (conflicts count once per item).
-function problems.count(result)
-  local n = #conflict_items(result)
+function problems.count(result, mode)
+  local fixes, closed = fixes_of(mode, result)
+  local n = closed and 0 or #conflict_items(result)
+  if fixes then n = n + #fixes end
   for _, p in ipairs(result.problems) do
     if p.type ~= "conflict" then n = n + 1 end
   end
@@ -125,6 +134,46 @@ local function conflict_row(list, player, mode, ctx, entry)
   end
 end
 
+-- A fix of a plan that can't balance: how much of an item is left over or missing, the
+-- items that would do instead, and the one-click void, sink or import.
+local function fix_row(list, player, mode, ctx, fix)
+  local key = fix.item
+  local row = list.add({ type = "flow", direction = "horizontal" })
+  row.style.vertical_align = "center"
+  row.style.horizontal_spacing = 6
+  row.add({ type = "sprite", sprite = "utility/status_not_working" })
+  item_button(row, mode, key)
+  local rate = fix.rate and fp_util.format_rate(math.abs(fix.rate), ctx.unit, true)
+  local text
+  if fix.rate == nil then
+    text = L("fix-unknown", "", fp_util.localised(key))
+  elseif fix.rate >= 0 then
+    text = L("fix-surplus", "", fp_util.localised(key), rate)
+  else
+    text = L("fix-short", "", fp_util.localised(key), rate)
+  end
+  row.add({ type = "label", caption = text, tooltip = L("fix-who", who(player, mode, key, 1), who(player, mode, key, -1)) })
+  if #fix.alternatives > 0 then
+    row.add({ type = "label", caption = L("fix-or"), style = "info_label", tooltip = L("fix-or-tooltip") })
+    for i, other in ipairs(fix.alternatives) do
+      if i > 8 then
+        row.add({ type = "label", caption = "+" .. (#fix.alternatives - 8), style = "info_label" })
+        break
+      end
+      item_button(row, mode, other)
+    end
+  end
+  local function button(caption, tooltip, action, kind)
+    row.add({ type = "button", caption = L(caption), tooltip = L(tooltip), enabled = ctx.can_edit,
+      tags = { fp = action, mode = mode, item = key, kind = kind } })
+  end
+  if fix.rate == nil or fix.rate >= 0 then
+    button("void-it", "void-it-tooltip", "problem_boundary", "void")
+    if fix.rate then button("add-sink", "add-sink-tooltip-plan", "problem_sink") end
+  end
+  if fix.rate == nil or fix.rate < 0 then button("import-it", "import-it-tooltip", "problem_boundary", "import") end
+end
+
 -- One problem that isn't a conflict, as a row.
 local function other_row(list, player, mode, ctx, p)
   local row = list.add({ type = "flow", direction = "horizontal" })
@@ -188,7 +237,16 @@ function problems.render(parent, player, mode, result, ctx, limit)
   for _, p in ipairs(result.problems) do
     if FIRST[p.type] then rows[#rows + 1] = function() other_row(list, player, mode, ctx, p) end end
   end
+  local fixes, closed = fixes_of(mode, result)
+  if fixes then
+    rows[#rows + 1] = function()
+      local explain = list.add({ type = "label", caption = L(closed and "fixes-explain" or "fixes-explain-partial"), style = "info_label" })
+      explain.style.single_line = false
+    end
+    for _, fix in ipairs(fixes) do rows[#rows + 1] = function() fix_row(list, player, mode, ctx, fix) end end
+  end
   local conflicts, split_involved = conflict_items(result)
+  if closed then conflicts, split_involved = {}, false end
   for _, entry in ipairs(conflicts) do rows[#rows + 1] = function() conflict_row(list, player, mode, ctx, entry) end end
   if split_involved then
     rows[#rows + 1] = function() list.add({ type = "label", caption = L("conflict-split"), style = "info_label" }) end

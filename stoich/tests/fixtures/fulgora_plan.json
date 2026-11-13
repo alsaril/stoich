@@ -1,0 +1,267 @@
+{
+ "factories": [
+  {
+   "copies": 1,
+   "id": 47,
+   "kind": "factory",
+   "name": "Scrap",
+   "net": {
+    "item/scrap": 15
+   }
+  },
+  {
+   "copies": 1,
+   "id": 48,
+   "kind": "factory",
+   "name": "Iron gear wheel",
+   "net": {
+    "item/advanced-circuit": 0.45000000000000034,
+    "item/battery": 0.6000000000000005,
+    "item/concrete": 0.9,
+    "item/copper-cable": 0.45000000000000034,
+    "item/holmium-ore": 0.15000000000000013,
+    "item/ice": 0.7499999999999999,
+    "item/iron-gear-wheel": 3,
+    "item/low-density-structure": 0.15000000000000013,
+    "item/processing-unit": 0.2999999999999986,
+    "item/scrap": -15,
+    "item/solid-fuel": 1.05,
+    "item/steel-plate": 0.5999999999999998,
+    "item/stone": 0.5999999999999998
+   }
+  },
+  {
+   "copies": 1,
+   "id": 49,
+   "kind": "factory",
+   "name": "Water",
+   "net": {
+    "fluid/water": 40,
+    "item/ice": -2
+   }
+  },
+  {
+   "copies": 1,
+   "id": 50,
+   "kind": "factory",
+   "name": "Holmium solution",
+   "net": {
+    "fluid/holmium-solution": 10,
+    "fluid/water": -1,
+    "item/holmium-ore": -0.2,
+    "item/stone": -0.1
+   }
+  },
+  {
+   "copies": 1,
+   "id": 51,
+   "kind": "factory",
+   "name": "Holmium plate",
+   "net": {
+    "fluid/holmium-solution": -25,
+    "item/holmium-plate": 1.25
+   }
+  },
+  {
+   "copies": 1,
+   "id": 52,
+   "kind": "factory",
+   "name": "Electrolyte",
+   "net": {
+    "fluid/electrolyte": 6,
+    "fluid/heavy-oil": -4,
+    "fluid/holmium-solution": -4,
+    "item/stone": -0.4
+   }
+  },
+  {
+   "copies": 1,
+   "id": 53,
+   "kind": "factory",
+   "name": "Superconductor",
+   "net": {
+    "fluid/light-oil": -2,
+    "item/copper-plate": -0.4,
+    "item/holmium-plate": -0.4,
+    "item/plastic-bar": -0.4,
+    "item/superconductor": 1.2000000000000002
+   }
+  },
+  {
+   "copies": 1,
+   "id": 54,
+   "kind": "factory",
+   "name": "Light oil",
+   "net": {
+    "fluid/heavy-oil": -20,
+    "fluid/light-oil": 15,
+    "fluid/water": -15
+   }
+  },
+  {
+   "copies": 1,
+   "id": 55,
+   "kind": "factory",
+   "name": "Supercapacitor",
+   "net": {
+    "fluid/electrolyte": -2,
+    "item/battery": -0.2,
+    "item/electronic-circuit": -0.8,
+    "item/holmium-plate": -0.4,
+    "item/supercapacitor": 0.30000000000000004,
+    "item/superconductor": -0.4
+   }
+  },
+  {
+   "copies": 1,
+   "id": 56,
+   "kind": "factory",
+   "name": "Electromagnetic science pack",
+   "net": {
+    "fluid/electrolyte": -2.5,
+    "fluid/holmium-solution": -2.5,
+    "item/accumulator": -0.1,
+    "item/electromagnetic-science-pack": 0.18000000000000005,
+    "item/supercapacitor": -0.1
+   }
+  },
+  {
+   "copies": 1,
+   "id": 57,
+   "items": [
+    {
+     "key": "item/electromagnetic-science-pack",
+     "rate": 0.16666666666666666
+    }
+   ],
+   "kind": "sink",
+   "name": "Electromagnetic science pack"
+  },
+  {
+   "copies": 1,
+   "id": 59,
+   "kind": "factory",
+   "name": "Heavy oil",
+   "net": {
+    "fluid/heavy-oil": 1200
+   }
+  },
+  {
+   "copies": 1,
+   "id": 60,
+   "kind": "factory",
+   "name": "Iron gear wheel recycling",
+   "net": {
+    "item/iron-gear-wheel": -16,
+    "item/iron-plate": 8
+   }
+  },
+  {
+   "copies": 1,
+   "id": 61,
+   "items": [
+    {
+     "key": "item/iron-plate",
+     "rate": null
+    },
+    {
+     "key": "item/solid-fuel",
+     "rate": null
+    },
+    {
+     "key": "item/concrete",
+     "rate": null
+    },
+    {
+     "key": "item/steel-plate",
+     "rate": null
+    },
+    {
+     "key": "item/stone",
+     "rate": null
+    }
+   ],
+   "kind": "void",
+   "name": "Iron plate"
+  },
+  {
+   "copies": 1,
+   "id": 62,
+   "kind": "factory",
+   "name": "Low density structure recycling",
+   "net": {
+    "item/copper-plate": 2.6666666666666665,
+    "item/low-density-structure": -0.5333333333333333,
+    "item/plastic-bar": 0.6666666666666666,
+    "item/steel-plate": 0.26666666666666666
+   }
+  },
+  {
+   "copies": 1,
+   "id": 63,
+   "kind": "factory",
+   "name": "Electronic circuit recycling",
+   "net": {
+    "item/copper-cable": 12,
+    "item/electronic-circuit": -16,
+    "item/iron-plate": 4
+   }
+  },
+  {
+   "copies": 1,
+   "id": 64,
+   "kind": "factory",
+   "name": "Copper cable recycling",
+   "net": {
+    "item/copper-cable": -32,
+    "item/copper-plate": 4
+   }
+  },
+  {
+   "copies": 1,
+   "id": 65,
+   "kind": "factory",
+   "name": "Processing unit recycling",
+   "net": {
+    "item/advanced-circuit": 0.4,
+    "item/electronic-circuit": 4,
+    "item/processing-unit": -0.8
+   }
+  },
+  {
+   "copies": 1,
+   "id": 67,
+   "kind": "factory",
+   "name": "Battery recycling",
+   "net": {
+    "item/battery": -2,
+    "item/copper-plate": 0.5,
+    "item/iron-plate": 0.5
+   }
+  },
+  {
+   "copies": 1,
+   "id": 68,
+   "kind": "factory",
+   "name": "Accumulator",
+   "net": {
+    "item/accumulator": 0.125,
+    "item/battery": -0.625,
+    "item/iron-plate": -0.25
+   }
+  },
+  {
+   "copies": 1,
+   "id": 69,
+   "kind": "factory",
+   "name": "Advanced circuit recycling",
+   "net": {
+    "item/advanced-circuit": -1.3333333333333333,
+    "item/copper-cable": 1.3333333333333333,
+    "item/electronic-circuit": 0.6666666666666666,
+    "item/plastic-bar": 0.6666666666666666
+   }
+  }
+ ],
+ "note": "Fulgora plan of a real save (2026-11-13): net flow per copy (per second)"
+}

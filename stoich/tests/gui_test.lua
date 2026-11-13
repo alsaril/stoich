@@ -418,11 +418,15 @@ t.test("gui: a long problem list shows its first rows; split prompts come first"
   local list = mock.named(win(p), "stoich_problems")
   local first = list.children[1]
   t.eq(first.children[#first.children].tags.fp, "problem_split", "the split prompt first")
-  t.eq(#list.children, 4 + 1, "four rows and the toggle")
+  t.eq(#list.children, 4, "four rows")
+  -- the rest behind a toggle under the list, which scrolls in a pane of its own
+  t.eq(list.parent.name, "stoich_problems_pane")
+  t.eq(list.parent.style.maximal_height, 220)
   click(p, "plan_all_problems")
   t.truthy(#mock.named(win(p), "stoich_problems").children > 5, "all of them")
+  t.truthy(mock.find(win(p), "plan_all_problems"), "the toggle is still there to go back")
   click(p, "plan_all_problems")
-  t.eq(#mock.named(win(p), "stoich_problems").children, 5, "back to four")
+  t.eq(#mock.named(win(p), "stoich_problems").children, 4, "back to four")
 end)
 
 t.test("gui: plan split between two factories, slider in its window", function()
@@ -1287,6 +1291,8 @@ t.test("gui: the debug interface only exists when its hidden setting is on", fun
   add_sink(p, "plastic-bar", 60)
   t.truthy(debug.plan_sources() > 0)
   t.truthy(next(debug.factories()), "the factories, for the screenshot driver")
+  t.eq(table.concat(debug.plan_keys(), ","), "nauvis")
+  t.eq(type(debug.splits("nauvis")), "table")
   t.eq(debug.dialog(p.index), nil)
   click(p, "fac_new_recipe")
   t.eq(debug.dialog(p.index).kind, "recipe", "the open dialog's state")
@@ -1564,6 +1570,31 @@ t.test("gui: one void per plan: made on first use, then opened; an imported one 
   end
   t.eq(#voids, 1, "merged on update")
   t.eq(#voids[1].sink_items, 3)
+end)
+
+t.test("gui: a plan that can't balance lists what would close it, with one-click fixes", function()
+  local p = boot()
+  -- a mine gives ore and stone together; stone becomes bricks nobody uses; ore is used
+  custom_factory("mine", { ["item/iron-ore"] = 2, ["custom/stone"] = 1 })
+  custom_factory("bricks", { ["custom/stone"] = -2, ["custom/brick"] = 1 })
+  custom_factory("plates", { ["item/iron-ore"] = -1, ["item/iron-plate"] = 1 })
+  add_sink(p, "iron-plate", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  t.eq(#r.fixes, 1)
+  -- void the stone where it comes out, rather than make bricks only to void them
+  t.eq(r.fixes[1].item, "custom/stone")
+  t.near(r.fixes[1].rate, 0.5)
+  t.eq(r.fixes[1].alternatives[1], "custom/brick")
+  go(p, "plan")
+  local text = mock.text(win(p))
+  t.truthy(text:find("<stoich.fixes-explain>", 1, true), "explained")
+  t.truthy(text:find("<stoich.fix-surplus>", 1, true), "a surplus row")
+  t.eq(text:find("<stoich.conflict-item>", 1, true), nil, "not every item of the loop")
+  t.truthy(mock.find(win(p), "problem_item", { item = "custom/brick" }), "the alternative, clickable")
+  t.eq(mock.find(win(p), "problem_boundary", { item = "custom/stone", kind = "import" }), nil, "a surplus isn't imported")
+  click(p, "problem_boundary", { item = "custom/stone", kind = "void" })
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
 end)
 
 t.test("gui: every handler is reached by some scenario", function()

@@ -6,7 +6,9 @@ Date: 2026-11-13
     - A void and an import in every plan (the Void and Import buttons open them, made on first use): lists of items whose rates the plan balance sets. A void takes whatever the plan has left over, an import brings in whatever is missing; nothing extra is made to be voided, and the factories make what they can before anything is imported. A problem row offers Void it or Import it in one click.
     - New recipe: a factory of one recipe on a machine, without building it (a recycler for one item, say). The recipe is picked by item, its recycling first, or directly; one copy is that many machines.
     - Module slots and beacons in the recipe dialog (New recipe, and Add recipe in the editor): modules for each slot, the beacon count, type and modules. The dialog shows the resulting speed and productivity, worked out as the game does (normal quality).
+    - When the plan can't balance, the problem list says which items would close it, instead of every item of the contradiction: "Ice: 42.5/min left over", with the items that would do instead (the water or light oil it becomes), Void it, Add sink or Import it. A surplus is preferred over a shortage, voided where it comes out, and never with a factory running backwards.
   Changes:
+    - The plan's problem list scrolls in a pane of its own under a height limit, so the plan table stays in view however many problems there are.
     - Export and import of strings are icon buttons at the end of the toolbar, so "Import" means one thing there; toolbar buttons are as wide as their captions.
     - The recipe dialog's productivity field is extra productivity now: research productivity is added by itself.
     - A plan split with an import sets its shares by hand (an import has nothing built to match), starting with all of the item imported.

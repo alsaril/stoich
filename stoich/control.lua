@@ -374,6 +374,14 @@ if debug_setting and debug_setting.value then
       end
       return n
     end,
+    --- Names of the surfaces that have a plan.
+    plan_keys = function()
+      return model.plan_keys()
+    end,
+    --- The splits of a plan.
+    splits = function(key)
+      return model.plan(key or model.selected(1)).splits
+    end,
     --- The factories of a plan (default: the one player 1 looks at).
     factories = function(key)
       return model.plan(key or model.selected(1)).factories

@@ -162,7 +162,7 @@ local function build_header(parent, player, r, ctx)
   -- an empty plan has no status worth showing
   if next(model.plan(ctx.plan).factories) then
     common.status_label(bar, r.status)
-    local n = problems.count(r)
+    local n = problems.count(r, "plan")
     if n > 0 then bar.add({ type = "label", caption = L("status-problems", n) }) end
   end
 end
@@ -429,15 +429,21 @@ function plan_window.fill_rows(player, holder, r, ctx)
   if shown == 0 then pane.add({ type = "label", caption = L("plan-filtered") }) end
 end
 
--- A long list shows its first rows only, so the factory table keeps its room.
+-- A long list shows its first rows only, so the factory table keeps its room; all of
+-- them scroll in a pane of their own, the toggle stays under it.
 local PROBLEMS_SHOWN = 4
+local PROBLEMS_HEIGHT = 220
 
 local function build_problems(box, player, r, ctx)
   if #r.problems > 0 then
     local state = model.player(player.index)
-    local list, hidden = problems.render(box, player, "plan", r, ctx, not state.all_problems and PROBLEMS_SHOWN or nil)
+    local pane = box.add({ type = "scroll-pane", name = "stoich_problems_pane", style = "naked_scroll_pane",
+      horizontal_scroll_policy = "never" })
+    pane.style.maximal_height = PROBLEMS_HEIGHT
+    pane.style.horizontally_stretchable = true
+    local _, hidden = problems.render(pane, player, "plan", r, ctx, not state.all_problems and PROBLEMS_SHOWN or nil)
     if hidden > 0 or state.all_problems then
-      list.add({ type = "button", caption = L(state.all_problems and "problems-fewer" or "problems-all", hidden),
+      box.add({ type = "button", caption = L(state.all_problems and "problems-fewer" or "problems-all", hidden),
         tags = { fp = "plan_all_problems" } })
     end
   end
