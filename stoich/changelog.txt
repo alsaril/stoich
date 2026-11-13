@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.1
+Date: 2026-11-13
+  Changes:
+    - Machines with no recipe are listed without a recipe picker (it couldn't handle furnaces): delete the line, or set a recipe on the map and recapture. Lines given a recipe by older versions keep it through rescans.
+  Bugfixes:
+    - − / + in the plan no longer scrolls the list back to the top, and the filter row stays as it is.
+    - After saving a factory the plan sorts by the new shortages, not the ones from before the save.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2026-11-01
   Changes:
