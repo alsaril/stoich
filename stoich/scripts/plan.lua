@@ -210,6 +210,21 @@ local function conflict_items(r)
 end
 
 -- Diagnosis is a bounded search: at most this many solves, this many options per step.
+--
+-- Cost and what could replace it (notes, 2026-11-13):
+-- - Each step tries a void on every item of the contradicting equations (n solves of
+--   ~0.5 ms); it goes depth first into the best DIAGNOSE_BRANCH options. Straight down
+--   that is n x d solves (d = voids needed); with backtracking it is up to
+--   n x (1 + 3 + ... + 3^d), exponential in d, which the budget caps (~250 ms). A real
+--   Fulgora plan (tests/fixtures/fulgora_plan.json): 155 solves, ~80 ms, one dead end.
+-- - It runs on every plan change while the plan can't balance (and on every player's
+--   game in multiplayer). If that gets slow on big plans: a "Find a fix" button in the
+--   problem list instead, the result cached until the next change.
+-- - "Fewest voids, no factory backwards" is a minimum-cardinality problem (NP-hard in
+--   general), so this is a heuristic. An exact alternative of a slightly different
+--   question: a linear program (a small simplex) for the least total voided/imported
+--   with every count >= 0; polynomial, no budget to run out, usually as sparse. Worth
+--   it if the search gives poor answers or hits its cap.
 plan.DIAGNOSE_BUDGET = 400
 plan.DIAGNOSE_BRANCH = 3
 
