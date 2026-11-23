@@ -12,6 +12,31 @@ local abs = math.abs
 solver.NEGATIVE_TOL = 1e-6
 solver.ZERO_TOL = 1e-9
 
+--- Each item's scale: its largest flow from a factory (not a void or import) at its count.
+--- A void's or import's rate is small or not against it (a legendary byproduct at 1e-7/s).
+function solver.item_scales(lines, counts)
+  local scale = {}
+  for _, line in ipairs(lines) do
+    if not line.item then
+      local c = math.abs(counts[line.id] or 0)
+      for k, f in pairs(line.flow) do
+        local a = math.abs(f) * c
+        if a > (scale[k] or 0) then scale[k] = a end
+      end
+    end
+  end
+  return scale
+end
+
+--- The tolerance below 0 of a unit's count: a factory's copies absolutely, a void's or
+--- import's rate against its item's scale (never looser than for a factory).
+function solver.negative_tol(line, scales)
+  if not line.item then return solver.NEGATIVE_TOL end
+  local s = scales[line.item]
+  if not s or s <= 0 then return solver.NEGATIVE_TOL end
+  return solver.NEGATIVE_TOL * math.min(1, s)
+end
+
 --- Total order for line ids: numbers before strings, then natural order.
 function solver.id_less(a, b)
   local ta, tb = type(a), type(b)
@@ -296,8 +321,9 @@ function solver.balance(lines, anchors, splits, external, opts)
   -- Negative counts only matter once the rest is solved.
   if status == "EXACT" then
     local negative = {}
+    local scales = solver.item_scales(L, counts)
     for _, line in ipairs(L) do
-      if counts[line.id] < -solver.NEGATIVE_TOL then negative[#negative + 1] = line.id end
+      if counts[line.id] < -solver.negative_tol(line, scales) then negative[#negative + 1] = line.id end
     end
     if #negative > 0 then
       status = "NEGATIVE"

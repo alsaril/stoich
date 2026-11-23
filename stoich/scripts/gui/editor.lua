@@ -1,7 +1,8 @@
 -- Factory and sink editor, in its own window over the plan. Works on the player's
 -- private draft (storage.players[i].draft); others see changes only after Save.
 -- The draft and the window live together: closing the window drops the draft
--- (after asking when it has unsaved changes).
+-- (after asking when it has unsaved changes). Its items panel is in editor_items, its custom
+-- line dialog (Add custom line, Edit flow) in line_dialog.
 
 local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
@@ -9,8 +10,10 @@ local splits = require("scripts.gui.splits")
 local problems = require("scripts.gui.problems")
 local scopes = require("scripts.gui.scopes")
 local rows = require("scripts.gui.rows")
+local editor_items = require("scripts.gui.editor_items")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local conditions = require("scripts.conditions")
 local draft = require("scripts.draft")
 local scanner = require("scripts.scanner")
 local solver = require("scripts.solver")
@@ -47,6 +50,9 @@ local function rebalance(player)
   end
   return d
 end
+
+-- for the editor's other parts (the line dialog)
+editor.get_draft, editor.with_draft, editor.find_line, editor.rebalance = get_draft, with_draft, find_line, rebalance
 
 local function container(player)
   return window.child_content(player, "stoich_editor")
@@ -235,152 +241,6 @@ local function save_state(player, d, ctx)
   return true, nil
 end
 
--- Items of the factory in three groups: what comes in, what goes out, and what
--- is made and used up inside. Each item can be marked external.
-local ITEM_GROUPS = {
-  { key = "inputs", caption = "items-inputs", tooltip = "items-inputs-tooltip" },
-  { key = "outputs", caption = "items-outputs", tooltip = "items-outputs-tooltip" },
-  { key = "inside", caption = "items-inside", tooltip = "items-inside-tooltip" },
-  { key = "unused", caption = "items-not-used", tooltip = "items-not-used-tooltip", optional = true },
-}
-
-local function render_items(box, player, d, ctx)
-  box.clear()
-  local f = d.factory
-  local r = f.result
-  local fluid_keys = plan.fluid_keys(f)
-  local groups = { inputs = {}, outputs = {}, inside = {}, unused = {} }
-  for _, entry in ipairs(r.flow) do
-    local net = r.net[entry.item]
-    local g
-    if net then
-      g = net > 0 and "outputs" or "inputs"
-    elseif entry.total <= 1e-9 then
-      g = "unused" -- nothing makes or uses it at this split (e.g. a recipe at 0%)
-    else
-      g = "inside"
-    end
-    table.insert(groups[g], entry.item)
-  end
-  -- one table, so the columns (and the External checkboxes) line up across the groups:
-  -- icon, item, rate, belt, fill, external; a heading row per group
-  local t = box.add({ type = "table", name = "stoich_items_table", column_count = 6 })
-  t.style.horizontal_spacing = 6
-  t.style.vertical_spacing = 2
-  t.add({ type = "empty-widget" })
-  t.add({ type = "label", caption = L("col-item"), style = "bold_label" })
-  local rate_head = t.add({ type = "label", caption = { "", L("row-rate"), " (", common.unit_suffix(ctx), ")" }, style = "bold_label" })
-  rate_head.style.width = 80
-  rate_head.style.horizontal_align = "right"
-  rate_head.style.single_line = true
-  t.add({ type = "label", caption = L("col-belt"), style = "bold_label", tooltip = L("col-belt-tooltip") }).style.width = common.BELT_WIDTH
-  local fill_head = t.add({ type = "label", caption = L("col-fill"), style = "bold_label", tooltip = L("col-fill-tooltip") })
-  fill_head.style.width = common.FILL_WIDTH
-  fill_head.style.horizontal_align = "right"
-  local ext_head = t.add({ type = "label", caption = L("col-external"), style = "bold_label", tooltip = L("col-external-tooltip") })
-  ext_head.style.single_line = true
-  ext_head.style.minimal_width = 60 -- single-line labels would otherwise shrink to "Exte…"
-  local quality = plan.has_quality(d.plan) or plan.factory_has_quality(f)
-  d.items_open = d.items_open or {}
-  -- an item of several tiers: one row (their total), opening to a row per tier
-  local function base_row(keys)
-    local base = fp_util.base_key(keys[1])
-    local icon = common.item_icon(t, { type = "sprite-button", style = "transparent_slot", tooltip = common.keys_name(keys) }, keys)
-    icon.style.size = 28
-    local cell = t.add({ type = "flow", direction = "horizontal" })
-    cell.style.vertical_align = "center"
-    local open = d.items_open[base]
-    cell.add({ type = "sprite-button", style = "mini_button", sprite = open and "utility/collapse" or "utility/expand",
-      tooltip = L("quality-tiers", #keys), tags = { fp = "editor_items_toggle", item = base } })
-    local name = cell.add({ type = "label", caption = common.keys_name(keys) })
-    name.style.maximal_width = 200
-    local total, any_net, all_external = 0, false, true
-    for _, key in ipairs(keys) do
-      if r.net[key] then
-        total = total + math.abs(r.net[key])
-        any_net = true
-      end
-      if not f.external[key] then all_external = false end
-    end
-    if any_net then
-      common.rate_cells(t, ctx, total, keys[1], fluid_keys, nil, 80)
-    else
-      local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
-      dash.style.width = 80
-      dash.style.horizontal_align = "right"
-      t.add({ type = "empty-widget" })
-      t.add({ type = "empty-widget" })
-    end
-    local ext = t.add({ type = "checkbox", state = all_external, enabled = ctx.can_edit,
-      tooltip = { "", L("col-external-tooltip"), "\n", L("external-all-tiers") }, tags = { fp = "editor_external", item = keys[1], keys = keys } })
-    ext.style.left_margin = 16
-    return open
-  end
-  local function item_row(key, indent)
-    if quality then
-      local icon = common.item_icon(t, { type = "sprite-button", style = "transparent_slot", tooltip = fp_util.localised(key) }, { key })
-      icon.style.size = 28
-    else
-      t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
-    end
-    local name = t.add({ type = "label", caption = fp_util.localised(key) })
-    name.style.maximal_width = 200
-    if indent then name.style.left_padding = 24 end
-    local net = r.net[key]
-    if net then
-      -- the group says which way it goes: no minus sign on inputs
-      common.rate_cells(t, ctx, math.abs(net), key, fluid_keys, nil, 80)
-    else
-      local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
-      dash.style.width = 80
-      dash.style.horizontal_align = "right"
-      t.add({ type = "empty-widget" })
-      t.add({ type = "empty-widget" })
-    end
-    local suggested = r.suggested_external[key]
-    local ext = t.add({
-      type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
-      tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
-      tags = { fp = "editor_external", item = key },
-    })
-    ext.style.left_margin = 16
-  end
-  for _, group in ipairs(ITEM_GROUPS) do
-    if not (group.optional and #groups[group.key] == 0) then
-      t.add({ type = "empty-widget" })
-      local count = #groups[group.key]
-      local by_base = quality and common.by_base(groups[group.key]) or nil
-      if by_base then count = #by_base end
-      local head = t.add({ type = "label", caption = { "", L(group.caption), " (" .. count .. ")" }, style = "caption_label",
-        tooltip = L(group.tooltip) })
-      head.style.top_margin = 6
-      for _ = 1, 4 do t.add({ type = "empty-widget" }) end
-      local list = groups[group.key]
-      if by_base then
-        -- tiers of an item together; a single tier as its own row
-        list = {}
-        for _, g in ipairs(by_base) do
-          if #g.keys == 1 then
-            list[#list + 1] = g.keys[1]
-          else
-            list[#list + 1] = g
-          end
-        end
-      end
-      for _, item in ipairs(list) do
-        if type(item) == "table" then
-          -- several tiers: their row, then a row per tier when it is open
-          if base_row(item.keys) then
-            for _, k in ipairs(item.keys) do item_row(k, true) end
-          end
-        else
-          item_row(item)
-        end
-      end
-    end
-  end
-end
-
 --- Update everything that depends on the balance without touching inputs.
 function editor.update_results(player, skip_split, skip_line)
   local d = get_draft(player)
@@ -433,7 +293,7 @@ function editor.update_results(player, skip_split, skip_line)
   end
 
   local items = common.find(root, "stoich_items_box")
-  if items then render_items(items, player, d, ctx) end
+  if items then editor_items.render(items, player, d, ctx) end
   local pbox = common.find(root, "stoich_problems_box")
   if pbox then
     pbox.clear()
@@ -611,9 +471,9 @@ local function quality_toggle(parent, player, d, ctx)
   local p = model.plan(d.plan)
   local own = false
   for _, f in pairs(p.factories) do
-    if plan.factory_has_quality(f) then own = true end
+    if conditions.factory_has_quality(f) then own = true end
   end
-  if own or plan.factory_has_quality(d.factory) then return end
+  if own or conditions.factory_has_quality(d.factory) then return end
   parent.add({ type = "checkbox", caption = L("quality-toggle"), tooltip = L("quality-plan-toggle-tooltip"), state = p.quality == true,
     enabled = ctx.can_edit, tags = { fp = "editor_quality_toggle" } })
 end
@@ -758,7 +618,7 @@ end
 --- Does the open draft's plan show quality (or the draft itself have it)?
 local function draft_quality(player)
   local d = get_draft(player)
-  return d and (plan.has_quality(d.plan) or plan.factory_has_quality(d.factory))
+  return d and (plan.has_quality(d.plan) or conditions.factory_has_quality(d.factory))
 end
 
 -- A sink asks for an exact tier (a rate of "any quality" can't balance): its picker's.
@@ -1004,77 +864,6 @@ handlers.conflict_reload = function(player)
     draft.open(player.index, f)
     editor.rebuild(player)
   end
-end
-
--- Line dialogs --------------------------------------------------------------------------------------------
-
-rows.targets.dialog = {
-  rows = function(player)
-    local state = model.player(player.index)
-    return state.dialog and state.dialog.rows or {}
-  end,
-  field = "amount",
-  allow_negative = true,
-  changed = function(player, structural)
-    if structural then editor.build_line_dialog(player) end
-  end,
-}
-
---- Dialog for a custom line (new) or a flow override of an existing line.
---- @param dlg table? its state; nil rebuilds the open one
-function editor.build_line_dialog(player, dlg)
-  dlg = dlg or model.player(player.index).dialog
-  if not dlg then return end
-  local ctx = common.ctx(player)
-  local frame = common.open_dialog(player, "line", L(dlg.kind == "override" and "edit-flow" or "add-custom"), dlg)
-  local outer = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
-  local body = outer.add({ type = "flow", direction = "vertical" })
-  body.style.vertical_spacing = 8
-  local top = body.add({ type = "flow", direction = "horizontal" })
-  top.add({ type = "label", caption = L("line-label") })
-  local label = top.add({ type = "textfield", text = dlg.label or "", tags = { fp = "dlg_label" } })
-  label.style.width = 200
-  body.add({ type = "label", caption = L(dlg.kind == "override" and "override-explain" or "custom-explain"), style = "info_label" })
-  rows.build(body, player, "dialog", ctx, true)
-  local buttons = common.dialog_buttons(frame)
-  buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
-  common.spacer(buttons)
-  buttons.add({ type = "button", caption = L(dlg.kind == "override" and "apply" or "add"), style = "confirm_button", tags = { fp = "dlg_line_ok" } })
-end
-
-handlers.dlg_label = { text = function(player, element, event)
-  local state = model.player(player.index)
-  if state.dialog then state.dialog.label = element.text end
-end }
-
-handlers.editor_add_custom = function(player)
-  editor.build_line_dialog(player, { kind = "custom", label = "", rows = { {} } })
-end
-
-handlers.editor_edit_flow = with_draft(function(player, element, _, d)
-  local line = find_line(d, element.tags.line)
-  if not line then return end
-  editor.build_line_dialog(player, { kind = "override", line = line.id, label = line.label or "", rows = draft.rows_from_flow(line) })
-end)
-
-handlers.dlg_line_ok = function(player)
-  local state = model.player(player.index)
-  local dlg = state.dialog
-  local d = get_draft(player)
-  if not (dlg and d) then return end
-  if dlg.kind == "override" then
-    local line = find_line(d, dlg.line)
-    if line then
-      draft.set_flow(line, dlg.rows)
-      line.overridden = line.kind ~= "custom"
-      if dlg.label ~= "" then line.label = dlg.label end
-    end
-  else
-    draft.add_custom_line(d.factory, dlg.label ~= "" and dlg.label or "custom", dlg.rows)
-  end
-  common.close_dialog(player)
-  rebalance(player)
-  editor.rebuild(player)
 end
 
 -- Lines added by hand ---------------------------------------------------------------------------------

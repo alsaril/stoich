@@ -9,7 +9,13 @@ t.test("lp: the least cost that meets the equations", function()
   x = lp.minimize({ 0, 3, 1 }, { { [1] = 1, [2] = 1 }, { [1] = 1, [3] = -1 } }, { 4, 1 }, 3)
   t.near(x[1], 4) t.near(x[2], 0) t.near(x[3], 3)
   -- infeasible: x1 = -1
-  t.eq(lp.minimize({ 0 }, { { [1] = 1 } }, { -1 }, 1), nil)
+  local none, _, why = lp.minimize({ 0 }, { { [1] = 1 } }, { -1 }, 1)
+  t.eq(none, nil)
+  t.eq(why, "infeasible")
+  -- out of pivots: no answer, and it says so
+  none, _, why = lp.minimize({ 0, 1, 2 }, { { [1] = 1, [2] = 1 }, { [1] = 1, [3] = -1 } }, { 4, 1 }, 3, 0)
+  t.eq(none, nil)
+  t.eq(why, "pivots")
   -- a negative right-hand side that is fine: -x1 = -2
   x = lp.minimize({ 1 }, { { [1] = -1 } }, { -2 }, 1)
   t.near(x[1], 2)

@@ -520,7 +520,7 @@ end
 -- Status -------------------------------------------------------------------------------------
 
 local STATUS_COLOR = {
-  EXACT = GREEN, NEEDS_SPLIT = YELLOW, CONFLICT = RED, NEGATIVE = RED, INVALID = RED,
+  EXACT = GREEN, NEEDS_SPLIT = YELLOW, UNSETTLED = YELLOW, CONFLICT = RED, NEGATIVE = RED, INVALID = RED,
 }
 
 function common.status_color(status)

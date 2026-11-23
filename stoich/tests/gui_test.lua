@@ -1463,7 +1463,7 @@ t.test("gui: voids and imports close the plan, from the toolbar or a problem", f
   click(p, "dialog_close")
 end)
 
-t.test("gui: a void the plan is short for says so and offers an import", function()
+t.test("gui: a void the plan is short for: can't balance, and the fix makes more instead", function()
   local p = boot()
   custom_factory("plates", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1 })
   custom_factory("science", { ["item/iron-plate"] = -2, ["item/automation-science-pack"] = 1 })
@@ -1474,8 +1474,30 @@ t.test("gui: a void the plan is short for says so and offers an import", functio
   require("scripts.gui.window").plan_changed("nauvis")
   go(p, "plan")
   t.eq(storage.plans.nauvis.result.status, "EXACT", "science is free: its void and the science held at 0")
-  -- a sink on science fixes it: now iron is short and the void would have to make it
+  -- a sink on science fixes it: now iron is short and the void would have to make it; no
+  -- rates keep every factory forwards, so the plan can't balance and says what closes it
   add_sink(p, "automation-science-pack", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  -- not "import iron plate": the plates factory runs more (the plan makes what it can) and
+  -- the extra copper plate goes to the void
+  t.eq(#r.fixes, 1)
+  t.eq(r.fixes[1].item, "item/copper-plate")
+  t.truthy(r.fixes[1].rate > 0, "left over: a void")
+  local void = mock.find(win(p), "problem_boundary", { kind = "void" })
+  t.truthy(void, "Void, one click")
+  mock.click(p, void)
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+end)
+
+t.test("gui: a void the equations put below 0 is named void short, with Import", function()
+  local p = boot()
+  -- nothing makes the plates the science uses, and the void has them: its rate is -2/s
+  custom_factory("science", { ["item/iron-plate"] = -2, ["item/automation-science-pack"] = 1 })
+  add_sink(p, "automation-science-pack", 60)
+  require("scripts.draft").add_boundary_item("nauvis", "void", "item/iron-plate", 1)
+  require("scripts.gui.window").plan_changed("nauvis")
+  go(p, "plan")
   t.eq(storage.plans.nauvis.result.status, "NEGATIVE")
   t.truthy(mock.text(win(p)):find("<stoich.void-short>", 1, true), "named")
   click(p, "problem_boundary", { item = "item/iron-plate", kind = "import" })
@@ -2077,8 +2099,9 @@ end)
 t.test("gui: a plan too complicated to search after every change gets Find a fix", function()
   local p = boot()
   local plan = require("scripts.plan")
-  local budget = plan.AUTO_WORK
-  plan.AUTO_WORK = 0 -- no work allowed: the search waits for the button
+  local plan_lp = require("scripts.plan_lp")
+  local budget = plan_lp.AUTO_WORK
+  plan_lp.AUTO_WORK = 0 -- no work allowed: the search waits for the button
   custom_factory("mine", { ["item/iron-ore"] = 2, ["custom/stone"] = 1 })
   custom_factory("bricks", { ["custom/stone"] = -2, ["custom/brick"] = 1 })
   custom_factory("plates", { ["item/iron-ore"] = -1, ["item/iron-plate"] = 1 })
@@ -2097,7 +2120,7 @@ t.test("gui: a plan too complicated to search after every change gets Find a fix
   -- the next change balances again: complicated again
   click(p, "plan_copies", { delta = 1 })
   t.eq(storage.plans.nauvis.result.complicated, true)
-  plan.AUTO_WORK = budget
+  plan_lp.AUTO_WORK = budget
 end)
 
 t.test("gui: a void named after its first item by an older version shows as the plan's Void", function()
@@ -2275,9 +2298,28 @@ t.test("gui: Copy from a machine tells a beacon with a module in slot 2 only fro
   t.eq(next(m.beacon_modules), nil)
 end)
 
+t.test("gui: a plan the solver gives up on says so, even from Find a fix", function()
+  local p = boot()
+  local lp = require("scripts.lp")
+  local minimize = lp.minimize
+  lp.minimize = function(_, _, _, _) return nil, 0, "pivots" end -- out of pivots, every time
+  custom_factory("mine", { ["item/iron-ore"] = 2, ["custom/stone"] = 1 })
+  custom_factory("plates", { ["item/iron-ore"] = -1, ["item/iron-plate"] = 1 })
+  add_sink(p, "iron-plate", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.too_complicated, true)
+  t.eq(r.complicated, nil, "no Find a fix: it would give up too")
+  go(p, "plan")
+  t.truthy(mock.text(win(p)):find("<stoich.too-complicated>", 1, true), "said, not an empty list")
+  t.eq(mock.find(win(p), "problem_find_fix"), nil)
+  t.eq(require("scripts.plan").find_fix("nauvis").too_complicated, true)
+  lp.minimize = minimize
+end)
+
 t.test("gui: every handler is reached by some scenario", function()
   local missing = {}
-  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items", "recipe", "notices" }) do
+  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "editor_items", "line_dialog", "actions", "plan", "items", "recipe", "notices" }) do
     local h = assert(io.open(TEST_ROOT .. "/scripts/gui/" .. file .. ".lua"))
     local src = h:read("*a")
     h:close()

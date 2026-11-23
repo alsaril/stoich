@@ -290,7 +290,7 @@ local function capture(c)
   end
   for _, line in ipairs(d.factory.lines) do
     if line.machine == c.entity.name and not line.idle then
-      c.line = { flow = line.flow, speed = line.speed, productivity = line.productivity, count = line.count,
+      c.line = { flow = line.flow, speed = line.speed, productivity = line.productivity, count = line.count, recipe = line.recipe,
         recipe_quality = line.recipe_quality, machine_quality = line.machine_quality,
         quality_chance = line.variants and line.variants[1] and line.variants[1].quality_chance or nil }
     end
@@ -360,11 +360,22 @@ local function report()
       for _, base in ipairs((function() local o = {} for b, x in pairs(totals) do if x.n > 1 then o[#o + 1] = b end end table.sort(o) return o end)()) do
         local x = totals[base]
         local diff = (x.got - x.want) / x.want * 100
-        local ok = math.abs(diff) <= TOLERANCE
+        -- a product that comes out by chance (a probability, or a fraction of one more as
+        -- recycling has) makes its total random too: 4 standard deviations of the expected
+        -- count, like a quality tier
+        local tol = TOLERANCE
+        local recipe = c.line.recipe and prototypes.recipe[c.line.recipe]
+        for _, p in ipairs(recipe and recipe.products or {}) do
+          if (p.probability or 1) < 1 or (p.extra_count_fraction or 0) > 0 then
+            local n = x.want * WINDOW / 60
+            tol = math.max(TOLERANCE, n > 0 and 400 / math.sqrt(n) or 100)
+          end
+        end
+        local ok = math.abs(diff) <= tol
         if not ok then fails = fails + 1 end
         if math.abs(diff) > worst then worst = math.abs(diff) end
         lines[#lines + 1] = string.format("   all %-34s stoich %10.4f  measured %10.4f  %+7.2f%% %s", base .. " (every tier)", x.want, x.got, diff,
-          ok and "ok" or "FAIL")
+          (ok and "ok" or "FAIL") .. (tol > TOLERANCE and string.format(" (±%.1f%%)", tol) or ""))
       end
       for _, k in ipairs(keys) do
         local want = c.line.flow[k] or 0

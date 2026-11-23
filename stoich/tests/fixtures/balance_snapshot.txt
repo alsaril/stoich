@@ -1,0 +1,435 @@
+== fulgora, no quality: can't balance, then its fixes
+-- balance 1
+status CONFLICT with_fixes fixes_close
+problem conflict fluid/electrolyte,fluid/holmium-solution,fluid/light-oil,fluid/water,item/accumulator,item/advanced-circuit,item/battery,item/copper-cable,item/copper-plate,item/electromagnetic-science-pack,item/electronic-circuit,item/holmium-plate,item/ice,item/low-density-structure,item/processing-unit,item/supercapacitor,item/superconductor
+problem conflict fluid/electrolyte,fluid/holmium-solution,fluid/light-oil,fluid/water,item/accumulator,item/advanced-circuit,item/battery,item/copper-cable,item/copper-plate,item/electromagnetic-science-pack,item/electronic-circuit,item/holmium-plate,item/ice,item/plastic-bar,item/processing-unit,item/supercapacitor,item/superconductor
+problem conflict fluid/electrolyte,fluid/holmium-solution,fluid/light-oil,fluid/water,item/electromagnetic-science-pack,item/holmium-ore,item/holmium-plate,item/ice,item/supercapacitor,item/superconductor
+fix item/advanced-circuit=0.466049
+fix item/battery=0.0802469
+fix item/copper-cable=0.762346
+fix item/ice=0.708076
+fix item/iron-gear-wheel=3.02469
+fix item/low-density-structure=0.151235
+fix item/processing-unit=0.113169
+copies Accumulator #20 0.740741
+copies Advanced circuit recycling #21 0.0617284
+copies Battery recycling #19 0
+copies Copper cable recycling #17 0.0102881
+copies Electrolyte #6 0.488683
+copies Electromagnetic science pack #10 0.925926
+copies Electronic circuit recycling #16 0.0462963
+copies Heavy oil #12 0.00185757
+copies Holmium plate #5 0.131687
+copies Holmium solution #4 0.756173
+copies Iron gear wheel #2 1.00823
+copies Iron gear wheel recycling #13 0
+copies Light oil #8 0.0137174
+copies Low density structure recycling #15 0
+copies Processing unit recycling #18 0.236626
+copies Scrap #1 1.00823
+copies Supercapacitor #9 0.308642
+copies Superconductor #7 0.102881
+copies Water #3 0.0240484
+copies set by Iron gear wheel #2 item/advanced-circuit,item/battery,item/copper-cable,item/holmium-ore,item/ice,item/iron-gear-wheel,item/low-density-structure,item/processing-unit
+void item/concrete 0.907407
+void item/iron-plate 0
+void item/solid-fuel 1.05864
+void item/steel-plate 0.604938
+void item/stone 0.333848
+-- balance 2
+status EXACT
+copies Accumulator #20 0.740741
+copies Advanced circuit recycling #21 0.0617284
+copies Battery recycling #19 0
+copies Copper cable recycling #17 0.0102881
+copies Electrolyte #6 0.488683
+copies Electromagnetic science pack #10 0.925926
+copies Electronic circuit recycling #16 0
+copies Heavy oil #12 0.00185757
+copies Holmium plate #5 0.131687
+copies Holmium solution #4 0.756173
+copies Iron gear wheel #2 1.00823
+copies Iron gear wheel recycling #13 0.0231481
+copies Light oil #8 0.0137174
+copies Low density structure recycling #15 0
+copies Processing unit recycling #18 0.0514403
+copies Scrap #1 1.00823
+copies Supercapacitor #9 0.308642
+copies Superconductor #7 0.102881
+copies Water #3 0.0240484
+copies set by Advanced circuit recycling #21 item/electronic-circuit,item/plastic-bar
+copies set by Iron gear wheel #2 item/holmium-ore
+copies set by Processing unit recycling #18 item/electronic-circuit
+void item/advanced-circuit 0.391975
+void item/battery 0.0802469
+void item/concrete 0.907407
+void item/copper-cable 0.20679
+void item/ice 0.708076
+void item/iron-gear-wheel 2.65432
+void item/iron-plate 0
+void item/low-density-structure 0.151235
+void item/processing-unit 0.261317
+void item/solid-fuel 1.05864
+void item/steel-plate 0.604938
+void item/stone 0.333848
+== a void the plan is short of
+-- balance 1
+status NEGATIVE
+problem void_short item/iron-plate
+copies gears #1 1
+void item/iron-plate -2
+== a void short of its item while its rate is free: making more closes it
+-- balance 1
+status CONFLICT with_fixes fixes_close
+fix item/copper-plate=1
+copies plates #1 2
+copies science #2 1
+void item/automation-science-pack 0
+void item/iron-plate 0
+== a void short of a legendary byproduct at 1e-7/s is named too
+-- balance 1
+status NEGATIVE
+problem void_short item/iron-plate|legendary
+copies gears #1 1
+void item/iron-plate|legendary -1e-07
+== an import the plan has too much of
+-- balance 1
+status NEGATIVE
+problem import_surplus item/stone
+copies mine #1 0.5
+copies smelter #2 1
+import item/stone -0.5
+== a byproduct voided at its rate
+-- balance 1
+status EXACT
+copies crude #2 2
+copies oil #1 2
+copies set by oil #1 fluid/petroleum-gas
+void fluid/heavy-oil 6
+void fluid/light-oil 8
+== two makers of one item, no split
+-- balance 1
+status NEEDS_SPLIT
+problem split item/iron-plate
+copies plates a #1 ?
+copies plates b #2 ?
+== a factory backwards, no void or import
+-- balance 1
+status NEGATIVE
+problem negative
+copies A #1 -0.4
+copies B #2 0.6
+== a split the void makes possible (the review's case)
+-- balance 1
+status EXACT
+copies F1 #1 0.2
+copies F3 #2 1
+copies G #3 0.2
+copies G2 #4 0
+copies H #5 0.1
+copies set by F1 #1 item/iron-plate
+copies set by F3 #2 item/electronic-circuit
+void item/automation-science-pack 0
+void item/copper-plate 0.1
+void item/iron-gear-wheel 0.2
+void item/iron-plate 0
+-- balance 2
+status EXACT
+copies F1 #1 1
+copies F3 #2 1
+copies G #3 0
+copies G2 #4 0.2
+copies H #5 0.1
+copies set by F3 #2 item/electronic-circuit
+void item/automation-science-pack 0
+void item/copper-plate 0.9
+void item/iron-gear-wheel 1
+void item/iron-plate 0.6
+== a split that forces an import
+-- balance 1
+status CONFLICT with_fixes fixes_close
+problem conflict item/coal
+problem conflict item/coal,item/wood
+fix item/coal=1
+split in the way item/coal
+copies science #1 1
+copies wood to coal #2 0
+== fulgora, recyclers of every quality
+-- balance 1
+status CONFLICT with_fixes fixes_close
+problem conflict fluid/electrolyte,fluid/holmium-solution,item/advanced-circuit,item/battery,item/electromagnetic-science-pack,item/electronic-circuit,item/holmium-ore,item/holmium-ore|uncommon,item/holmium-plate,item/iron-gear-wheel,item/iron-plate,item/processing-unit,item/supercapacitor,item/superconductor
+problem conflict fluid/electrolyte,fluid/holmium-solution,item/advanced-circuit,item/battery,item/electromagnetic-science-pack,item/electronic-circuit,item/holmium-ore,item/holmium-plate,item/iron-gear-wheel,item/iron-plate,item/processing-unit,item/stone|uncommon,item/supercapacitor,item/superconductor
+problem conflict fluid/electrolyte,item/advanced-circuit,item/battery,item/electromagnetic-science-pack,item/electronic-circuit,item/holmium-ore,item/iron-gear-wheel,item/iron-plate,item/processing-unit,item/stone,item/supercapacitor
+problem conflict item/accumulator,item/advanced-circuit,item/battery,item/electromagnetic-science-pack,item/electronic-circuit,item/iron-gear-wheel,item/iron-plate,item/processing-unit,item/supercapacitor
+problem conflict item/advanced-circuit,item/battery,item/copper-cable,item/copper-plate,item/electromagnetic-science-pack,item/electronic-circuit,item/iron-gear-wheel,item/iron-plate,item/processing-unit,item/supercapacitor,item/superconductor
+problem conflict item/advanced-circuit,item/battery,item/electromagnetic-science-pack,item/electronic-circuit,item/iron-gear-wheel,item/iron-plate,item/plastic-bar,item/processing-unit,item/supercapacitor,item/superconductor
+problem conflict item/battery|rare
+problem conflict item/battery|uncommon
+problem conflict item/copper-plate|rare,item/iron-plate|rare,item/iron-plate|uncommon
+problem conflict item/copper-plate|uncommon,item/iron-plate|uncommon
+problem conflict item/holmium-ore|rare
+problem conflict item/iron-plate|rare,item/iron-plate|uncommon
+problem conflict item/iron-plate|rare,item/iron-plate|uncommon,item/plastic-bar|rare
+problem conflict item/iron-plate|uncommon
+problem conflict item/iron-plate|uncommon,item/plastic-bar|uncommon
+problem conflict item/stone|rare
+fix item/advanced-circuit=0.230475 item/advanced-circuit|uncommon=0.0307402 item/advanced-circuit|rare=0.00341557
+fix item/battery=0.00864638 item/battery|uncommon=0.038519 item/battery|rare=0.00427989
+fix item/copper-cable=0.0785421 item/copper-cable|uncommon=0.03486 item/copper-cable|rare=0.00387333
+fix item/copper-plate|uncommon=0.00298538 item/copper-plate|rare=0.000331708
+fix item/electronic-circuit|uncommon=0.0214947 item/electronic-circuit|rare=0.0023883
+fix item/holmium-ore|rare=0.00106997
+fix item/iron-gear-wheel=1.56807 item/iron-gear-wheel|uncommon=0.192595 item/iron-gear-wheel|rare=0.0213994
+fix item/iron-plate|uncommon=0.0128968 item/iron-plate|rare=0.00143298
+fix item/plastic-bar|uncommon=0.00298538 item/plastic-bar|rare=0.000331708
+fix item/processing-unit=0.144814 item/processing-unit|uncommon=0.0192595 item/processing-unit|rare=0.00213994
+fix item/stone=0.165459 item/stone|uncommon=0.0337041 item/stone|rare=0.00427989
+copies Accumulator #14 0.308642
+copies Advanced circuit recycling #22 0.0598032
+copies Advanced circuit recycling (Rare) #24 0
+copies Advanced circuit recycling (Uncommon) #23 0
+copies Copper cable recycling #16 0.0099672
+copies Copper cable recycling (Rare) #18 0
+copies Copper cable recycling (Uncommon) #17 0
+copies Electrolyte #10 0.785894
+copies Electromagnetic science pack #13 0.925926
+copies Electronic circuit recycling #19 0
+copies Electronic circuit recycling (Rare) #21 0
+copies Electronic circuit recycling (Uncommon) #20 0
+copies Heavy oil #4 0.00146859
+copies Holmium plate #9 0.141353
+copies Holmium solution #7 0.658444
+copies Holmium solution #8 0.0687839
+copies Iron gear wheel recycling #28 0.0215292
+copies Iron gear wheel recycling (Rare) #30 0
+copies Iron gear wheel recycling (Uncommon) #29 0
+copies Light oil #6 0.00501368
+copies Processing unit recycling #25 0.0617967
+copies Processing unit recycling (Rare) #27 0
+copies Processing unit recycling (Uncommon) #26 0
+copies Scrap #1 0.529228
+copies Scrap recycling #3 0.535843
+copies Supercapacitor #11 0.514403
+copies Superconductor #12 0.14289
+copies Water #5 0.0162987
+copies set by Scrap recycling #3 item/advanced-circuit,item/advanced-circuit|uncommon,item/advanced-circuit|rare,item/battery,item/battery|uncommon,item/battery|rare,item/copper-cable,item/copper-cable|uncommon,item/copper-cable|rare,item/holmium-ore,item/holmium-ore|uncommon,item/holmium-ore|rare,item/iron-gear-wheel,item/iron-gear-wheel|uncommon,item/iron-gear-wheel|rare,item/processing-unit,item/processing-unit|uncommon,item/processing-unit|rare,item/stone,item/stone|uncommon,item/stone|rare
+void item/concrete 0.553093
+void item/concrete|rare 0.00641983
+void item/concrete|uncommon 0.0577785
+void item/ice 0.428313
+void item/ice|rare 0.00534986
+void item/ice|uncommon 0.0481487
+void item/low-density-structure 0.0921822
+void item/low-density-structure|rare 0.00106997
+void item/low-density-structure|uncommon 0.00962974
+void item/solid-fuel 0.645275
+void item/solid-fuel|rare 0.0074898
+void item/solid-fuel|uncommon 0.0674082
+void item/steel-plate 0.368729
+void item/steel-plate|rare 0.00427989
+void item/steel-plate|uncommon 0.038519
+-- balance 2
+status EXACT
+copies Accumulator #14 0.308642
+copies Advanced circuit recycling #22 0.0598032
+copies Advanced circuit recycling (Rare) #24 0
+copies Advanced circuit recycling (Uncommon) #23 0
+copies Copper cable recycling #16 0.0099672
+copies Copper cable recycling (Rare) #18 0
+copies Copper cable recycling (Uncommon) #17 0
+copies Electrolyte #10 0.785894
+copies Electromagnetic science pack #13 0.925926
+copies Electronic circuit recycling #19 0
+copies Electronic circuit recycling (Rare) #21 0
+copies Electronic circuit recycling (Uncommon) #20 0
+copies Heavy oil #4 0.00146859
+copies Holmium plate #9 0.141353
+copies Holmium solution #7 0.658444
+copies Holmium solution #8 0.0687839
+copies Iron gear wheel recycling #28 0.0215292
+copies Iron gear wheel recycling (Rare) #30 0
+copies Iron gear wheel recycling (Uncommon) #29 0
+copies Light oil #6 0.00501368
+copies Processing unit recycling #25 0.0617967
+copies Processing unit recycling (Rare) #27 0
+copies Processing unit recycling (Uncommon) #26 0
+copies Scrap #1 0.529228
+copies Scrap recycling #3 0.535843
+copies Supercapacitor #11 0.514403
+copies Superconductor #12 0.14289
+copies Water #5 0.0162987
+copies set by Advanced circuit recycling #22 item/electronic-circuit,item/plastic-bar
+copies set by Copper cable recycling #16 item/copper-plate
+copies set by Iron gear wheel recycling #28 item/iron-plate
+copies set by Processing unit recycling #25 item/electronic-circuit
+copies set by Scrap recycling #3 item/holmium-ore,item/holmium-ore|uncommon
+void item/advanced-circuit 0.230475
+void item/advanced-circuit|rare 0.00341557
+void item/advanced-circuit|uncommon 0.0307402
+void item/battery 0.00864638
+void item/battery|rare 0.00427989
+void item/battery|uncommon 0.038519
+void item/concrete 0.553093
+void item/concrete|rare 0.00641983
+void item/concrete|uncommon 0.0577785
+void item/copper-cable 0.0785421
+void item/copper-cable|rare 0.00387333
+void item/copper-cable|uncommon 0.03486
+void item/copper-plate|rare 0.000331708
+void item/copper-plate|uncommon 0.00298538
+void item/electronic-circuit|rare 0.0023883
+void item/electronic-circuit|uncommon 0.0214947
+void item/holmium-ore|rare 0.00106997
+void item/ice 0.428313
+void item/ice|rare 0.00534986
+void item/ice|uncommon 0.0481487
+void item/iron-gear-wheel 1.56807
+void item/iron-gear-wheel|rare 0.0213994
+void item/iron-gear-wheel|uncommon 0.192595
+void item/iron-plate|rare 0.00143298
+void item/iron-plate|uncommon 0.0128968
+void item/low-density-structure 0.0921822
+void item/low-density-structure|rare 0.00106997
+void item/low-density-structure|uncommon 0.00962974
+void item/plastic-bar|rare 0.000331708
+void item/plastic-bar|uncommon 0.00298538
+void item/processing-unit 0.144814
+void item/processing-unit|rare 0.00213994
+void item/processing-unit|uncommon 0.0192595
+void item/solid-fuel 0.645275
+void item/solid-fuel|rare 0.0074898
+void item/solid-fuel|uncommon 0.0674082
+void item/steel-plate 0.368729
+void item/steel-plate|rare 0.00427989
+void item/steel-plate|uncommon 0.038519
+void item/stone 0.165459
+void item/stone|rare 0.00427989
+void item/stone|uncommon 0.0337041
+== fulgora, voided with splits pinning the recyclers
+-- balance 1
+status CONFLICT with_fixes fixes_close
+problem conflict item/iron-plate|rare
+problem conflict item/iron-plate|rare
+problem conflict item/iron-plate|rare,item/iron-plate|uncommon
+fix item/iron-plate|uncommon=0.0128968 item/iron-plate|rare=0.00143298
+split in the way item/copper-plate|rare
+split in the way item/iron-plate|rare
+split in the way item/plastic-bar|rare
+split in the way item/advanced-circuit|rare
+copies Accumulator #14 0.308642
+copies Advanced circuit recycling #22 0.0598032
+copies Advanced circuit recycling (Rare) #24 0
+copies Advanced circuit recycling (Uncommon) #23 0
+copies Copper cable recycling #16 0.0099672
+copies Copper cable recycling (Rare) #18 0
+copies Copper cable recycling (Uncommon) #17 0
+copies Electrolyte #10 0.785894
+copies Electromagnetic science pack #13 0.925926
+copies Electronic circuit recycling #19 0
+copies Electronic circuit recycling (Rare) #21 0
+copies Electronic circuit recycling (Uncommon) #20 0
+copies Heavy oil #4 0.00146859
+copies Holmium plate #9 0.141353
+copies Holmium solution #7 0.658444
+copies Holmium solution #8 0.0687839
+copies Iron gear wheel recycling #28 0.0215292
+copies Iron gear wheel recycling (Rare) #30 0
+copies Iron gear wheel recycling (Uncommon) #29 0
+copies Light oil #6 0.00501368
+copies Processing unit recycling #25 0.0617967
+copies Processing unit recycling (Rare) #27 0
+copies Processing unit recycling (Uncommon) #26 0
+copies Scrap #1 0.529228
+copies Scrap recycling #3 0.535843
+copies Supercapacitor #11 0.514403
+copies Superconductor #12 0.14289
+copies Water #5 0.0162987
+copies set by Advanced circuit recycling #22 item/electronic-circuit,item/plastic-bar
+copies set by Copper cable recycling #16 item/copper-plate
+copies set by Processing unit recycling #25 item/electronic-circuit
+copies set by Scrap recycling #3 item/holmium-ore,item/holmium-ore|uncommon
+void item/advanced-circuit 0.230475
+void item/advanced-circuit|rare 0.00341557
+void item/advanced-circuit|uncommon 0.0307402
+void item/battery 0.00864638
+void item/battery|rare 0.00427989
+void item/battery|uncommon 0.038519
+void item/concrete 0.553093
+void item/concrete|rare 0.00641983
+void item/concrete|uncommon 0.0577785
+void item/copper-cable 0.0785421
+void item/copper-cable|rare 0.00387333
+void item/copper-cable|uncommon 0.03486
+void item/copper-plate|rare 0.000331708
+void item/copper-plate|uncommon 0.00298538
+void item/electronic-circuit|rare 0.0023883
+void item/electronic-circuit|uncommon 0.0214947
+void item/holmium-ore|rare 0.00106997
+void item/ice 0.428313
+void item/ice|rare 0.00534986
+void item/ice|uncommon 0.0481487
+void item/iron-gear-wheel 1.56807
+void item/iron-gear-wheel|rare 0.0213994
+void item/iron-gear-wheel|uncommon 0.192595
+void item/low-density-structure 0.0921822
+void item/low-density-structure|rare 0.00106997
+void item/low-density-structure|uncommon 0.00962974
+void item/plastic-bar|rare 0.000331708
+void item/plastic-bar|uncommon 0.00298538
+void item/processing-unit 0.144814
+void item/processing-unit|rare 0.00213994
+void item/processing-unit|uncommon 0.0192595
+void item/solid-fuel 0.645275
+void item/solid-fuel|rare 0.0074898
+void item/solid-fuel|uncommon 0.0674082
+void item/steel-plate 0.368729
+void item/steel-plate|rare 0.00427989
+void item/steel-plate|uncommon 0.038519
+void item/stone 0.165459
+void item/stone|rare 0.00427989
+void item/stone|uncommon 0.0337041
+== settling out of budget: complicated, Find a fix settles it
+-- balance 1
+status UNSETTLED complicated
+copies F1 #1 ?
+copies F3 #2 1
+copies G #3 ?
+copies G2 #4 ?
+copies H #5 0.1
+void item/automation-science-pack ?
+void item/copper-plate ?
+void item/iron-gear-wheel ?
+void item/iron-plate ?
+-- balance 2
+status EXACT
+copies F1 #1 0.2
+copies F3 #2 1
+copies G #3 0.2
+copies G2 #4 0
+copies H #5 0.1
+copies set by F1 #1 item/iron-plate
+copies set by F3 #2 item/electronic-circuit
+void item/automation-science-pack 0
+void item/copper-plate 0.1
+void item/iron-gear-wheel 0.2
+void item/iron-plate 0
+== the research notice's balance (no diagnosis) of a plan with no forward answer
+-- balance 1
+status CONFLICT
+copies plates #1 1
+copies science #2 ?
+void item/automation-science-pack ?
+void item/iron-plate ?
+== a split that matches usage, and a sink at half its rates
+-- balance 1
+status EXACT
+copies plates a #1 3
+copies plates b #2 1
+== a void row with a quality condition takes the tiers it matches
+-- balance 1
+status EXACT
+copies plates #2 2.5
+copies upcycler #1 2.5
+copies set by upcycler #1 item/iron-gear-wheel
+void item/iron-gear-wheel|rare 0.025
+void item/iron-gear-wheel|uncommon 0.125

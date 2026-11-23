@@ -6,6 +6,7 @@ local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local research = require("scripts.research")
 local fp_util = require("scripts.util")
 
 local L = common.L
@@ -76,7 +77,7 @@ end
 handlers.notice_update_all = function(player)
   if not model.can_edit(player) then return end
   local key = model.selected(player.index)
-  plan.apply_pending(key, player.index)
+  research.apply_pending(key, player.index)
   if storage.pending then storage.pending[key] = nil end
   window.plan_changed(key)
 end

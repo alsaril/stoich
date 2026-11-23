@@ -3,6 +3,7 @@ local fake = require("tests.fake_game")
 local json = require("tests.json")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local research = require("scripts.research")
 local draft = require("scripts.draft")
 local exchange = require("scripts.exchange")
 local scanner = require("scripts.scanner")
@@ -137,7 +138,7 @@ t.test("exchange: voids and imports keep their items, without rates", function()
   t.eq(plan.balance_factory(copy).status, "EXACT")
 end)
 
-t.test("exchange: format 1 unless a key has a tier; both are read", function()
+t.test("exchange: written as format 2; format 1 (before quality) is read too", function()
   fake.reset({ quality = true })
   local function custom(net)
     local f = model.new_factory("factory")
@@ -149,7 +150,12 @@ t.test("exchange: format 1 unless a key has a tier; both are read", function()
   end
   local plain = custom({ ["item/iron-plate"] = -1, ["item/iron-gear-wheel"] = 1 })
   local data = through_json(exchange.pack({ plain }, "nauvis"))
-  t.eq(data.fp, 1, "a plan without quality reads in older versions")
+  t.eq(data.fp, 2)
+  -- a 0.4 string: format 1, the same factory
+  data.fp = 1
+  local old = assert(exchange.unpack(data)).factories[1].factory
+  t.eq(plan.balance_factory(old).status, "EXACT")
+  data = through_json(exchange.pack({ plain }, "nauvis"))
   local rare = custom({ ["item/iron-plate|rare"] = -1, ["item/iron-gear-wheel|rare"] = 0.9, ["item/iron-gear-wheel|epic"] = 0.1 })
   data = through_json(exchange.pack({ rare }, "nauvis"))
   t.eq(data.fp, 2)
@@ -217,7 +223,7 @@ t.test("exchange: a hand-added line whose machine can't craft is invalid, not an
   t.truthy(model.validate_factory(copy), "invalid")
   t.truthy(copy.lines[1].invalid)
   t.eq(scanner.config_flow("copper-cable", copy.lines[1].config, nil), nil, "not worked out")
-  local changed = plan.changed_lines(copy, nil)
+  local changed = research.changed_lines(copy, nil)
   t.eq(next(changed), nil, "research leaves it alone")
   -- a crafter is fine
   data.factories[1].lines[1].config.machine = "assembling-machine-2"

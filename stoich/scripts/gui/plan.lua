@@ -12,6 +12,7 @@ local items = require("scripts.gui.items")
 local notices = require("scripts.gui.notices")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local conditions = require("scripts.conditions")
 local draft = require("scripts.draft")
 local solver = require("scripts.solver")
 local fp_util = require("scripts.util")
@@ -499,7 +500,8 @@ local PROBLEMS_SHOWN = 4
 local PROBLEMS_HEIGHT = 220
 
 local function build_problems(box, player, r, ctx)
-  if #r.problems > 0 then
+  -- the fixes of a plan that can't balance count, and so does Find a fix
+  if problems.count(r, "plan") > 0 or r.complicated then
     local state = model.player(player.index)
     local pane = box.add({ type = "scroll-pane", name = "stoich_problems_pane", style = "naked_scroll_pane",
       horizontal_scroll_policy = "never" })
@@ -737,7 +739,7 @@ scopes.plan = {
   add_boundary = function(player, kind, item, keys)
     local key = selected(player)
     local added = false
-    for _, row in ipairs(plan.condition_rows(keys or { item }, plan.present_keys(key))) do
+    for _, row in ipairs(conditions.condition_rows(keys or { item }, plan.present_keys(key))) do
       if draft.add_boundary_item(key, kind, row.key, player.index, row.quality) then added = true end
     end
     if added then window.plan_changed(key) end

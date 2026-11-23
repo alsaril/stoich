@@ -294,6 +294,10 @@ function model.save_factory(factory, base, player_index, force, key)
   saved.modified_by = player_index
   saved.modified_tick = game.tick
   plan.factories[saved.id] = saved
+  -- the factory follows the research of the force that saved it (research.force_of): teams
+  -- in a PvP game share a surface's plan, each with its own research
+  local player = game.get_player and game.get_player(player_index)
+  if player and player.valid ~= false and player.force and player.force.name then saved.force_name = player.force.name end
   model.log(player_index, { "stoich.log-" .. action }, saved.name, key)
   return true, saved, key
 end

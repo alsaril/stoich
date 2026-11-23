@@ -2,6 +2,7 @@
 
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local research = require("scripts.research")
 local draft = require("scripts.draft")
 local scanner = require("scripts.scanner")
 local fp_util = require("scripts.util")
@@ -10,6 +11,7 @@ local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 require("scripts.gui.actions")
 local recipe_dialog = require("scripts.gui.recipe")
+require("scripts.gui.line_dialog")
 local dialogs = require("scripts.gui.dialogs")
 local plan_gui = require("scripts.gui.plan")
 local items = require("scripts.gui.items")
@@ -53,7 +55,7 @@ script.on_configuration_changed(function()
   end
   plan.rebalance_all()
   -- a mod update can change recipes: the plans say what it would change (Update all)
-  plan.check_pending()
+  research.check_pending()
   rebuild_all_guis()
   if bad > 0 then game.print(L("invalid-after-update", bad)) end
 end)
@@ -115,7 +117,7 @@ script.on_nth_tick(60, function()
   if not storage.pending_dirty then return end
   storage.pending_dirty = nil
   local before = pending_signature()
-  plan.check_pending()
+  research.check_pending()
   if pending_signature() ~= before then window.refresh_all() end
 end)
 

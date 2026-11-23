@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-11-23
+  Changes:
+    - A plan with voids that has no answer with every factory running forwards lists what would close it, which is often making more and voiding the surplus (a void short of iron plate: run the plates factory more and void its extra copper plate) rather than importing what is short.
+    - A void or import of a tiny rate (a legendary byproduct at 1e-7/s) is named when the plan is short of it or has too much, instead of passing as balanced.
+    - Each factory follows the research of the force that saved it (teams in a PvP game share a surface's plan), not always the player force.
+    - Exports are always the 0.5 format (0.4 strings are still read).
+    - A plan too big to settle its void and import rates within the work allowed after a change is "Not worked out" (copies "?", Find a fix), instead of asking for splits it doesn't need. One too big for the solver at all says so.
+  Bugfixes:
+    - A plan that can't balance and has fixes but no conflicting item showed nothing to act on: its fixes show now.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2026-11-23
   Features:

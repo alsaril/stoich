@@ -17,7 +17,7 @@ The solver answers three questions:
    rates (section "Surplus").
 3. **What closes a plan that can't balance.** Which items, voided or imported, would make
    the plan balance with every factory running forwards? The linear program
-   (`scripts/lp.lua`, `plan.diagnose`).
+   (`scripts/lp.lua`, `plan_lp.diagnose`).
 
 The split between the engines follows one fact: production is a set of equalities
 (made = used), but a surplus is an inequality (made ≥ used, the rest voided). Where the
@@ -32,6 +32,7 @@ flowchart TD
   eq -- underdetermined --> free[Free columns]
   eq -- inconsistent --> conflict[Conflict]
   free --> settle[A void or import is free:<br/>the program settles the rate,<br/>then the equations again]
+  settle -- no forward answer --> conflict
   free --> choice[Only factories free:<br/>a real choice, the player sets a split]
   conflict --> diag[Diagnosis program:<br/>fixes and alternatives;<br/>Find a fix past budget]
 ```
@@ -108,10 +109,10 @@ advanced circuits. That takes 0.88 copies of scrap. The holmium solution needs s
 holmium ore too, but only 0.5 copies' worth. Scrap runs at the larger, 0.88, and 0.067
 holmium ore a second is left over. No choice of copies makes every output come out even.
 
-Holding one free rate at 0 at a time, keeping a hold when nothing goes below 0, isn't
-enough: it stalls where only a combination of holds keeps everything ≥ 0, and leaves
-recyclers free and a split prompt nobody asked for. So the plan balance settles the rates
-with the linear program (`plan.settle_boundaries`):
+Holding one free rate at 0 at a time, keeping a hold when nothing goes below 0 (what 0.4
+did), isn't enough: it stalls where only a combination of holds keeps everything ≥ 0, and
+leaves recyclers free and a split prompt nobody asked for. So the plan balance settles the
+rates with the linear program (`plan_lp.settle_boundaries`):
 
 1. Solve the equations. EXACT: done.
 2. If a free column involves a void or import, solve the linear program: every non-anchored
@@ -121,13 +122,12 @@ with the linear program (`plan.settle_boundaries`):
    columns left now involve only factories, such as two factories making one item with no
    split set. Those stay prompts: a real choice is the player's.
 
-When the program finds nothing that keeps every factory forwards (the plan is short of an
-item, or has too much of it), the rates are held at 0 one at a time, as a fallback, and the
-plan says which void is short or which import is in surplus. If the holds still leave a
-factory backwards or a split to choose, the plan can't balance, and the diagnosis says what
-would close it. A split asked for there would only pin the ratio of factories that can't run.
-On a real save it asked for splits of recyclers' rare byproducts, because no void took the
-rare iron plate. The player chose "match usage", which runs every recycler at the same copies.
+When the program finds nothing that keeps every factory forwards, the plan can't balance,
+and the diagnosis says what would close it: often making more and voiding the surplus,
+rather than importing what is short. (0.5 at first fell back to the old holds here. They
+asked for splits of recyclers' rare byproducts, because no void took the rare iron plate,
+and "match usage" then ran every recycler at the same copies.) A void or import whose rate
+the equations fix below 0 is still named as such: "void short" or "import surplus".
 
 This is "lay the plan out from its sinks, then balance as usual" in exact form. The program
 reaches the same answer a walk back from the sinks would on a DAG: each factory runs for
@@ -150,7 +150,7 @@ program's voids and imports are the suggested fixes.
 **Constraints:** every item balances; the plan's splits hold; the sinks run at their scale.
 
 **Objective:** the sum of cost × rate, rates in items (or fluid units) a second
-(`plan.FIX_COSTS`):
+(`plan_lp.FIX_COSTS`):
 
 | Variable | Cost | Why |
 | --- | --- | --- |
@@ -207,12 +207,15 @@ same way, that item is an alternative. Rule 2 applies here too; rule 1 doesn't, 
 alternative only says "this would close it too" (or instead, bricks).
 
 **Budget.** One balance has one budget for all its programs: settling the voids' rates, the
-fixes, the split check and the alternatives (`plan.AUTO_WORK`, about 1 s of work). Work is
+fixes, the split check and the alternatives (`plan_lp.AUTO_WORK`, about 1 s of work). Work is
 counted in pivots × rows × columns, not time, so every peer stops at the same point. The
 program that crosses the line finishes. Alternatives stop when the budget is gone. A plan
-that runs out before its fixes are known (or while settling) is marked complicated and
-offers Find a fix, which has no limit and lists every alternative. The real Fulgora plans
-get their fixes within it.
+that runs out before its fixes are known is marked complicated and offers Find a fix, which
+has no budget and lists every alternative. One that runs out while settling its voids'
+rates is "Not worked out": copies "?", no split prompts (the free rates are a question of
+budget, not a choice), and Find a fix. The real Fulgora plans get their fixes within it.
+The simplex itself also stops after 50 × (rows + columns) pivots; a plan it gives up on
+says it is too large (Find a fix wouldn't do better).
 
 **Volume, not count.** The program minimizes how much is voided, not how many items are.
 It may list one more fix than a person would, but every answer is exact and settles the plan.
@@ -255,6 +258,10 @@ bit-identical results, so it does nothing that could differ between them.
   The simplex enters the first improving column and leaves the row with the smallest ratio,
   ties to the lowest basis index (Bland's rule). The same plan always takes the same pivots,
   and Bland's rule cannot cycle.
+- **Tolerances relative to the item.** A void's or import's rate is below 0 against its
+  item's largest flow in the plan, so a legendary byproduct at 1e-7/s that a void would have
+  to make is named. (Scaling the program's rows to the same end made one quality plan take
+  three times its budget, so the program's own tolerances stay absolute.)
 - **Pure Lua 5.2 arithmetic.** No `//` or bitwise operators, no library maths beyond
   `math.abs` and `math.min`/`max`.
 

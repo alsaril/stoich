@@ -4,41 +4,14 @@
 local fp_util = require("scripts.util")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
+local conditions = require("scripts.conditions")
 local draft = require("scripts.draft")
 
 local exchange = {}
 
--- 1: before quality. 2: item keys with a tier ("item/gear|rare"), lines with their inputs.
--- A string is written as 1 when it has neither, so older versions still read it.
+-- 1: before quality. 2: item keys with a tier ("item/gear|rare"), lines with their inputs
+-- (recipe and machine quality, variants, config). Written as 2; both are read.
 exchange.FORMAT = 2
-
--- Line fields that came with format 2.
-exchange.V2_LINE_FIELDS = { "recipe_quality", "machine_quality", "variants", "config" }
-
---- Does packed data need format 2: a key with a tier, or a line with the new fields?
-function exchange.needs_v2(data)
-  local function is_quality_key(v)
-    return type(v) == "string" and v:sub(1, 5) == "item/" and fp_util.quality_of(v) ~= fp_util.NORMAL
-  end
-  local function walk(v)
-    if type(v) ~= "table" then return is_quality_key(v) end
-    for k, x in pairs(v) do
-      if is_quality_key(k) or walk(x) then return true end
-    end
-    return false
-  end
-  for _, f in ipairs(data.factories or {}) do
-    for _, row in ipairs(f.sink_items or {}) do
-      if row.quality then return true end
-    end
-    for _, line in ipairs(f.lines or {}) do
-      for _, field in ipairs(exchange.V2_LINE_FIELDS) do
-        if line[field] ~= nil then return true end
-      end
-    end
-  end
-  return walk(data)
-end
 
 -- Maps keyed by numeric ids don't survive JSON (keys become strings), so they
 -- travel as arrays of pairs.
@@ -221,7 +194,7 @@ function exchange.deserialize_factory(s)
         local fluid = row.fluid == true and key:sub(1, 7) == "custom/" or nil
         -- a void or import has no rates of its own
         -- a void or import row can stand for tiers of its item (a quality condition)
-        local quality = not sink and plan.parse_condition(row.quality) and str(row.quality) or nil
+        local quality = not sink and conditions.parse_condition(row.quality) and str(row.quality) or nil
         if quality then key = fp_util.base_key(key) end
         f.sink_items[#f.sink_items + 1] = { key = key, rate = sink and math.abs(num(row.rate) or 0) or nil, fluid = fluid, quality = quality }
       end
@@ -267,12 +240,11 @@ end
 --- at least two of their factories come along).
 --- @param key string the plan they come from
 function exchange.pack(factories, key)
-  local out = { fp = 1, kind = "plan", factories = {}, splits = {} }
+  local out = { fp = exchange.FORMAT, kind = "plan", factories = {}, splits = {} }
   for _, f in ipairs(factories) do out.factories[#out.factories + 1] = exchange.serialize_factory(f) end
   for _, s in ipairs(model.plan(key).splits) do
     out.splits[#out.splits + 1] = { item = s.item, shares = pairs_of(s.shares), match_usage = s.match_usage or nil }
   end
-  if exchange.needs_v2(out) then out.fp = 2 end
   -- the plan's Quality switch (older versions ignore it)
   if model.plan(key).quality then out.quality = true end
   return out

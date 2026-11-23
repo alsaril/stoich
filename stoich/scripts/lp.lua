@@ -1,6 +1,6 @@
 -- A small linear program solver (two-phase simplex, Bland's rule): minimize c·x subject to
 -- A x = b, x >= 0. Pure and deterministic (fixed pivot order), for plans of a few hundred
--- variables. Used to find the least voiding that closes a plan (plan.diagnose).
+-- variables. Used to find the least voiding that closes a plan (plan_lp.diagnose).
 
 local lp = {}
 
@@ -11,7 +11,8 @@ local EPS = 1e-9
 --- @param b number[] right-hand sides (m)
 --- @param n integer variables
 --- @param max_iter integer? pivots allowed (default 50 x (m + n))
---- @return number[]? x the optimum (nil: infeasible, or out of pivots), integer pivots
+--- @return number[]? x the optimum, integer pivots, string? why there is none: "infeasible"
+---   (no x >= 0 meets the rows) or "pivots" (out of pivots: no answer either way)
 function lp.minimize(c, A, b, n, max_iter)
   local m = #A
   max_iter = max_iter or 50 * (m + n)
@@ -84,12 +85,12 @@ function lp.minimize(c, A, b, n, max_iter)
   local cost1, all = {}, {}
   for j = 1, n + m do all[j] = true end
   for i = 1, m do cost1[n + i] = 1 end
-  if not run(cost1, all) then return nil, pivots end
+  if not run(cost1, all) then return nil, pivots, "pivots" end
   local infeasibility = 0
   for i = 1, m do
     if basis[i] > n then infeasibility = infeasibility + T[i][width] end
   end
-  if infeasibility > 1e-7 then return nil, pivots end
+  if infeasibility > 1e-7 then return nil, pivots, "infeasible" end
   -- an artificial left in the basis at 0: pivot it out on any real column
   for i = 1, m do
     if basis[i] > n then
@@ -104,7 +105,7 @@ function lp.minimize(c, A, b, n, max_iter)
   -- phase 2: the costs, real columns only
   local real = {}
   for j = 1, n do real[j] = true end
-  if not run(c, real) then return nil, pivots end
+  if not run(c, real) then return nil, pivots, "pivots" end
   local x = {}
   for j = 1, n do x[j] = 0 end
   for i = 1, m do

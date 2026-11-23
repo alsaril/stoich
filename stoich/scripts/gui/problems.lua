@@ -105,7 +105,7 @@ local function conflict_items(result)
   return out, split_involved
 end
 
--- A plan that can't balance lists what would close it (plan.diagnose) instead of every
+-- A plan that can't balance lists what would close it (plan_lp.diagnose) instead of every
 -- item of the contradiction; the plain conflict rows stay when that isn't all of it.
 local function fixes_of(mode, result)
   if not (mode == "plan" and result.fixes and #result.fixes > 0) then return nil, false end
@@ -132,6 +132,7 @@ function problems.count(result, mode)
     if p.type ~= "conflict" then n = n + 1 end
   end
   if mode == "plan" and result.splits_in_way then n = n + #result.splits_in_way end
+  if mode == "plan" and result.too_complicated then n = n + 1 end
   return n
 end
 
@@ -349,6 +350,15 @@ function problems.render(parent, player, mode, result, ctx, limit)
     return items_table
   end
   local rows = {}
+  if mode == "plan" and result.too_complicated then
+    rows[#rows + 1] = function()
+      local row = list.add({ type = "flow", direction = "horizontal" })
+      row.style.vertical_align = "center"
+      row.style.horizontal_spacing = 6
+      row.add({ type = "sprite", sprite = "utility/status_not_working" })
+      sentence(row, L("too-complicated"))
+    end
+  end
   -- a split in the way first: the fixes below are without it
   for _, item in ipairs(mode == "plan" and result.splits_in_way or {}) do
     rows[#rows + 1] = function() split_in_way_row(list, mode, ctx, item) end
@@ -364,7 +374,8 @@ function problems.render(parent, player, mode, result, ctx, limit)
       row.style.vertical_align = "center"
       row.style.horizontal_spacing = 6
       row.add({ type = "sprite", sprite = "utility/status_yellow" })
-      local explain = row.add({ type = "label", caption = L("find-fix-explain"), style = "info_label" })
+      local explain = row.add({ type = "label", caption = L(result.status == "UNSETTLED" and "find-fix-explain-settle" or "find-fix-explain"),
+        style = "info_label" })
       explain.style.single_line = false
       explain.style.maximal_width = 480
       row.add({ type = "button", caption = L("find-fix"), tooltip = L("find-fix-tooltip"), tags = { fp = "problem_find_fix", mode = mode } })
