@@ -147,3 +147,159 @@ t.test("scanner: main product prefers what nothing inside consumes", function()
   }
   t.eq(scanner.main_product(lines), "item/electronic-circuit")
 end)
+
+-- Lines keep their inputs ------------------------------------------------------------------
+
+t.test("scanner: a captured line keeps its machine values and works out again to the same flow", function()
+  fake.reset()
+  prototypes.recipe["electronic-circuit"] = circuit
+  local r = { name = "electronic-circuit", energy = 0.5, ingredients = circuit.ingredients, products = circuit.products,
+    productivity_bonus = 0.1, prototype = { maximum_productivity = 3 } }
+  local force = { recipes = { ["electronic-circuit"] = r }, mining_drill_productivity_bonus = 0 }
+  local entities = {
+    crafter("assembling-machine", "assembling-machine-2", 0.75, 0, r),
+    crafter("assembling-machine", "assembling-machine-2", 0.75, 0, r),
+    crafter("assembling-machine", "assembling-machine-2", 1.25, 0.08, r), -- other modules
+  }
+  local line = scanner.scan_entities(entities, force).lines[1]
+  t.eq(#line.variants, 2, "two sets of machine values")
+  local n = 0
+  for _, v in ipairs(line.variants) do n = n + v.n end
+  t.eq(n, 3)
+  t.truthy(scanner.has_inputs(line))
+  t.map_near(scanner.line_flow(line, force), line.flow, 1e-12, "unchanged force")
+  t.truthy(not scanner.flows_differ(scanner.line_flow(line, force), line.flow))
+  -- research: +10% more productivity on the recipe
+  r.productivity_bonus = 0.2
+  local after = scanner.line_flow(line, force)
+  t.truthy(scanner.flows_differ(after, line.flow))
+  t.near(after["item/electronic-circuit"], (2 * 1.5 * 1.2 + 2.5 * 1.28) / 3, 1e-9)
+  t.near(after["item/iron-plate"], line.flow["item/iron-plate"], 1e-12, "inputs stay")
+  -- overridden, custom and old lines are never worked out again
+  line.overridden = true
+  t.eq(scanner.line_flow(line, force), nil)
+  t.eq(scanner.has_inputs({ kind = "recipe", recipe = "electronic-circuit", flow = {} }), false, "captured before 0.5")
+end)
+
+t.test("scanner: a drill line follows mining research; its fluid doesn't take productivity", function()
+  fake.reset()
+  prototypes.entity["electric-mining-drill"] = { name = "electric-mining-drill", uses_force_mining_productivity_bonus = true }
+  local res = { { products = { { type = "item", name = "uranium-ore", amount = 1 } }, mining_time = 2, required_fluid = "sulfuric-acid", fluid_amount = 10, share = 1 } }
+  local function entry(own)
+    -- productivity_bonus of the entity includes the research (0.2)
+    return { kind = "mining", resource = "uranium-ore", machine = "electric-mining-drill", flow = scanner.mining_flow(res, 0.5, own + 0.2),
+      own_productivity = own, base = scanner.mining_flow(res, 0.5, 0), speed = 0.5 }
+  end
+  local line = scanner.group({ entry(0), entry(0), entry(0.1) })[1]
+  t.eq(#line.variants, 2)
+  local force = { mining_drill_productivity_bonus = 0.2 }
+  t.map_near(scanner.line_flow(line, force), line.flow, 1e-12)
+  force.mining_drill_productivity_bonus = 0.5
+  local after = scanner.line_flow(line, force)
+  t.near(after["item/uranium-ore"], 0.25 * (2 * 1.5 + 1.6) / 3, 1e-12)
+  t.near(after["fluid/sulfuric-acid"], -0.25, 1e-12)
+end)
+
+-- Quality -------------------------------------------------------------------------------------
+
+local TIERS = {
+  normal = { next = "uncommon", next_probability = 1, chain_probability = 0.1 },
+  uncommon = { next = "rare", next_probability = 1, chain_probability = 0.1 },
+  rare = { next = "epic", next_probability = 1, chain_probability = 0.1 },
+  epic = { next = "legendary", next_probability = 1, chain_probability = 0.1 },
+  legendary = { next_probability = 0, chain_probability = 0 },
+}
+
+t.test("scanner: quality rolls as the game's get_roll_chances (2.1)", function()
+  -- measured in the game: normal at 10%
+  t.map_near(scanner.quality_split(TIERS, "normal", 0.1), { normal = 0.9, uncommon = 0.09, rare = 0.009, epic = 0.0009, legendary = 0.0001 }, 1e-12)
+  t.map_near(scanner.quality_split(TIERS, "rare", 0.1), { rare = 0.9, epic = 0.09, legendary = 0.01 }, 1e-12)
+  -- the last tier takes the rest
+  t.map_near(scanner.quality_split(TIERS, "legendary", 0.5), { legendary = 1 })
+  -- rolls stop at the first locked tier
+  local unlocked = { normal = true, uncommon = true, rare = true }
+  t.map_near(scanner.quality_split(TIERS, "normal", 0.1, unlocked), { normal = 0.9, uncommon = 0.09, rare = 0.01 }, 1e-12)
+  t.map_near(scanner.quality_split(TIERS, "rare", 0.1, unlocked), { rare = 1 })
+  t.map_near(scanner.quality_split(TIERS, "normal", 0.1, { normal = true, uncommon = true, legendary = true }), { normal = 0.9, uncommon = 0.1 }, 1e-12)
+  -- no chance, all the chance, more than all of it (the overflow carries into the second step)
+  t.map_near(scanner.quality_split(TIERS, "normal", 0), { normal = 1 })
+  t.map_near(scanner.quality_split(TIERS, "normal", 1), { uncommon = 0.9, rare = 0.09, epic = 0.009, legendary = 0.001 }, 1e-12)
+  t.map_near(scanner.quality_split(TIERS, "normal", 1.5), { uncommon = 0.85, rare = 0.135, epic = 0.0135, legendary = 0.0015 }, 1e-12)
+end)
+
+local function rolls(chance)
+  return function(base) return scanner.quality_split(TIERS, base, chance) end
+end
+
+t.test("scanner: a crafter with quality: ingredients at its tier, fluids plain, productivity before the roll", function()
+  local ingredients = { { type = "item", name = "iron-plate", amount = 2 }, { type = "fluid", name = "water", amount = 10 } }
+  local products = { { type = "item", name = "gear", amount = 1 }, { type = "fluid", name = "steam", amount = 5 } }
+  local flow = scanner.recipe_flow(ingredients, products, 1, 0.5, { quality = "rare", rolls = rolls(0.1) })
+  t.map_near(flow, {
+    ["item/iron-plate|rare"] = -2, ["fluid/water"] = -10, ["fluid/steam"] = 5 * 1.5,
+    ["item/gear|rare"] = 1.5 * 0.9, ["item/gear|epic"] = 1.5 * 0.09, ["item/gear|legendary"] = 1.5 * 0.01,
+  }, 1e-12)
+  -- a tier of its own for an ingredient or product (2.1 quality_change), and a product the roll skips
+  products[1].affected_by_quality = false
+  flow = scanner.recipe_flow(ingredients, products, 1, 0, { quality = "rare", rolls = rolls(0.1), ingredient_quality = { [1] = "uncommon" } })
+  t.near(flow["item/iron-plate|uncommon"], -2)
+  t.near(flow["item/gear|rare"], 1)
+  -- no quality table: exactly as before
+  flow = scanner.recipe_flow(ingredients, { { type = "item", name = "gear", amount = 1 } }, 1, 0)
+  t.map_near(flow, { ["item/iron-plate"] = -2, ["fluid/water"] = -10, ["item/gear"] = 1 })
+end)
+
+t.test("scanner: drills start normal and roll", function()
+  local res = { { products = { { type = "item", name = "iron-ore", amount = 1 } }, mining_time = 1, share = 1 } }
+  local flow = scanner.mining_flow(res, 0.5, 0.2, rolls(0.1))
+  t.near(flow["item/iron-ore"], 0.6 * 0.9)
+  t.near(flow["item/iron-ore|uncommon"], 0.6 * 0.09)
+end)
+
+t.test("scanner: an upcycling loop of crafters and recyclers balances", function()
+  local solver = require("scripts.solver")
+  -- gears from plates in rare... simplified: an assembler makes gears from plates at each
+  -- tier with 10% quality; a recycler gives back a quarter of the plates at each tier, rolled
+  local lines, id = {}, 0
+  local tiers = { "normal", "uncommon", "rare", "epic" }
+  local fp_util = require("scripts.util")
+  for _, q in ipairs(tiers) do
+    id = id + 1
+    lines[#lines + 1] = { id = id, flow = scanner.recipe_flow({ { type = "item", name = "plate", amount = 2 } },
+      { { type = "item", name = "gear", amount = 1 } }, 1, 0, { quality = q, rolls = rolls(0.1) }) }
+    id = id + 1
+    lines[#lines + 1] = { id = id, flow = scanner.recipe_flow({ { type = "item", name = "gear", amount = 1 } },
+      { { type = "item", name = "plate", amount = 0.5 } }, 1, 0, { quality = q, rolls = rolls(0.1) }) }
+  end
+  -- plates come in at normal; legendary gears and plates go out
+  id = id + 1
+  lines[#lines + 1] = { id = id, flow = { ["item/plate"] = 1 } }
+  local external = { ["item/gear|legendary"] = true, ["item/plate|legendary"] = true }
+  local r = solver.balance(lines, { [id] = 10 }, {}, external)
+  t.eq(r.status, "EXACT")
+  for k, c in pairs(r.counts) do t.truthy(c > -1e-9, "count " .. k .. " >= 0") end
+  t.truthy((r.net["item/gear|legendary"] or 0) > 0, "legendary gears out")
+  t.eq(fp_util.base_key("item/gear|legendary"), "item/gear")
+end)
+
+t.test("scanner: group keys gain tiers only when not normal", function()
+  t.eq(scanner.group_key("recipe", "gear", "am2"), "recipe|gear|am2")
+  t.eq(scanner.group_key("recipe", "gear", "am2", nil, nil), "recipe|gear|am2")
+  t.eq(scanner.group_key("recipe", "gear", "am2", "rare", nil), "recipe|gear|am2|rare|")
+  t.eq(scanner.group_key("recipe", "gear", "am2", nil, "epic"), "recipe|gear|am2||epic")
+  local lines = scanner.group({
+    { kind = "recipe", recipe = "gear", machine = "am2", flow = { ["item/gear"] = 1 } },
+    { kind = "recipe", recipe = "gear", machine = "am2", recipe_quality = "rare", flow = { ["item/gear|rare"] = 1 } },
+  })
+  t.eq(#lines, 2, "a rare recipe is a line of its own")
+  t.eq(lines[1].key, "recipe|gear|am2")
+  t.eq(lines[2].recipe_quality, "rare")
+end)
+
+t.test("scanner: the main product is the highest tier the build sends out", function()
+  local lines = {
+    { count = 1, flow = { ["item/plate"] = -1, ["item/gear"] = 0.9, ["item/gear|uncommon"] = 0.09, ["item/gear|legendary"] = 0.001 } },
+    { count = 1, flow = { ["item/copper"] = 0.5 } },
+  }
+  t.eq(scanner.main_product(lines), "item/gear|legendary")
+end)

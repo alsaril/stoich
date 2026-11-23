@@ -10,3 +10,4 @@ test-world/local.env
 calculator.zip
 .idea/
 dist/
+luac.out

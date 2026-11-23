@@ -6,10 +6,12 @@
 #   ./run_game.sh desync       the shots run in heavy mode (save/load/CRC check every tick); reports desyncs
 #   ./run_game.sh rates k2     rate check: Stoich's computed rates vs measured ones -> rates-k2.txt
 #   ./run_game.sh rates vanilla    the same with base only (infinite crude oil) -> rates-vanilla.txt
+#   ./run_game.sh rates sa     the same with Space Age, and quality cells -> rates-sa.txt
 #   ./run_game.sh churn        heavy mode while a driver keeps changing recipes, modules, machines and research -> churn.txt
 #                              (churn --no-heavy: the same at full speed, to try the driver)
 #   ./run_game.sh features     Space Age: plans per surface, recipe dialog with modules/beacons vs real machines,
-#                              voids and imports (stoich-features scenario) -> screenshots/features, features.txt
+#                              voids and imports, quality (stoich-features scenario) -> screenshots/features, features.txt
+#                              (features --heavy: in heavy mode, a desync check)
 #   ./run_game.sh dump "<save>"  load a copy of one of your saves with your own mod set and write
 #                              every Stoich plan to dump-<save>.json (the save itself is not touched)
 #   ./run_game.sh play         load the newest save to play/test by hand (stays open)
@@ -64,16 +66,18 @@ mod_list() { # $1 = test driver mod (shots, churn or none; shots also just turns
   python3 - "$G/mods/mod-list.json" "$1" "${2:-k2}" "$MODS/mod-list.json" <<'PY'
 import json, sys
 if sys.argv[3] == "user":
-    mods = {m["name"]: True for m in json.load(open(sys.argv[4]))["mods"] if m["enabled"]}
-    mods.update({"stoich": True, "stoich-shots": True, "stoich-dump": True})
-    json.dump({"mods": [{"name": k, "enabled": v} for k, v in mods.items()]}, open(sys.argv[1], "w"))
-    sys.exit(0)
-k2 = sys.argv[3] == "k2"
-sa = sys.argv[3] == "sa"
-mods = {"base": True, "elevated-rails": sa, "quality": sa, "recycler": sa, "space-age": sa,
-        "Krastorio2": k2, "Krastorio2Assets": k2, "Krastorio2MenuSimulations": k2, "flib": k2,
-        "ChangeInserterDropLane": k2, "stoich": True,
-        "stoich-shots": sys.argv[2] == "shots", "stoich-churn": sys.argv[2] == "churn"}
+    # your enabled mods; everything else in the folder (the test kit's own Krastorio 2 links,
+    # mods you have turned off) is named off below
+    mods = {m["name"]: m["enabled"] for m in json.load(open(sys.argv[4]))["mods"]}
+    # stoich-dump needs stoich-shots (the debug interface)
+    mods.update({"stoich": True, "stoich-shots": True, "stoich-churn": False, "stoich-dump": True})
+else:
+    k2 = sys.argv[3] == "k2"
+    sa = sys.argv[3] == "sa"
+    mods = {"base": True, "elevated-rails": sa, "quality": sa, "recycler": sa, "space-age": sa,
+            "Krastorio2": k2, "Krastorio2Assets": k2, "Krastorio2MenuSimulations": k2, "flib": k2,
+            "ChangeInserterDropLane": k2, "stoich": True,
+            "stoich-shots": sys.argv[2] == "shots", "stoich-churn": sys.argv[2] == "churn"}
 # every other mod in the folder (left there by a dump of one of your saves) is off:
 # Factorio enables a mod the list doesn't name
 import os, re
@@ -166,12 +170,15 @@ case "$MODE" in
     [ -n "$HEAVY" ] && heavy_verdict
     ;;
   features)
+    # features --heavy: the same in heavy mode (a desync check of plans with quality)
     mod_list shots sa
-    rm -rf "$G/script-output/features"
+    HEAVY=; [ "${2:-}" = "--heavy" ] && HEAVY=--heavy
+    rm -rf "$G/script-output/features" "$G/dumps"
     "$B" --config "$G/config/config.ini" --mod-directory "$G/mods" --load-scenario stoich-features \
-      --disable-audio --window-size 1920x1080 --disable-migration-window > "$G/run.out" 2>&1 &
+      --disable-audio --window-size 1920x1080 --disable-migration-window $HEAVY > "$G/run.out" 2>&1 &
     PID=$!
-    wait_for "$G/script-output/features/done.txt" $PID 600; sleep 2; stop $PID
+    wait_for "$G/script-output/features/done.txt" $PID $([ -n "$HEAVY" ] && echo 3000 || echo 600); sleep 2; stop $PID
+    [ -n "$HEAVY" ] && heavy_verdict
     mkdir -p "$HERE/screenshots/features" && rm -f "$HERE/screenshots/features/"*.png
     cp "$G/script-output/features/"*.png "$HERE/screenshots/features/" 2>/dev/null
     cp "$G/script-output/features/report.txt" "$HERE/features.txt" 2>/dev/null && grep -E "FAIL|failure" "$HERE/features.txt"

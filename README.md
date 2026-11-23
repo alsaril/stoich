@@ -13,14 +13,16 @@ own plan. Plans are stored in the save and shared live by every player in multip
 
 - **Capture from the map.** Drag the capture tool over machines: assemblers, furnaces,
   rocket silos, mining drills, pumpjacks and offshore pumps become recipe lines with rates
-  read from the game, including modules, beacons and productivity research (quality isn't
-  modelled yet). Machines with no recipe are listed, left out of the balance.
+  read from the game, including modules, beacons, productivity research and quality.
+  Machines with no recipe are listed, left out of the balance.
 - **Exact balancing.** Each factory is solved exactly from the lines you anchor. When
   several recipes make the same item (oil processing vs coal liquefaction), you set a
   **split** in percent; a captured build comes pre-filled with the split it was built with.
   Problems are named: "Hydrogen can't balance: nothing consumes it", with one-click fixes.
   When the whole plan can't balance, it says which items would close it and how much of
-  each is left over or missing ("Ice: 42.5/min left over, or instead water or light oil").
+  each is left over or missing ("Ice: 42.5/min left over, or instead water or light oil"); a
+  plan too big to work that out after every change gets a **Find a fix** button. A split
+  that would make the plan bring things in is named, with **Remove split**.
 - **Plan balance.** All factories are balanced together against **sinks**: fixed demands
   you type, such as "10 science/min" or "30 coal/min for boilers". The plan window lists
   every sink, split and factory with its recipe (what one copy takes in and sends out), how
@@ -28,15 +30,34 @@ own plan. Plans are stored in the save and shared live by every player in multip
 - **Voids and imports.** A **void** takes whatever the plan has left over of its items (a
   recycler loop, a flare stack); an **import** brings in whatever is missing (rockets from
   another planet). The balance sets their rates, and only to what the plan can't do
-  without: the factories make what they can, and nothing extra is made to be voided.
+  without: the factories make what they can, no factory runs only to make something voided,
+  and nothing is imported that a factory could make. A factory with several outputs says
+  what it runs for (scrap recycling: for circuits; the holmium ore is left over).
 - **One plan per surface.** The window opens on the plan of the surface you are on, or the
   one the map shows; the selector in its title bar switches to another. It lists every
   planet, and any other surface (a space platform, a modded factory floor) once something
   was captured there. Plans don't interact; what moves between planets is an import on one
   and a sink on the other. Saves from before 0.4 keep their plan on Nauvis.
 - **Recipes without a build.** New recipe makes a factory of one recipe on a machine, with
-  its modules and beacons, worked out as the game does (normal quality): a recycler for one
-  item, say, picked by the item.
+  its modules and beacons (of any quality), worked out as the game does: a recycler for one
+  item, say, picked by the item. **Copy from a machine** takes the modules and beacons of a
+  machine on the map. Recipe quality **Every quality** makes one per unlocked quality at
+  once (recyclers take whatever quality comes).
+- **Quality** (Space Age). Each quality of an item is an item of its own: a rare recipe
+  uses rare ingredients, and a machine's quality chance spreads its products over the
+  qualities as the game rolls them (stopping at the highest your force has unlocked). Machine,
+  module and beacon quality count, so recycler upcycling loops balance like any other build.
+  A void or import row can stand for several qualities of its item (any, or at least, above,
+  at most, below one), so one **Void** takes a loop's rare, epic and legendary byproducts in one
+  row. Quality shows only in plans that have it (or after ticking Quality in a sink, void or
+  import): one icon per item with its quality badge, or the "any quality" mark for several,
+  that open to a row per quality in the editor and Statistics, and a quality filter there.
+  Small rates read in m, µ and n (4.5m/s).
+- **Research follows, when you say so.** Captured and hand-added lines keep what they were
+  worked out from (machine speed, modules, quality chance). After research or a mod update
+  the plan says which factories would change and the copies needed before and after;
+  **Update all** takes the new numbers in. Lines captured before 0.5 stay as they are
+  (rescan them to follow research).
 - **Belts.** Every flow shows how full the slowest belt that carries it is, and that belt's
   icon; belts are read from your game (Krastorio 2's included). A factory whose one copy
   needs more than the best allowed belt is flagged. Fluids are never limited.
@@ -78,7 +99,8 @@ on the shortcut bar).
    its rates the plan delivers: 0.5 for half, 0 to keep it in the plan asking for nothing.
    Each plan has one **Void** and one **Import** (the toolbar buttons open them, made on
    first use): a list of items, no rates. A problem row adds to them in one click:
-   **Void it** for an item nothing uses, **Import it** for one nothing makes.
+   **Void** for an item nothing uses, **Import** for one nothing makes, **Sink** for a surplus
+   you want delivered.
 5. **Read the plan.** Each factory shows its copies against the need (`2 of 3.05`) and
    what is still to build: a red `+1.1`, or a green ✓ when demand is covered. Factories are
    sorted by shortage when the plan opens or comes back from the editor, statistics or a
@@ -95,8 +117,9 @@ Esc or E closes the open window: the editor (asking first if there are unsaved c
 statistics or a split go back to the plan, then the plan itself closes.
 
 The title bar holds the surface selector, the settings button (rate unit, who can edit, the
-highest belt to plan with, one-lane planning) and the edit log (the clock). The two icons at
-the end of the toolbar export the plan as a string and import one into the plan shown.
+highest belt to plan with, one-lane planning) and the edit log (the clock). The icons at
+the end of the toolbar export the plan as a string, import one into the plan shown, and
+clear the plan (after asking).
 
 ## Install
 
@@ -135,7 +158,7 @@ code (without `tests/`) and tags `v<version>`. Push the tag yourself.
 
 ## Limits
 
-- **Not modelled:** quality (a quality module counts only its speed penalty), spoilage,
+- **Not modelled:** spoilage, negative quality effects (a machine that allows them),
   burner fuel of crafting machines, electricity (generators become a sink of their fuel).
 - **Captured from the map:** assemblers, furnaces, rocket silos, mining drills, pumpjacks
   and offshore pumps; generators make a sink. Agricultural towers and asteroid collectors
@@ -146,8 +169,14 @@ code (without `tests/`) and tags `v<version>`. Push the tag yourself.
   mines one tile at a time, so its split between ores is a long-run average.
 - **Plans per surface don't interact:** what one surface ships to another is a sink on
   one and an import on the other.
-- **Can't balance:** the list of what would close the plan comes from a bounded search,
-  a heuristic: it may miss a better set of voids on a large, badly broken plan.
+- **Can't balance:** what would close the plan is a linear program: the least voided (and,
+  only when nothing else closes it, imported) per second with every factory running forwards
+  and the sinks getting their rates. It minimises what is voided, not how many items are:
+  it may list one more item than a person would. After each change it gets about a second of
+  work, alternatives included; a plan that needs more offers Find a fix, which lists them all.
+- **Quality:** the qualities of an item share its belt (its belt check sums them). A chance
+  above 100% is modelled as the game's tooltip shows it; rates of quality byproducts are
+  long-run averages of random rolls.
 - Mod windows can't be resized by dragging (a Factorio API limit).
 
 ## License

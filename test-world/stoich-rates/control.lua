@@ -2,13 +2,19 @@
 -- modules, beacons, drills, crafters, an offshore pump), captures each cell through
 -- Stoich's debug interface, then runs the machines with script-fed inputs and
 -- drained outputs and compares what they really make with what Stoich computed.
--- Works with or without Krastorio 2. Writes script-output/stoich-rates/report.txt.
+-- Works with or without Krastorio 2; with Space Age's quality mod it adds quality cells
+-- (quality modules, a rare recipe fed rare plates, a recycler fed uncommon gears, a
+-- legendary beacon and machine). Their tiers are random: each is checked within 4 standard
+-- deviations of its expected count (at least the 1% of the others).
+-- Writes script-output/stoich-rates/report.txt.
 
 local D = "stoich-debug"
 local P = 1
 local SURFACE = "stoich-rates"
 local CELL, COLS = 32, 6
-local CAPTURE, START, WINDOW = 120, 300, 18000 -- ticks; WINDOW = 5 game minutes
+local CAPTURE, START = 120, 300 -- ticks
+-- 5 game minutes; 30 with quality (its tiers are random: more output, tighter checks)
+local WINDOW = script.active_mods["quality"] and 108000 or 18000
 local TOLERANCE = 1 -- percent
 
 local function surface() return game.surfaces[SURFACE] end
@@ -24,14 +30,23 @@ local function product_amount(p)
   return a * (p.independent_probability or p.probability or 1)
 end
 
+-- an item of a quality as Stoich keys it: "item/gear" or "item/gear|rare"
+local function item_key(name, quality)
+  if quality and quality ~= "normal" then return "item/" .. name .. "|" .. quality end
+  return "item/" .. name
+end
+
+--- opts.modules: names, or { name, quality }; opts.quality: the entity's; opts.recipe_quality
 local function place(name, x, y, opts)
   opts = opts or {}
   if not prototypes.entity[name] then error("missing entity " .. name) end
-  local e = surface().create_entity({ name = name, position = { x, y }, force = "player", recipe = opts.recipe,
+  local e = surface().create_entity({ name = name, position = { x, y }, force = "player", quality = opts.quality,
     direction = opts.direction, create_build_effect_smoke = false })
   if not e then error("could not place " .. name .. " at " .. x .. "," .. y) end
+  if opts.recipe then e.set_recipe(opts.recipe, opts.recipe_quality) end
   for _, m in ipairs(opts.modules or {}) do
-    if m then e.get_module_inventory().insert({ name = m, count = 1 }) end
+    if type(m) == "table" then e.get_module_inventory().insert({ name = m[1], quality = m[2], count = 1 })
+    elseif m then e.get_module_inventory().insert({ name = m, count = 1 }) end
   end
   return e
 end
@@ -71,9 +86,9 @@ local function build_cell(c, i)
   c.build = nil -- storage can't hold functions
 end
 
-local function beacons(cx, cy, n, module)
+local function beacons(cx, cy, n, module, quality)
   for i = 1, n do
-    place("beacon", cx + RING[i][1], cy + RING[i][2], { modules = { module, module } })
+    place("beacon", cx + RING[i][1], cy + RING[i][2], { modules = { module, module }, quality = quality })
   end
 end
 
@@ -109,7 +124,7 @@ local function define_cases()
   cell("pumpjack 100% 2 beacons", pumpjack(normal, nil, 2))
   cell("pumpjack 50% prod+2 beacons", pumpjack(math.floor(normal / 2), rep(PROD, 2), 2))
 
-  local function drill(modules, n_beacons)
+  local function drill(modules, n_beacons, quality)
     return function(c, cx, cy)
       c.ores = {}
       for x = cx - 2.5, cx + 2.5 do
@@ -117,7 +132,7 @@ local function define_cases()
           c.ores[#c.ores + 1] = surface().create_entity({ name = "iron-ore", position = { x, y }, amount = 10000 })
         end
       end
-      c.entity = place("electric-mining-drill", cx, cy, { modules = modules })
+      c.entity = place("electric-mining-drill", cx, cy, { modules = modules, quality = quality })
       c.chest = place("steel-chest", c.entity.drop_position.x, c.entity.drop_position.y)
       c.kind = "drill"
       if n_beacons then beacons(cx, cy, n_beacons, SPEED) end
@@ -127,14 +142,17 @@ local function define_cases()
   cell("drill prod", drill(rep(PROD, 3)))
   cell("drill speed+2 beacons", drill(rep(SPEED, 3), 2))
 
-  local function crafter(machine, recipe, modules, n_beacons)
+  --- q: { recipe = tier (fed at it), machine = tier, beacon = tier }
+  local function crafter(machine, recipe, modules, n_beacons, q)
+    q = q or {}
     return function(c, cx, cy)
       -- furnaces pick their recipe from the input (K2 turns them into assemblers, which don't)
       local furnace = prototypes.entity[machine].type == "furnace"
-      c.entity = place(machine, cx, cy, { recipe = not furnace and recipe or nil, modules = modules })
+      c.entity = place(machine, cx, cy, { recipe = not furnace and recipe or nil, recipe_quality = q.recipe, modules = modules, quality = q.machine })
       c.recipe = recipe
+      c.feed_quality = q.recipe
       c.kind = "crafter"
-      if n_beacons then beacons(cx, cy, n_beacons, SPEED) end
+      if n_beacons then beacons(cx, cy, n_beacons, SPEED, q.beacon) end
     end
   end
   cell("assembler-3 gears", crafter("assembling-machine-3", "iron-gear-wheel"))
@@ -148,6 +166,19 @@ local function define_cases()
   cell("electric furnace prod+2 beacons", crafter("electric-furnace", "iron-plate", rep(PROD, 2), 2))
   cell("chemical plant plastic prod+2 beacons", crafter("chemical-plant", "plastic-bar", rep(PROD, 3), 2))
   cell("refinery advanced oil prod", crafter("oil-refinery", "advanced-oil-processing", rep(PROD, 3)))
+
+  if script.active_mods["quality"] then
+    local QL = { "quality-module-3", "legendary" }
+    cell("quality: legendary assembler-3 gears, 4 legendary quality", crafter("assembling-machine-3", "iron-gear-wheel", rep(QL, 4), nil,
+      { machine = "legendary" }))
+    cell("quality: rare gears fed rare plates, 2 quality + 2 prod", crafter("assembling-machine-3", "iron-gear-wheel",
+      { QL, QL, { PROD, "rare" }, { PROD, "rare" } }, nil, { recipe = "rare" }))
+    cell("quality: recycler fed uncommon gears, 4 legendary quality", crafter("recycler", "iron-gear-wheel-recycling", rep(QL, 4), nil,
+      { recipe = "uncommon" }))
+    cell("quality: assembler-3 gears, 2 legendary beacons", crafter("assembling-machine-3", "iron-gear-wheel", rep({ PROD, "epic" }, 4), 2,
+      { beacon = "legendary" }))
+    cell("quality: drill, 3 legendary quality", drill(rep(QL, 3), nil, "rare"))
+  end
 
   cell("offshore pump", function(c, cx, cy)
     tiles(math.floor(cx) - 4, math.floor(cy) + 2, math.floor(cx) + 6, math.floor(cy) + 10, "water")
@@ -171,8 +202,12 @@ end
 
 -- Measurement ---------------------------------------------------------------------------------------
 
-local function record(c, key, amount, tick)
+local function record(c, key, amount, tick, total)
   if tick < START or tick > START + WINDOW or amount <= 0 then return end
+  -- every tier of an item also counts into its total (one clock for all of them)
+  if not total and key:sub(1, 5) == "item/" then
+    record(c, "all:" .. key:match("^([^|]+)"), amount, tick, true)
+  end
   local m = c.out[key]
   if not m then
     -- the first output only starts the clock: rate = what came after it / time since
@@ -225,21 +260,22 @@ local function run_case(c, tick)
       if ore.valid then ore.amount = 10000 end
     end
     local inv = c.chest.get_inventory(defines.inventory.chest)
-    for _, item in ipairs(inv.get_contents()) do record(c, "item/" .. item.name, item.count, tick) end
+    for _, item in ipairs(inv.get_contents()) do record(c, item_key(item.name, item.quality), item.count, tick) end
     inv.clear()
   elseif c.kind == "crafter" then
     local inv = e.get_inventory(defines.inventory.crafter_input)
+    local q = c.feed_quality or "normal"
     for _, ing in ipairs(prototypes.recipe[c.recipe].ingredients) do
       if ing.type == "item" then
         local want = math.max(ing.amount * 4, 10)
-        local have = inv.get_item_count(ing.name)
-        if have < want then fed(c, "item/" .. ing.name, inv.insert({ name = ing.name, count = want - have }), tick) end
+        local have = inv.get_item_count({ name = ing.name, quality = q })
+        if have < want then fed(c, item_key(ing.name, q), inv.insert({ name = ing.name, quality = q, count = want - have }), tick) end
       else
         fed(c, "fluid/" .. ing.name, e.insert_fluid({ name = ing.name, amount = 1000 }), tick)
       end
     end
     local out = e.get_output_inventory()
-    for _, item in ipairs(out.get_contents()) do record(c, "item/" .. item.name, item.count, tick) end
+    for _, item in ipairs(out.get_contents()) do record(c, item_key(item.name, item.quality), item.count, tick) end
     out.clear()
     drain_fluids(c, tick, true)
   end
@@ -254,7 +290,9 @@ local function capture(c)
   end
   for _, line in ipairs(d.factory.lines) do
     if line.machine == c.entity.name and not line.idle then
-      c.line = { flow = line.flow, speed = line.speed, productivity = line.productivity, count = line.count }
+      c.line = { flow = line.flow, speed = line.speed, productivity = line.productivity, count = line.count,
+        recipe_quality = line.recipe_quality, machine_quality = line.machine_quality,
+        quality_chance = line.variants and line.variants[1] and line.variants[1].quality_chance or nil }
     end
   end
   if not c.line then
@@ -296,15 +334,38 @@ local function report()
       lines[#lines + 1] = string.format("   status %s; speed bonus %+.4f; productivity %+.4f%s; beacons %d; modules %s",
         tostring(c.status), i.speed_bonus, i.productivity_bonus,
         i.crafting_speed and string.format("; crafting speed %.4f", i.crafting_speed) or "", i.beacons, i.modules)
-      lines[#lines + 1] = string.format("   stoich line: speed %s, productivity %s",
+      lines[#lines + 1] = string.format("   stoich line: speed %s, productivity %s%s",
         c.line.speed and string.format("%.4f", c.line.speed) or "-",
-        c.line.productivity and string.format("%+.4f", c.line.productivity) or "-")
+        c.line.productivity and string.format("%+.4f", c.line.productivity) or "-",
+        (c.line.quality_chance or c.line.recipe_quality or c.line.machine_quality) and string.format("; quality chance %s, recipe %s, machine %s",
+          tostring(c.line.quality_chance), tostring(c.line.recipe_quality or "normal"), tostring(c.line.machine_quality or "normal")) or "")
       local keys = {}
       for k in pairs(c.line.flow) do keys[#keys + 1] = k end
       for k in pairs(c.out) do
-        if not c.line.flow[k] then keys[#keys + 1] = k end
+        if not c.line.flow[k] and k:sub(1, 4) ~= "all:" then keys[#keys + 1] = k end
       end
       table.sort(keys)
+      -- each item over its tiers: what quality doesn't change (as exact as the rest)
+      local totals = {}
+      for _, k in ipairs(keys) do
+        local base = k:match("^([^|]+)")
+        local want = c.line.flow[k] or 0
+        if want > 0 and k:sub(1, 5) == "item/" then
+          local m = c.out["all:" .. base]
+          totals[base] = totals[base] or { want = 0, n = 0, got = (m and m.last > m.first) and m.sum / (m.last - m.first) * 60 or 0 }
+          totals[base].want = totals[base].want + want
+          totals[base].n = totals[base].n + 1
+        end
+      end
+      for _, base in ipairs((function() local o = {} for b, x in pairs(totals) do if x.n > 1 then o[#o + 1] = b end end table.sort(o) return o end)()) do
+        local x = totals[base]
+        local diff = (x.got - x.want) / x.want * 100
+        local ok = math.abs(diff) <= TOLERANCE
+        if not ok then fails = fails + 1 end
+        if math.abs(diff) > worst then worst = math.abs(diff) end
+        lines[#lines + 1] = string.format("   all %-34s stoich %10.4f  measured %10.4f  %+7.2f%% %s", base .. " (every tier)", x.want, x.got, diff,
+          ok and "ok" or "FAIL")
+      end
       for _, k in ipairs(keys) do
         local want = c.line.flow[k] or 0
         local got, how
@@ -317,14 +378,21 @@ local function report()
           how = "in "
         end
         local diff = want ~= 0 and (got - want) / math.abs(want) * 100 or (got == 0 and 0 or 100)
-        local ok = math.abs(diff) <= TOLERANCE
-        -- inputs are measured by topping up buffers, so they are only a rough check
-        if how == "out" then
-          if not ok then fails = fails + 1 end
-          if math.abs(diff) > worst then worst = math.abs(diff) end
+        -- a quality tier is random: 4 standard deviations of its expected count (Poisson)
+        local tol, verdict = TOLERANCE, nil
+        if how == "out" and k:find("|", 1, true) or (how == "out" and c.line.quality_chance and c.line.quality_chance > 0) then
+          local n = want * WINDOW / 60
+          tol = math.max(TOLERANCE, n > 0 and 400 / math.sqrt(n) or 100)
+          if n < 20 then verdict = string.format("(few: %.1f expected)", n) end
         end
-        lines[#lines + 1] = string.format("   %s %-28s stoich %10.4f  measured %10.4f  %+7.2f%% %s", how, k, want, got, diff,
-          ok and "ok" or (how == "out" and "FAIL" or "(rough)"))
+        local ok = math.abs(diff) <= tol
+        -- inputs are measured by topping up buffers, so they are only a rough check
+        if how == "out" and not verdict then
+          if not ok then fails = fails + 1 end
+          if tol == TOLERANCE and math.abs(diff) > worst then worst = math.abs(diff) end
+        end
+        lines[#lines + 1] = string.format("   %s %-34s stoich %10.4f  measured %10.4f  %+7.2f%% %s", how, k, want, got, diff,
+          verdict or (ok and (tol > TOLERANCE and string.format("ok (±%.1f%%)", tol) or "ok") or (how == "out" and "FAIL" or "(rough)")))
       end
     end
   end

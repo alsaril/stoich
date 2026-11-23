@@ -573,8 +573,8 @@ t.test("plan: a void or import needs an item; one click adds to the plan's own",
   t.eq(#voids, 1, "one void, two items")
   t.eq(#voids[1].sink_items, 2)
   t.eq(voids[1].revision, 2)
-  t.eq(voids[1].name, "Coal", "named after its first item")
-  t.eq(voids[1].icon.name, "coal")
+  t.eq(voids[1].name, "Void", "the plan's void, not named after its first item")
+  t.eq(voids[1].icon, nil, "no item icon: it shows the bin")
 end)
 
 -- Plans per surface -----------------------------------------------------------------------------------
@@ -640,7 +640,7 @@ t.test("model: a renamed surface takes its plan along", function()
   t.eq(model.rename_plan("home", "nauvis"), false)
 end)
 
-t.test("plan: an import isn't held at 0 when that would drive a factory negative", function()
+t.test("plan: an import the plan needs is settled, never driving a factory negative", function()
   fake.reset()
   -- cables from plates; a recycler turns cables back into an eighth of a plate
   local cables = custom_factory("cables", { ["item/copper-plate"] = -1, ["item/copper-cable"] = 2 }, 1)
@@ -648,11 +648,15 @@ t.test("plan: an import isn't held at 0 when that would drive a factory negative
   sink("use", { ["item/copper-cable"] = 60 })
   local import = boundary("import", { "item/copper-plate" })
   local r = plan.rebalance("nauvis")
-  -- held at 0 the recycler would make every plate: negative counts; so the player chooses
-  t.eq(r.status, "NEEDS_SPLIT")
-  t.truthy(find_problem(r, "split"))
+  -- held at 0 the import would make the recycler make every plate (negative counts): the
+  -- linear program settles it instead: recycling the cable the sink needs only raises the
+  -- import, so the recycler runs at 0 and the plates come in
+  t.eq(r.status, "EXACT")
   t.eq(find_problem(r, "negative"), nil)
-  -- once the recycler gets nothing (a split of 100% import), it balances
+  t.near(r.counts[recycler.id], 0, 1e-9)
+  t.near(r.counts[cables.id], 0.5)
+  t.near(plan.boundary_rates(import, r)["item/copper-plate"], 0.5)
+  -- a split set by hand (100% import) gives the same
   model.plan("nauvis").splits = { { item = "item/copper-plate", shares = { [recycler.id] = 0, [import.id .. ":item/copper-plate"] = 100 } } }
   r = plan.rebalance("nauvis")
   t.eq(r.status, "EXACT")
@@ -690,21 +694,22 @@ end)
 
 -- Diagnosis ----------------------------------------------------------------------------------------
 
-t.test("plan: a plan that can't balance says which items would close it (a real Fulgora plan)", function()
-  fake.reset()
+--- Load a plan fixture (net flow per factory, sink and void rows) into the "fulgora" plan.
+local function load_plan_fixture(file)
   local json = require("tests.json")
-  local data = json.read_file(TEST_ROOT .. "/tests/fixtures/fulgora_plan.json")
+  local data = json.read_file(TEST_ROOT .. "/tests/fixtures/" .. file)
   -- the fake game knows only a few prototypes: make the ones this plan uses
   for _, e in ipairs(data.factories) do
     for key in pairs(e.net or {}) do
-      local kind, name = key:match("^(%a+)/(.+)$")
+      local kind, name = require("scripts.util").parse_key(key)
       prototypes[kind][name] = prototypes[kind][name] or { name = name }
     end
     for _, row in ipairs(e.items or {}) do
-      local kind, name = row.key:match("^(%a+)/(.+)$")
+      local kind, name = require("scripts.util").parse_key(row.key)
       prototypes[kind][name] = prototypes[kind][name] or { name = name }
     end
   end
+  local ids = {}
   for _, e in ipairs(data.factories) do
     local f
     if e.kind == "factory" then
@@ -714,25 +719,39 @@ t.test("plan: a plan that can't balance says which items would close it (a real 
       f.external = plan.flow_items(e.net)
     else
       f = e.kind == "sink" and draft.new_sink() or draft.new_boundary(e.kind)
-      for _, row in ipairs(e.items) do f.sink_items[#f.sink_items + 1] = { key = row.key, rate = row.rate } end
+      for _, row in ipairs(e.items) do f.sink_items[#f.sink_items + 1] = { key = row.key, rate = row.rate, quality = row.quality } end
     end
     f.name, f.copies = e.name, e.copies
     plan.balance_factory(f)
-    assert(model.save_factory(f, {}, 1, false, "fulgora"))
+    local _, saved = model.save_factory(f, {}, 1, false, "fulgora")
+    ids[#ids + 1] = saved.id
   end
-  local r = plan.rebalance("fulgora")
+  -- splits: shares by the factory's place in the list
+  for _, sp in ipairs(data.splits or {}) do
+    local shares = {}
+    for pos, share in pairs(sp.shares) do shares[ids[tonumber(pos)]] = share end
+    local p = model.plan("fulgora")
+    p.splits[#p.splits + 1] = { item = sp.item, shares = shares, match_usage = sp.match_usage or nil }
+  end
+end
+
+t.test("plan: a plan that can't balance says which items would close it (a real Fulgora plan)", function()
+  fake.reset()
+  load_plan_fixture("fulgora_plan.json")
+  local r = plan.find_fix("fulgora")
   t.eq(r.status, "CONFLICT")
   t.eq(r.fixes_close, true)
-  t.eq(#r.fixes, 3, "three loops to close")
   local by = {}
   for _, fix in ipairs(r.fixes) do
     by[fix.item] = fix
-    t.truthy(fix.rate and fix.rate > 0, fix.item .. " is a surplus")
+    t.truthy(fix.rate and fix.rate > 0, fix.item .. " is a surplus: nothing the plan makes is imported")
   end
-  -- scrap's byproducts the plan can't use up: copper plate, plastic, and ice (or the
-  -- water and light oil it turns into)
-  t.truthy(by["item/copper-plate"] and by["item/plastic-bar"] and by["item/ice"], "copper, plastic, ice")
-  t.eq(table.concat(by["item/ice"].alternatives, ","), "fluid/light-oil,fluid/water")
+  -- scrap's byproducts the plan can't use up, voided as they come: no recycler runs beyond
+  -- what its outputs are needed for (so cable and circuits are voided rather than recycled
+  -- into plates to void), and ice rather than the water it would be melted into
+  t.truthy(by["item/ice"] and by["item/copper-cable"] and by["item/advanced-circuit"], "ice, cable, circuits")
+  t.eq(by["item/copper-plate"], nil, "no plates recycled only to be voided")
+  t.eq(by["fluid/water"], nil)
   -- never the science the sink asks for
   t.eq(by["item/electromagnetic-science-pack"], nil)
   -- voided, the plan balances with every factory running forwards
@@ -741,4 +760,368 @@ t.test("plan: a plan that can't balance says which items would close it (a real 
   t.eq(r.status, "EXACT")
   for id, c in pairs(r.counts) do t.truthy(c > -1e-6, "count of " .. tostring(id)) end
   t.eq(r.fixes, nil)
+end)
+
+-- Quality ---------------------------------------------------------------------------------------
+
+t.test("plan: quality conditions match tiers as the game's filters", function()
+  fake.reset({ quality = true })
+  local m = plan.matches_condition
+  t.truthy(m("item/gear|rare", "item/gear", "any"))
+  t.truthy(m("item/gear", "item/gear", "any"))
+  t.truthy(not m("item/plate|rare", "item/gear", "any"), "another item")
+  t.truthy(m("item/gear|rare", "item/gear", "=rare"))
+  t.truthy(not m("item/gear|epic", "item/gear", "=rare"))
+  t.truthy(m("item/gear|epic", "item/gear", ">=rare"))
+  t.truthy(m("item/gear|rare", "item/gear", ">=rare"))
+  t.truthy(not m("item/gear|uncommon", "item/gear", ">=rare"))
+  t.truthy(m("item/gear|legendary", "item/gear", ">rare"))
+  t.truthy(not m("item/gear|rare", "item/gear", ">rare"))
+  t.truthy(m("item/gear", "item/gear", "<rare"))
+  t.truthy(m("item/gear|rare", "item/gear", "<=rare"))
+  t.truthy(not m("item/gear|legendary", "item/gear", "<=rare"))
+  t.truthy(not m("item/gear|rare", "item/gear", "nonsense"))
+  -- rows that stand for exactly some tiers
+  local present = { ["item/gear"] = true, ["item/gear|uncommon"] = true, ["item/gear|rare"] = true, ["item/gear|epic"] = true }
+  local rows = plan.condition_rows({ "item/gear|rare", "item/gear|epic" }, present)
+  t.eq(#rows, 1) t.eq(rows[1].key, "item/gear") t.eq(rows[1].quality, ">=rare")
+  rows = plan.condition_rows({ "item/gear", "item/gear|uncommon" }, present)
+  t.eq(rows[1].quality, "<=uncommon")
+  rows = plan.condition_rows({ "item/gear", "item/gear|uncommon", "item/gear|rare", "item/gear|epic" }, present)
+  t.eq(rows[1].quality, "any")
+  rows = plan.condition_rows({ "item/gear", "item/gear|rare" }, present)
+  t.eq(#rows, 2, "a set no condition covers: a row per tier")
+  rows = plan.condition_rows({ "item/gear|rare" }, present)
+  t.eq(rows[1].key, "item/gear|rare") t.eq(rows[1].quality, nil)
+end)
+
+--- A plan of plates in (an import), gears with quality modules, a sink for normal gears.
+local function gear_quality_plan()
+  local function save(f)
+    plan.balance_factory(f)
+    local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
+    return saved
+  end
+  local f = model.new_factory("factory")
+  local line = model.add_line(f, { kind = "custom", label = "gears", count = 1, flow = {
+    ["item/iron-plate"] = -2, ["item/iron-gear-wheel"] = 0.9, ["item/iron-gear-wheel|uncommon"] = 0.09,
+    ["item/iron-gear-wheel|rare"] = 0.009, ["item/iron-gear-wheel|epic"] = 0.0009, ["item/iron-gear-wheel|legendary"] = 0.0001 } })
+  f.name, f.anchors[line.id], f.external = "Gears", 1, plan.flow_items(line.flow)
+  local gears = save(f)
+  local sink = draft.new_sink()
+  sink.name = "Demand"
+  sink.sink_items = { { key = "item/iron-gear-wheel", rate = 1.8 } }
+  save(sink)
+  draft.add_boundary_item("nauvis", "import", "item/iron-plate", 1)
+  return gears
+end
+
+t.test("plan: one void row with a quality condition takes every byproduct tier", function()
+  fake.reset({ quality = true })
+  local gears = gear_quality_plan()
+  local r = plan.find_fix("nauvis")
+  t.eq(r.status, "CONFLICT", "four byproduct tiers nothing uses")
+  -- the problem's fix: one base item, its four tiers
+  t.eq(#r.fixes, 1)
+  local fix = r.fixes[1]
+  t.eq(fix.item, "item/iron-gear-wheel")
+  t.eq(#fix.keys, 4)
+  t.near(fix.rates["item/iron-gear-wheel|uncommon"], 0.18, 1e-9)
+  t.near(fix.rate, 0.2, 1e-9)
+  -- one row covers them: >= uncommon
+  local rows = plan.condition_rows(fix.keys, plan.present_keys("nauvis"))
+  t.eq(#rows, 1)
+  t.eq(rows[1].quality, ">=uncommon")
+  t.truthy(draft.add_boundary_item("nauvis", "void", rows[1].key, 1, rows[1].quality))
+  t.eq(draft.add_boundary_item("nauvis", "void", rows[1].key, 1, rows[1].quality), false, "once")
+  r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[gears.id], 2, 1e-9)
+  local void = draft.boundary_of("nauvis", "void")
+  local rates = plan.boundary_rates(void, r)
+  t.near(rates["item/iron-gear-wheel|legendary"], 0.0002, 1e-12)
+  t.near(rates["item/iron-gear-wheel|uncommon"], 0.18, 1e-9)
+  t.eq(rates["item/iron-gear-wheel"], nil, "normal gears go to the sink, not the void")
+end)
+
+t.test("plan: free tiers of a condition are held at 0 together, in one solve", function()
+  fake.reset({ quality = true })
+  gear_quality_plan()
+  -- a void and an import of every tier: each rate is free
+  draft.add_boundary_item("nauvis", "void", "item/iron-gear-wheel", 1, ">=uncommon")
+  draft.add_boundary_item("nauvis", "import", "item/iron-gear-wheel", 1, ">=uncommon")
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.truthy(r.solves <= 3, "one solve for all tiers, not one per tier: " .. r.solves)
+  for id, c in pairs(r.counts) do t.truthy(c > -1e-9, "count of " .. tostring(id)) end
+end)
+
+t.test("plan: quality on the Fulgora plan: fixes by base item, and what it costs", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_quality_plan.json")
+  local r = plan.find_fix("fulgora")
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.fixes_close, true)
+  local tiered = 0
+  for _, fix in ipairs(r.fixes) do
+    if #fix.keys > 1 then tiered = tiered + 1 end
+    for _, k in ipairs(fix.keys) do t.eq(require("scripts.util").base_key(k), require("scripts.util").base_key(fix.keys[1])) end
+  end
+  t.truthy(tiered > 0, "some fixes are several tiers of one item")
+  -- nothing the plan makes is imported: every fix voids a surplus
+  for _, fix in ipairs(r.fixes) do t.truthy(fix.rate and fix.rate > 0, "a surplus: " .. fix.item) end
+  -- the fixes as rows close the plan
+  local present = plan.present_keys("fulgora")
+  for _, fix in ipairs(r.fixes) do
+    for _, row in ipairs(plan.condition_rows(fix.keys, present)) do draft.add_boundary_item("fulgora", "void", row.key, 1, row.quality) end
+  end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT")
+  for id, c in pairs(r.counts) do t.truthy(c > -1e-6, "count of " .. tostring(id)) end
+end)
+
+t.test("plan: the qualities of an item share its belt", function()
+  fake.reset({ quality = true })
+  local tiers = require("scripts.belts").tiers_from({ { name = "transport-belt", speed = 15 / 480 } })
+  local f = { lines = {}, kind = "factory", result = { net = { ["item/iron-gear-wheel"] = 10, ["item/iron-gear-wheel|rare"] = 6, ["item/iron-plate"] = -12 } } }
+  local chokes = plan.chokes(f, tiers, 1, false)
+  t.eq(#chokes, 1, "16/s of gears on a 15/s belt; plates fit")
+  t.eq(chokes[1].item, "item/iron-gear-wheel")
+  t.near(chokes[1].rate, 16)
+end)
+
+t.test("plan: conditions never take a tier the plan doesn't have yet; nonsense isn't one", function()
+  fake.reset({ quality = true })
+  local present = { ["item/gear|uncommon"] = true, ["item/gear|rare"] = true }
+  local rows = plan.condition_rows({ "item/gear|uncommon", "item/gear|rare" }, present)
+  t.eq(rows[1].quality, ">=uncommon", "not any: normal gears may come later")
+  t.eq(plan.parse_condition(">="), nil)
+  t.eq(plan.parse_condition("=>rare"), nil)
+  t.eq(select(2, plan.parse_condition(">=rare")), "rare")
+  t.eq(plan.parse_condition("any"), "any")
+end)
+
+t.test("draft: a merged import's tiers keep their split shares", function()
+  fake.reset({ quality = true })
+  local p = model.plan("nauvis")
+  local function boundary(rows)
+    local f = draft.new_boundary("import")
+    f.sink_items = rows
+    plan.balance_factory(f)
+    local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
+    return saved
+  end
+  local a = boundary({ { key = "item/iron-plate" } })
+  local b = boundary({ { key = "item/iron-gear-wheel", quality = ">=rare" } })
+  p.splits = { { item = "item/iron-gear-wheel|rare", shares = { [plan.unit_id(b.id, "item/iron-gear-wheel|rare")] = 40, [7] = 60 } } }
+  t.truthy(draft.merge_boundaries("nauvis", 1))
+  local shares = p.splits[1].shares
+  t.eq(shares[plan.unit_id(b.id, "item/iron-gear-wheel|rare")], nil)
+  t.eq(shares[plan.unit_id(a.id, "item/iron-gear-wheel|rare")], 40, "moved to the import that stays")
+  t.eq(a.sink_items[2].quality, ">=rare")
+end)
+
+t.test("plan: fixes keep the factories running: scrap's byproducts out, what nothing makes in (a real save)", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_scrap_plan.json")
+  local r = plan.rebalance("fulgora")
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.complicated, nil, "within the search that runs by itself")
+  t.eq(r.fixes_close, true)
+  local imports, voids = {}, 0
+  for _, fix in ipairs(r.fixes) do
+    if fix.rate < 0 then imports[#imports + 1] = fix.item else voids = voids + 1 end
+  end
+  table.sort(imports)
+  -- not "import the science's ingredients and build nothing"
+  t.eq(table.concat(imports, ","), "item/copper-plate,item/electronic-circuit,item/iron-plate,item/plastic-bar")
+  t.truthy(voids >= 12, "scrap's byproducts, by item: " .. voids)
+  local present = plan.present_keys("fulgora")
+  for _, fix in ipairs(r.fixes) do
+    for _, row in ipairs(plan.condition_rows(fix.keys, present)) do
+      draft.add_boundary_item("fulgora", fix.rate < 0 and "import" or "void", row.key, 1, row.quality)
+    end
+  end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT")
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    local f = model.get(id)
+    if not plan.is_list(f) and f.name == "Scrap" then t.truthy(r.counts[id] > 0.1, "scrap runs") end
+    if type(id) == "number" then t.truthy((r.counts[id] or 0) > -1e-6, "no factory backwards") end
+  end
+end)
+
+t.test("plan: a plan of recyclers closes by voiding, never by importing what it makes (a real save)", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_recyclers_plan.json")
+  local r = plan.rebalance("fulgora")
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.complicated, nil)
+  -- it once said: import the science's ingredients (accumulators, supercapacitors...)
+  for _, fix in ipairs(r.fixes) do t.truthy(fix.rate > 0, "a void, not an import: " .. fix.item) end
+  local present = plan.present_keys("fulgora")
+  for _, fix in ipairs(r.fixes) do
+    for _, row in ipairs(plan.condition_rows(fix.keys, present)) do draft.add_boundary_item("fulgora", "void", row.key, 1, row.quality) end
+  end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT", "settled: no split left to choose")
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    local f = model.get(id)
+    if f.name == "Scrap" then t.truthy(r.counts[id] > 0.1, "scrap runs") end
+    if type(id) == "number" and not plan.is_list(f) then t.truthy((r.counts[id] or 0) > -1e-6, "no factory backwards: " .. f.name) end
+  end
+end)
+
+t.test("plan: a factory with several outputs says what it runs for", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_recyclers_plan.json")
+  local r = plan.rebalance("fulgora")
+  local present = plan.present_keys("fulgora")
+  for _, fix in ipairs(r.fixes) do
+    for _, row in ipairs(plan.condition_rows(fix.keys, present)) do draft.add_boundary_item("fulgora", "void", row.key, 1, row.quality) end
+  end
+  r = plan.rebalance("fulgora")
+  local scrap
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    if model.get(id).name == "Iron gear wheel (Rare)" then scrap = id end
+  end
+  -- scrap recycling runs for what the plan uses up (circuits among them); holmium ore is left over
+  local binding = r.binding[scrap]
+  t.truthy(binding and #binding > 0, "what scrap runs for")
+  local set = {}
+  for _, k in ipairs(binding) do set[k] = true end
+  t.truthy(set["item/advanced-circuit"], "advanced circuits (for the circuits recycled from them)")
+  t.eq(set["item/holmium-ore"], nil, "holmium ore is left over")
+end)
+
+t.test("plan: recyclers of every quality: scrap runs, nothing imported, no copies below 0 (a real save)", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_every_quality_plan.json")
+  local r = plan.rebalance("fulgora")
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.complicated, nil)
+  t.truthy(r.with_fixes, "the copies are the ones the fixes need")
+  -- the rare plates of a recycler of normal gears go nowhere: voided, which doesn't stop the
+  -- recycler (it once imported accumulators and copper plate instead)
+  for _, fix in ipairs(r.fixes) do t.truthy(fix.rate > 0, "a void, not an import: " .. fix.item) end
+  local function check(res, what)
+    for _, id in ipairs(model.factory_ids("fulgora")) do
+      local f = model.get(id)
+      if not plan.is_list(f) then
+        t.truthy(not res.undetermined[id], what .. ": known: " .. f.name)
+        t.truthy(res.counts[id] > -1e-6, what .. ": no copies below 0: " .. f.name .. " " .. res.counts[id])
+        if f.name == "Scrap recycling" then t.truthy(res.counts[id] > 0.3, what .. ": scrap runs") end
+      end
+    end
+  end
+  check(r, "can't balance")
+  local present = plan.present_keys("fulgora")
+  for _, fix in ipairs(r.fixes) do
+    for _, row in ipairs(plan.condition_rows(fix.keys, present)) do draft.add_boundary_item("fulgora", "void", row.key, 1, row.quality) end
+  end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT")
+  check(r, "balanced")
+end)
+
+t.test("plan: splits that pin recyclers to a ratio are named, the fixes are without them; then no split is asked (a real save)", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_voided_plan.json")
+  local r = plan.rebalance("fulgora")
+  -- "match usage" splits of rare byproducts (every recycler at the same copies) tie scrap to a
+  -- recycler of rare processing units nothing feeds: it once imported accumulators and more
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.complicated, nil)
+  t.eq(#(r.splits_in_way or {}), 4)
+  t.eq(#r.fixes, 1)
+  t.eq(r.fixes[1].item, "item/iron-plate")
+  t.truthy(r.fixes[1].rate > 0, "the rare and uncommon plates nothing uses: voided")
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    local f = model.get(id)
+    if not plan.is_list(f) then
+      t.truthy(r.counts[id] > -1e-6, "no copies below 0: " .. f.name)
+      if f.name == "Scrap recycling" then t.truthy(r.counts[id] > 0.3, "scrap runs") end
+    end
+  end
+  -- removed, and the iron plate voided: it balances, with no split to choose
+  model.plan("fulgora").splits = {}
+  local present = plan.present_keys("fulgora")
+  for _, row in ipairs(plan.condition_rows(r.fixes[1].keys, present)) do draft.add_boundary_item("fulgora", "void", row.key, 1, row.quality) end
+  r = plan.rebalance("fulgora")
+  t.eq(r.status, "EXACT")
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    local f = model.get(id)
+    if not plan.is_list(f) then
+      t.truthy(r.counts[id] > -1e-6, "balanced: no copies below 0: " .. f.name)
+      if f.name == "Scrap recycling" then t.truthy(r.counts[id] > 0.3, "balanced: scrap runs") end
+    end
+  end
+end)
+
+t.test("plan: without a forward answer, a plan with voids can't balance rather than ask for a split (a real save)", function()
+  fake.reset({ quality = true })
+  load_plan_fixture("fulgora_voided_plan.json")
+  model.plan("fulgora").splits = {}
+  local r = plan.rebalance("fulgora")
+  -- uncommon and rare iron plate go nowhere: holding void rates at 0 asked for splits of the
+  -- recyclers' rare byproducts, with recyclers below 0
+  t.eq(r.status, "CONFLICT")
+  for _, p in ipairs(r.problems) do t.truthy(p.type ~= "split" and p.type ~= "negative", p.type) end
+  t.eq(#r.fixes, 1)
+  t.eq(r.fixes[1].item, "item/iron-plate")
+  t.eq(r.splits_in_way, nil)
+end)
+
+t.test("plan: a plan that balances with its void isn't called unbalanced by a split (the review's case)", function()
+  fake.reset()
+  local function fac(name, net)
+    local f = model.new_factory("factory")
+    local line = model.add_line(f, { kind = "custom", label = name, count = 1, flow = net })
+    f.anchors[line.id] = 1
+    f.external = plan.flow_items(net)
+    f.name = name
+    plan.balance_factory(f)
+    local _, saved = model.save_factory(f, {}, 1, false, "nauvis")
+    return saved
+  end
+  for _, n in ipairs({ "iron-plate", "copper-plate", "iron-gear-wheel", "electronic-circuit", "automation-science-pack", "copper-cable" }) do
+    prototypes.item[n] = prototypes.item[n] or { name = n }
+  end
+  -- F1 and F3 both make gears; F1's iron and copper and some science are left over
+  local f1 = fac("F1", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1, ["item/iron-gear-wheel"] = 1 })
+  local f3 = fac("F3", { ["item/iron-gear-wheel"] = 1, ["item/electronic-circuit"] = 1 })
+  fac("G", { ["item/iron-plate"] = -1, ["item/automation-science-pack"] = 1 })
+  fac("G2", { ["item/iron-plate"] = -2, ["item/automation-science-pack"] = 1 })
+  fac("H", { ["item/copper-plate"] = -1, ["item/copper-cable"] = 1 })
+  local sink = draft.new_sink()
+  sink.sink_items = { { key = "item/iron-gear-wheel", rate = 1 }, { key = "item/electronic-circuit", rate = 1 },
+    { key = "item/automation-science-pack", rate = 0.2 }, { key = "item/copper-cable", rate = 0.1 } }
+  sink.name = "S"
+  plan.balance_factory(sink)
+  model.save_factory(sink, {}, 1, false, "nauvis")
+  for _, k in ipairs({ "item/iron-plate", "item/copper-plate", "item/iron-gear-wheel", "item/automation-science-pack" }) do
+    draft.add_boundary_item("nauvis", "void", k, 1)
+  end
+  t.eq(plan.rebalance("nauvis").status, "EXACT")
+  -- a 50/50 gear split: settling the voids once banned the plan's own gear void outright,
+  -- found no answer and said "can't balance" with nothing to do
+  model.plan("nauvis").splits = { { item = "item/iron-gear-wheel", shares = { [f1.id] = 50, [f3.id] = 50 } } }
+  local r = plan.rebalance("nauvis")
+  t.eq(r.status, "EXACT")
+  t.near(r.counts[f1.id], 1)
+  t.near(r.counts[f3.id], 1)
+end)
+
+t.test("plan: one balance's linear programs share one budget", function()
+  for _, name in ipairs({ "fulgora_voided_plan.json", "fulgora_every_quality_plan.json", "fulgora_quality_plan.json" }) do
+    fake.reset({ quality = true })
+    load_plan_fixture(name)
+    local r = plan.rebalance("fulgora")
+    -- the program that crosses the line finishes: at most one over
+    t.truthy(r.lp_work <= plan.AUTO_WORK * 1.5, name .. ": " .. r.lp_work)
+    t.truthy(r.fixes and #r.fixes > 0, name .. ": its fixes, without Find a fix")
+  end
+  -- Find a fix has no limit
+  local r = plan.find_fix("fulgora")
+  t.truthy(r.lp_work > plan.AUTO_WORK, "the full search: " .. r.lp_work)
 end)

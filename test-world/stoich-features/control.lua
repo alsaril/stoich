@@ -1,7 +1,10 @@
 -- In-game check of Stoich 0.4 features on Space Age: plans per surface, the recipe dialog
 -- (by item, modules, beacons), recipe factories, voids and imports. Builds a real
 -- recycler and a real assembler with modules and beacons, captures them, makes the same
--- setups in the recipe dialog and compares the two flows. Screenshots of every screen.
+-- setups in the recipe dialog and compares the two flows. Then quality (0.5): a rare gear
+-- assembler and a recycler with legendary quality modules on a surface of their own,
+-- Void all, statistics by item, the recipe dialog's tiers, and the research notice.
+-- Screenshots of every screen.
 -- Writes script-output/features/report.txt, *.png and done.txt.
 
 local D = "stoich-debug"
@@ -109,9 +112,34 @@ local function build()
   power(vulcanus, 0, 0)
   for i = 0, 2 do place(vulcanus, "assembling-machine-2", -2.5 + 3 * i, 0.5, { recipe = "copper-cable" }) end
   storage.cells = CELLS
+  -- quality: a surface of its own (its own plan)
+  local q = game.create_surface("stoich-quality", { width = 64, height = 64, default_enable_all_autoplace_controls = false,
+    autoplace_settings = { entity = { treat_missing_as_default = false, settings = {} } } })
+  q.always_day = true
+  clear(q, -12, -12, 12, 12)
+  power(q, 0, 0)
+  local QL = { "quality-module-3", "legendary" }
+  local function quality_machine(name, x, recipe, feed)
+    local e = q.create_entity({ name = name, position = { x, 0.5 }, force = "player", create_build_effect_smoke = false })
+    if recipe then e.set_recipe(recipe, "rare") end
+    for _ = 1, 4 do e.get_module_inventory().insert({ name = QL[1], quality = QL[2], count = 1 }) end
+    return { entity = e, feed = feed }
+  end
+  storage.quality_cells = {
+    quality_machine("assembling-machine-3", -3.5, "iron-gear-wheel", { name = "iron-plate", quality = "rare" }),
+    quality_machine("recycler", 3.5, nil, { name = "iron-gear-wheel", quality = "uncommon" }),
+  }
 end
 
 local function feed()
+  for _, cell in ipairs(storage.quality_cells or {}) do
+    local e = cell.entity
+    if e and e.valid then
+      local inv = e.get_inventory(defines.inventory.crafter_input)
+      if inv.get_item_count(cell.feed) < 20 then inv.insert({ name = cell.feed.name, quality = cell.feed.quality, count = 40 }) end
+      e.get_output_inventory().clear()
+    end
+  end
   for _, cell in pairs(storage.cells or {}) do
     local e = cell.entity
     if e and e.valid then
@@ -181,7 +209,7 @@ local function keep_made(key, machine)
   check(line ~= nil, "the dialog made a " .. key .. " factory")
   if line then
     made[key] = line.flow
-    note(string.format("  dialog %s: speed %+.3f%%, productivity %+.3f%%", key, line.speed_pct or 0, line.prod_pct or 0))
+    note("  dialog " .. key .. ": " .. serpent.line(line.config))
   end
 end
 
@@ -240,6 +268,29 @@ step(function()
   compare("assembler")
 end)
 
+-- Copy from a machine: the recycler cell's modules and beacons into the dialog
+step(function()
+  open_plan()
+  act("fac_new_recipe")
+end)
+step(function() act("dlg_item", {}, "copper-cable") end)
+step(function() act("dlg_pick_machine") end)
+step(function()
+  check(player().cursor_stack.valid_for_read and player().cursor_stack.name == "stoich-selection-tool", "the tool to pick with")
+  remote.call(D, "capture", P, area(storage.cells.recycler))
+end)
+step(function()
+  local dlg = dialog()
+  check(dlg and dlg.recipe == "copper-cable-recycling", "the recipe stays")
+  check(dlg and dlg.machines and dlg.machines[dlg.machine_index] == "recycler", "the recycler")
+  local n = 0
+  for _, m in pairs(dlg and dlg.modules or {}) do if m == "speed-module-3" then n = n + 1 end end
+  check(n == 4, "its four speed modules (" .. n .. ")")
+  check(dlg and dlg.beacon_count == 2 and dlg.beacon_modules[1] == "speed-module-3", "its two beacons with speed modules")
+  shot("f05a-dialog-copied")
+end)
+step(function() act("dialog_close") end)
+
 -- a sink of cables: the plan wants plates, which nothing makes here
 step(function() open_plan() end)
 step(function() act("fac_new_sink") end)
@@ -260,15 +311,9 @@ step(function()
   open_plan()
   local status = plan_status("nauvis")
   note("  nauvis plan with the import: " .. status)
-  check(status:find("^NEEDS_SPLIT") ~= nil, "the import and the recycler: a split to choose")
+  -- the balance settles it (0.5): recycling cable the sink needs would only raise the import
+  check(status:find("^EXACT") ~= nil, "the import and the recycler: settled, no split to choose")
   shot("f07-plan-import")
-end)
-step(function() act("problem_split", { mode = "plan" }) end)
-step(function()
-  local status = plan_status("nauvis")
-  note("  nauvis plan after choosing the split: " .. status)
-  check(status:find("^EXACT") ~= nil, "the split (all plates imported at first) balances the plan")
-  shot("f08-split")
 end)
 
 -- a void from the toolbar
@@ -330,6 +375,121 @@ step(function()
 end)
 step(function() shot("f18-export") end)
 step(function() act("dialog_close") end)
+
+-- Quality ----------------------------------------------------------------------------------------
+local Q = "stoich-quality"
+step(function()
+  act("window_close")
+  player().teleport({ 0, -8 }, Q)
+end)
+step(function()
+  remote.call(D, "capture", P, { left_top = { x = -8, y = -4 }, right_bottom = { x = 8, y = 4 } })
+  local d = draft()
+  check(d and d.plan == Q, "the quality capture belongs to its surface's plan")
+  local gears, recycler
+  for _, line in ipairs(d and d.factory.lines or {}) do
+    if line.recipe == "iron-gear-wheel" then gears = line end
+    if line.machine == "recycler" and not line.idle then recycler = line end
+  end
+  check(gears and gears.recipe_quality == "rare", "the gear line is rare (" .. tostring(gears and gears.recipe_quality) .. ")")
+  check(gears and (gears.flow["item/iron-gear-wheel|epic"] or 0) > 0, "it makes epic gears too")
+  check(gears and (gears.flow["item/iron-plate|rare"] or 0) < 0, "from rare plates")
+  check(gears and gears.variants and math.abs(gears.variants[1].quality_chance - 0.25) < 1e-9, "quality chance 25% (" ..
+    tostring(gears and gears.variants and gears.variants[1].quality_chance) .. ")")
+  check(recycler and recycler.recipe_quality == "uncommon", "the recycler follows its uncommon input (" .. tostring(recycler and recycler.recipe_quality) .. ")")
+  if gears then note("  gears: " .. serpent.line(gears.flow)) end
+  if recycler then note("  recycler: " .. serpent.line(recycler.flow)) end
+end)
+step(function() shot("f19-editor-quality") end)
+step(function() act("editor_save") end)
+-- the plan delivers rare gears (a sink picks the tier)
+step(function()
+  open_plan()
+  act("fac_new_sink")
+end)
+-- the picker carries the quality, as the game's signal pickers do
+step(function() act("row_signal", { mode = "sink", i = 1 }, { type = "item", name = "iron-gear-wheel", quality = "rare" }) end)
+step(function() act("row_rate", { mode = "sink", i = 1 }, 60) end)
+step(function()
+  act("editor_name", {}, "Rare gears")
+  local d = draft()
+  check(d and d.factory.sink_items[1].key == "item/iron-gear-wheel|rare", "the sink asks for rare gears (" ..
+    tostring(d and d.factory.sink_items[1].key) .. ")")
+  shot("f20a-sink-quality")
+end)
+step(function() act("editor_save") end)
+step(function()
+  open_plan()
+  note("  quality plan: " .. plan_status(Q))
+  shot("f20-plan-quality")
+end)
+-- the byproduct tiers: Void all (one row with a quality condition)
+step(function()
+  -- a plan too complicated for the search after every change has Find a fix
+  local ok = act("problem_find_fix", { mode = "plan" })
+  note("  Find a fix " .. (ok and "pressed" or "not needed: the fixes showed by themselves"))
+end)
+step(function() shot("f20b-plan-quality-fixes") end)
+step(function()
+  local voided = 0
+  for _ = 1, 6 do
+    if not plan_status(Q):find("^CONFLICT") then break end
+    if act("problem_boundary", { mode = "plan", kind = "void" }) then voided = voided + 1
+    else act("problem_boundary", { mode = "plan", kind = "import" }) end
+  end
+  check(voided > 0, "Void all / Void it buttons")
+  local status = plan_status(Q)
+  note("  quality plan after the voids: " .. status)
+  local rows = {}
+  for _, f in pairs(remote.call(D, "factories", Q)) do
+    if f.kind == "void" or f.kind == "import" then
+      for _, row in ipairs(f.sink_items) do rows[#rows + 1] = f.kind .. " " .. row.key .. (row.quality and (" " .. row.quality) or "") end
+    end
+  end
+  note("  rows: " .. table.concat(rows, "; "))
+  check(not status:find("^CONFLICT"), "the plan closes")
+  shot("f21-plan-quality-closed")
+end)
+step(function() act("fac_boundary", { kind = "void" }) end)
+step(function() shot("f21a-editor-void-quality") end)
+step(function() act("editor_cancel") end)
+step(function() remote.call(D, "open", P, "statistics") end)
+step(function() act("items_toggle", { item = "item/iron-gear-wheel", base = true }) end)
+step(function() act("items_toggle", { item = "item/iron-gear-wheel|rare" }) end)
+step(function() shot("f22-statistics-quality") end)
+step(function() act("items_quality", {}, 5) end) -- any, normal, uncommon, rare, epic
+step(function() shot("f22a-statistics-epic") end)
+step(function() act("items_quality", {}, 1) end)
+step(function()
+  open_plan()
+  act("fac_new_recipe")
+end)
+step(function() act("dlg_item", {}, "iron-gear-wheel") end)
+step(function()
+  local dd = remote.call(D, "act", P, "dlg_quality", { field = "recipe_quality" }, 3)
+  check(dd, "the recipe dialog picks tiers in a plan with quality")
+  local dlg = dialog()
+  note("  dialog recipe quality: " .. tostring(dlg and dlg.recipe_quality))
+end)
+step(function() act("dlg_module", { slot = 1 }, { name = "quality-module-3", quality = "legendary" }) end)
+step(function() shot("f23-dialog-quality") end)
+step(function() act("dialog_close") end)
+-- research changes a roll (legendary locked): the plan says so, Update all takes it in
+step(function()
+  game.forces.player.lock_quality("legendary")
+  act("plan_copies", { delta = 1 })
+end)
+-- the check runs once a second
+step(function() end)
+step(function() end)
+step(function() end)
+step(function() shot("f24-plan-research-notice") end)
+step(function()
+  local ok = act("notice_update_all")
+  check(ok, "the notice offers Update all")
+  note("  quality plan after Update all: " .. plan_status(Q))
+  game.forces.player.unlock_quality("legendary")
+end)
 
 step(function()
   note("")

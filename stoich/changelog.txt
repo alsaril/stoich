@@ -1,4 +1,30 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-11-23
+  Features:
+    - Quality (Space Age): each quality of an item is an item of its own. Captures read the recipe's quality, the machine's quality and its quality chance; a rare recipe uses rare ingredients, and products are spread over the qualities as the game rolls them (2.1 rules, stopping at the first quality the force hasn't unlocked). Fluids have no quality. Recycler upcycling loops balance like any other build, named after their highest output.
+    - The recipe dialog picks the recipe's, machine's, modules' and beacon's quality, and shows where the products land.
+    - Copy from a machine in the recipe dialog: select a machine on the map and its machine, modules and beacons (with their quality) fill the dialog; the recipe stays the one chosen there (a recycler's modules for a recycling recipe, say).
+    - Every quality in the recipe dialog's recipe quality: one line per unlocked quality in the editor, or from the toolbar one factory per quality (saved at once, each with its own copies), all with the same machine, modules and beacons. For recyclers, which take whatever quality comes.
+    - Void and import rows can stand for several qualities of an item (any, or at least, above, at most, below one). A problem row groups an item's qualities, and its Void / Import adds the row (or rows) that cover exactly them. A plan that can't balance frees the qualities nothing uses before it looks for what else would close it.
+    - Quality shows only in plans that have it (or after ticking Quality in a sink, void or import): one icon per item with its quality badge, or the "any quality" mark for several; the editor's items and Statistics have a row per item that opens to its qualities; Statistics has a quality filter (Any quality, the default, or one); sinks ask for one quality.
+    - A factory's, void's or import's tooltip in the plan lists every rate (it stopped at 16), a line per item with its qualities side by side, in the order of the row's icons; the "+N" after the icons lists the items without an icon.
+    - Statistics: a row opens and closes in place, so the list keeps its scroll position (it used to jump); an item's qualities nest under it, their toggles under its icon.
+    - Research changes numbers only when a player says so: lines keep what they were worked out from, and after research or a mod update the plan lists the factories that would change, with the copies needed before and after. Update all takes the new numbers in.
+    - Clear plan (the bin in the toolbar) removes every factory, sink, void and import of the plan, after asking.
+  Changes:
+    - Void and import rates are settled by a linear program too: the least voided and imported with every factory running forwards. A plan with voids no longer asks for a split it doesn't need; a split between factories is still the player's. A factory with several outputs says in its tooltip what sets its copies.
+    - What would close a plan that can't balance is a linear program instead of a search: the least voided per second with every factory running forwards and the sinks getting their rates; no factory runs only to make what is voided, or beyond what its outputs are needed for (surplus batteries are voided, not made into accumulators to void); imports only of what nothing makes, unless nothing else closes the plan. Exact on any plan size; one balance's programs share about a second of work after each change (the alternatives stop when it is spent), Find a fix lists them all.
+    - While a plan can't balance, its copies are the ones the suggested fixes would need (never below 0), or "?" until Find a fix.
+    - A plan with voids that has no answer with every factory running forwards can't balance, and lists what would close it, instead of asking for splits. A split that would force the plan to bring things in is named, with a Remove split action; the fixes shown are without it.
+    - Rates below 0.01 read in m, µ and n (exact value in the tooltip, no belt); they can be typed so too.
+    - Split prompts offer the lower quality first.
+    - Hand-added recipe lines keep their configuration (machine, modules, beacons) instead of totals.
+    - Lines captured before 0.5 say "Rescan to follow research" in their tooltip.
+    - The qualities of an item share its belt: the belt check of a factory sums them.
+    - Problem rows: a table (item, problem, actions, alternatives), imports first, with short actions: Void, Sink, Import.
+    - A plan's void and import show as Void and Import with their own icons (a bin, an import slot), not named after their first item; their editor has no name or icon.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2026-11-13
   Features:

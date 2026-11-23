@@ -47,3 +47,40 @@ t.test("modules: speed and productivity from slots and beacons, within the limit
   t.near(e.speed, -0.1, nil, "clamped")
   t.near(e.productivity, 0.66)
 end)
+
+t.test("modules: quality chance, and modules, beacons and machines of a quality", function()
+  mock.reset({ quality = true })
+  local modules = require("scripts.modules")
+  local am2, recycler, cable = prototypes.entity["assembling-machine-2"], prototypes.entity["recycler"], prototypes.entity["beacon"]
+  local recipe = prototypes.recipe["copper-cable"]
+  -- two quality modules: +2%; their speed malus stays
+  local e = modules.effect(am2, recipe, { modules = { "quality-module", "quality-module" } })
+  t.near(e.quality, 0.02)
+  t.near(e.speed, -0.1)
+  -- legendary modules (level 5): bonuses ×2.5, maluses as they are
+  e = modules.effect(am2, recipe, { modules = { "quality-module", "quality-module" }, module_qualities = { "legendary", "legendary" } })
+  t.near(e.quality, 0.05)
+  t.near(e.speed, -0.1)
+  -- a legendary beacon (1.5 + 0.2 × 5 = 2.5) with a rare speed module (0.2 × 1.6): one beacon
+  e = modules.effect(am2, recipe, { modules = {}, beacon = "beacon", beacon_quality = "legendary", beacon_count = 1,
+    beacon_modules = { "speed-module" }, beacon_module_qualities = { "rare" } })
+  t.near(e.speed, 2.5 * 0.32)
+  -- the speed modules' quality malus is clamped at 0 on the machine
+  t.near(e.quality, 0)
+  t.near(modules.beacon_effectivity(cable, "epic"), 1.5 + 0.6)
+  t.near(modules.crafting_speed(am2, "rare"), 0.75 * 1.6)
+  t.near(modules.crafting_speed(recycler), 0.5)
+  -- totals: a recipe that doesn't allow quality gets none
+  local t1 = modules.totals(am2, recipe, { modules = { "quality-module" } }, 0)
+  t.near(t1.quality, 0.01)
+  local no_quality = { maximum_productivity = 3, allowed_effects = { quality = false } }
+  t.near(modules.totals(am2, no_quality, { modules = { "quality-module" } }, 0).quality, 0)
+  -- a line's configuration and the dialog's shape carry the tiers
+  local config = modules.line_config({ modules = { [1] = "quality-module" }, module_qualities = { [1] = "epic" }, beacon_count = 0,
+    machine_quality = "rare", recipe_quality = "normal" }, "assembling-machine-2")
+  t.eq(config.modules[1].quality, "epic")
+  t.eq(config.machine_quality, "rare")
+  t.eq(config.recipe_quality, nil, "normal is no tier")
+  local back = modules.dialog_config(config)
+  t.eq(back.module_qualities[1], "epic")
+end)

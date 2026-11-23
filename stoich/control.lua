@@ -9,7 +9,7 @@ local common = require("scripts.gui.common")
 local window = require("scripts.gui.window")
 local editor = require("scripts.gui.editor")
 require("scripts.gui.actions")
-require("scripts.gui.recipe")
+local recipe_dialog = require("scripts.gui.recipe")
 local dialogs = require("scripts.gui.dialogs")
 local plan_gui = require("scripts.gui.plan")
 local items = require("scripts.gui.items")
@@ -52,6 +52,8 @@ script.on_configuration_changed(function()
     model.reset_transient(state)
   end
   plan.rebalance_all()
+  -- a mod update can change recipes: the plans say what it would change (Update all)
+  plan.check_pending()
   rebuild_all_guis()
   if bad > 0 then game.print(L("invalid-after-update", bad)) end
 end)
@@ -86,6 +88,35 @@ script.on_event(defines.events.on_surface_renamed, function(event)
   if model.rename_plan(event.old_name, event.new_name) then
     for _, player in pairs(game.connected_players) do window.refresh(player) end
   end
+end)
+
+-- Research -------------------------------------------------------------------------------------------
+-- Research changes what captured lines make, but never by itself: the plan shows what it
+-- would change and a player takes it in (Update all). The check runs once a second at
+-- most, after research or a plan change, not on every redraw.
+
+local function research_changed()
+  storage.pending_dirty = true
+end
+script.on_event(defines.events.on_research_finished, research_changed)
+script.on_event(defines.events.on_research_reversed, research_changed)
+
+local function pending_signature()
+  local parts = {}
+  for _, key in ipairs(fp_util.sorted_keys(storage.pending or {})) do
+    for _, entry in ipairs(storage.pending[key].factories) do
+      parts[#parts + 1] = key .. ":" .. entry.id .. ":" .. tostring(entry.before) .. ":" .. tostring(entry.after)
+    end
+  end
+  return table.concat(parts, ";")
+end
+
+script.on_nth_tick(60, function()
+  if not storage.pending_dirty then return end
+  storage.pending_dirty = nil
+  local before = pending_signature()
+  plan.check_pending()
+  if pending_signature() ~= before then window.refresh_all() end
 end)
 
 -- Window and tool -----------------------------------------------------------------------------------
@@ -158,10 +189,18 @@ local function capture(event)
     player.print(L("no-permission"))
     return
   end
-  -- read before clear_cursor below, which ends a pending recapture
+  -- read before clear_cursor below, which ends a pending recapture or machine pick
   local state = model.player(player.index)
   local recapture = state.recapture and draft.get(player.index) ~= nil
   state.recapture = nil
+  local pick = state.pick_machine
+  state.pick_machine = nil
+  if pick then
+    -- the recipe dialog's Copy from a machine: its modules and beacons, not a capture
+    player.clear_cursor()
+    recipe_dialog.machine_picked(player, event.entities, pick)
+    return
+  end
   local scan = scanner.scan_entities(event.entities, player.force)
   local area = { left_top = { x = event.area.left_top.x, y = event.area.left_top.y }, right_bottom = { x = event.area.right_bottom.x, y = event.area.right_bottom.y } }
   local source = { surface_index = event.surface.index, areas = { area } }
@@ -205,10 +244,11 @@ end)
 
 script.on_event(defines.events.on_player_cursor_stack_changed, function(event)
   local state = storage.players[event.player_index]
-  if not (state and state.recapture) then return end
+  if not (state and (state.recapture or state.pick_machine)) then return end
   local player = game.get_player(event.player_index)
   local stack = player and player.cursor_stack
   if stack and stack.valid_for_read and stack.name == TOOL then return end
+  if state.pick_machine then return recipe_dialog.cancel_pick(player) end
   editor.cancel_recapture(player)
 end)
 
@@ -237,7 +277,7 @@ commands.add_command("stoich-lines", { "stoich.command-lines" }, function(cmd)
     if line.idle then head = head .. " IDLE" end
     if line.overridden then head = head .. " OVERRIDDEN" end
     player.print(head)
-    for _, key in ipairs(fp_util.sorted_keys(line.flow)) do
+    for _, key in ipairs(fp_util.sorted_keys(line.flow, fp_util.key_less)) do
       local v = line.flow[key]
       player.print(string.format("    %s %+.4f/s (%+.3f/min) per machine", key, v, v * 60))
     end
@@ -355,7 +395,7 @@ if debug_setting and debug_setting.value then
           end
         end
         if #missing == 0 then break end
-        table.sort(missing)
+        table.sort(missing, fp_util.key_less)
         for _, item in ipairs(missing) do
           local kind = (not made[item] and "import") or (not used[item] and "void") or nil
           if kind and draft.add_boundary_item(key, kind, item, 1) then n = n + 1 end

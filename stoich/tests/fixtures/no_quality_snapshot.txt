@@ -1,0 +1,655 @@
+== editor
+frame #stoich_window
+ flow #stoich_titlebar
+  label '{stoich.title}'
+  drop-down #stoich_plan_select <plan_surface>
+  empty-widget
+  sprite-button [utility/clock] <open_log>
+  sprite-button [utility/preset] <open_settings>
+  sprite-button [utility/close] <window_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow #stoich_plan_header
+    frame
+     button '{stoich.capture}' <fac_capture>
+     button '{stoich.new-factory}' <fac_new>
+     button '{stoich.new-recipe}' <fac_new_recipe>
+     button '{stoich.new-sink}' <fac_new_sink>
+     button '{stoich.void-button}' <fac_boundary>
+     button '{stoich.import-button}' <fac_boundary>
+     empty-widget
+     button '{stoich.statistics}' <open_stats>
+     empty-widget
+     sprite-button [utility/export] <fac_export_all>
+     sprite-button [utility/import] <fac_import>
+     sprite-button [utility/trash] <fac_clear_plan>
+     empty-widget
+   flow #stoich_plan_problems
+   flow #stoich_plan_main
+    frame
+     label '{stoich.empty-title}'
+     label '{stoich.empty-step-1}'
+     label '{stoich.empty-step-2}'
+     label '{stoich.empty-step-3}'
+frame #stoich_editor
+ flow #stoich_titlebar
+  label '{stoich.editor-title}'
+  empty-widget
+  sprite-button [utility/close] <child_close>
+ frame #stoich_inner
+  flow #stoich_content
+   frame
+    label '{stoich.factory-name}'
+    textfield #stoich_name <editor_name>
+    choose-elem-button <editor_icon>
+    empty-widget
+    label #stoich_status '{stoich.status-EXACT}'
+    label #stoich_problem_count
+   flow #stoich_problems_box
+    flow #stoich_problems
+   scroll-pane
+    flow
+     label '{stoich.section-lines}'
+     table #stoich_lines
+      empty-widget
+      label '{stoich.col-line}' ~{stoich.col-line-tooltip}
+      label '{stoich.col-machine}' ~{stoich.col-machine-tooltip}
+      label '{stoich.col-scanned}' ~{stoich.col-scanned-tooltip}
+      label '{stoich.col-anchor}' ~{stoich.col-anchor-tooltip}
+      empty-widget
+      label '{stoich.col-solved}' ~{stoich.col-solved-tooltip}
+      label '{stoich.col-diff}' ~{stoich.col-diff-tooltip}
+      label '{,{stoich.col-output}, (,/min,)}' ~{stoich.col-output-tooltip}
+      label '{stoich.col-belt}' ~{stoich.col-belt-tooltip}
+      label '{stoich.col-fill}' ~{stoich.col-fill-tooltip}
+      empty-widget
+      empty-widget
+      sprite [recipe/advanced-oil-processing]
+      label '{item-name.advanced-oil-processing}' ~{,{stoich.per-machine},
+,-1200/min [fluid=crude-oil]
++300/min [fluid=heavy-oil]
++540/min [fluid=light-oil]
++660/min [fluid=petroleum-gas]
+-600/min [fluid=water]}
+      sprite [entity/oil-refinery]
+      label '6'
+      flow
+       checkbox <editor_anchor>
+       empty-widget
+      empty-widget
+      label #solved_1 '6.89'
+      label #diff_1 '+0.89'
+      label #out_1_rate '[fluid=petroleum-gas] 4547.4' ~{stoich.fluid-no-limit}
+      label #out_1_belt '—' ~{stoich.fluid-no-limit}
+      label #out_1_fill ~{stoich.fluid-no-limit}
+      sprite-button [utility/rename_icon] <editor_edit_flow>
+      sprite-button [utility/trash] <editor_delete_line>
+      sprite [recipe/coal-liquefaction]
+      label '{item-name.coal-liquefaction}' ~{,{stoich.per-machine},
+,+780/min [fluid=heavy-oil]
++240/min [fluid=light-oil]
++120/min [fluid=petroleum-gas]
+-600/min [fluid=steam]
+-120/min [item=coal]}
+      sprite [entity/oil-refinery]
+      label '2'
+      flow
+       checkbox <editor_anchor>
+       empty-widget
+      empty-widget
+      label #solved_2 '2.3'
+      label #diff_2 '+0.3'
+      label #out_2_rate '[fluid=heavy-oil] 1791.4' ~{stoich.fluid-no-limit}
+      label #out_2_belt '—' ~{stoich.fluid-no-limit}
+      label #out_2_fill ~{stoich.fluid-no-limit}
+      sprite-button [utility/rename_icon] <editor_edit_flow>
+      sprite-button [utility/trash] <editor_delete_line>
+      sprite [recipe/heavy-oil-cracking]
+      label '{item-name.heavy-oil-cracking}' ~{,{stoich.per-machine},
+,-1200/min [fluid=heavy-oil]
++900/min [fluid=light-oil]
+-900/min [fluid=water]}
+      sprite [entity/chemical-plant]
+      label '3'
+      flow
+       checkbox <editor_anchor>
+       empty-widget
+      empty-widget
+      label #solved_3 '3.22'
+      label #diff_3 '+0.22'
+      label #out_3_rate '[fluid=light-oil] 2893.8' ~{stoich.fluid-no-limit}
+      label #out_3_belt '—' ~{stoich.fluid-no-limit}
+      label #out_3_fill ~{stoich.fluid-no-limit}
+      sprite-button [utility/rename_icon] <editor_edit_flow>
+      sprite-button [utility/trash] <editor_delete_line>
+      sprite [recipe/light-oil-cracking]
+      label '{item-name.light-oil-cracking}' ~{,{stoich.per-machine},
+,-900/min [fluid=light-oil]
++600/min [fluid=petroleum-gas]
+-900/min [fluid=water]}
+      sprite [entity/chemical-plant]
+      label '7'
+      flow
+       checkbox <editor_anchor>
+       empty-widget
+      empty-widget
+      label #solved_4 '7.96'
+      label #diff_4 '+0.96'
+      label #out_4_rate '[fluid=petroleum-gas] 4777' ~{stoich.fluid-no-limit}
+      label #out_4_belt '—' ~{stoich.fluid-no-limit}
+      label #out_4_fill ~{stoich.fluid-no-limit}
+      sprite-button [utility/rename_icon] <editor_edit_flow>
+      sprite-button [utility/trash] <editor_delete_line>
+      sprite [recipe/plastic-bar]
+      label '{item-name.plastic-bar}' ~{,{stoich.per-machine},
+,-1200/min [fluid=petroleum-gas]
+-60/min [item=coal]
++120/min [item=plastic-bar]}
+      sprite [entity/chemical-plant]
+      label '8'
+      flow
+       checkbox <editor_anchor>
+       textfield #anchor_5 <editor_anchor_value>
+      empty-widget
+      label #solved_5 '8'
+      label #diff_5 '0'
+      label #out_5_rate '960' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+      label #out_5_belt '[entity=fast-transport-belt]' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+      label #out_5_fill '53%' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+      sprite-button [utility/rename_icon] <editor_edit_flow>
+      sprite-button [utility/trash] <editor_delete_line>
+     label '{stoich.section-splits}'
+     table #stoich_splits_box
+      frame #stoich_split_1
+       flow
+        sprite [fluid/heavy-oil]
+        drop-down <split_item>
+        empty-widget
+        sprite-button [utility/trash] <split_remove>
+       table #stoich_split_table
+        sprite [recipe/advanced-oil-processing]
+        label '{item-name.advanced-oil-processing}'
+        slider #s_1 <split_slider>
+        textfield #f_1 <split_share>
+        label '{stoich.row-percent}'
+        sprite [recipe/coal-liquefaction]
+        label '{item-name.coal-liquefaction}'
+        empty-widget
+        label #l_2 '46.43' ~{stoich.split-last-tooltip}
+        label '{stoich.row-percent}'
+     label '{stoich.section-items}'
+     flow #stoich_items_box
+      table #stoich_items_table
+       empty-widget
+       label '{stoich.col-item}'
+       label '{,{stoich.row-rate}, (,/min,)}'
+       label '{stoich.col-belt}' ~{stoich.col-belt-tooltip}
+       label '{stoich.col-fill}' ~{stoich.col-fill-tooltip}
+       label '{stoich.col-external}' ~{stoich.col-external-tooltip}
+       empty-widget
+       label '{,{stoich.items-inputs}, (4)}' ~{stoich.items-inputs-tooltip}
+       empty-widget
+       empty-widget
+       empty-widget
+       empty-widget
+       sprite [fluid/water]
+       label '{item-name.water}'
+       label '14.2k' ~{stoich.fluid-no-limit}
+       label '—' ~{stoich.fluid-no-limit}
+       label ~{stoich.fluid-no-limit}
+       checkbox <editor_external>
+       sprite [fluid/crude-oil]
+       label '{item-name.crude-oil}'
+       label '8267.9' ~{stoich.fluid-no-limit}
+       label '—' ~{stoich.fluid-no-limit}
+       label ~{stoich.fluid-no-limit}
+       checkbox <editor_external>
+       sprite [fluid/steam]
+       label '{item-name.steam}'
+       label '1378' ~{stoich.fluid-no-limit}
+       label '—' ~{stoich.fluid-no-limit}
+       label ~{stoich.fluid-no-limit}
+       checkbox <editor_external>
+       sprite [item/coal]
+       label '{item-name.coal}'
+       label '755.6' ~{stoich.belt-tooltip,{item-name.transport-belt},900/min,84,}
+       label '[entity=transport-belt]' ~{stoich.belt-tooltip,{item-name.transport-belt},900/min,84,}
+       label '84%' ~{stoich.belt-tooltip,{item-name.transport-belt},900/min,84,}
+       checkbox <editor_external>
+       empty-widget
+       label '{,{stoich.items-outputs}, (1)}' ~{stoich.items-outputs-tooltip}
+       empty-widget
+       empty-widget
+       empty-widget
+       empty-widget
+       sprite [item/plastic-bar]
+       label '{item-name.plastic-bar}'
+       label '960' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+       label '[entity=fast-transport-belt]' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+       label '53%' ~{stoich.belt-tooltip,{item-name.fast-transport-belt},1800/min,53,}
+       checkbox <editor_external>
+       empty-widget
+       label '{,{stoich.items-inside}, (3)}' ~{stoich.items-inside-tooltip}
+       empty-widget
+       empty-widget
+       empty-widget
+       empty-widget
+       sprite [fluid/petroleum-gas]
+       label '{item-name.petroleum-gas}'
+       label '—' ~{stoich.balanced-inside}
+       empty-widget
+       empty-widget
+       checkbox <editor_external>
+       sprite [fluid/light-oil]
+       label '{item-name.light-oil}'
+       label '—' ~{stoich.balanced-inside}
+       empty-widget
+       empty-widget
+       checkbox <editor_external>
+       sprite [fluid/heavy-oil]
+       label '{item-name.heavy-oil}'
+       label '—' ~{stoich.balanced-inside}
+       empty-widget
+       empty-widget
+       checkbox <editor_external>
+   flow #stoich_save_note
+    empty-widget
+    label #stoich_save_reason
+   flow
+    button '{stoich.add-recipe}' <editor_add_recipe>
+    button '{stoich.add-custom}' <editor_add_custom>
+    button '{stoich.rescan}' <editor_rescan>
+    button '{stoich.show-on-map}' <editor_show_map>
+    button '{stoich.recapture}' <editor_recapture>
+    empty-widget
+    button '{stoich.cancel}' <editor_cancel>
+    button #stoich_save '{stoich.save}' <editor_save>
+
+== plan
+frame #stoich_window
+ flow #stoich_titlebar
+  label '{stoich.title}'
+  drop-down #stoich_plan_select <plan_surface>
+  empty-widget
+  sprite-button [utility/clock] <open_log>
+  sprite-button [utility/preset] <open_settings>
+  sprite-button [utility/close] <window_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow #stoich_plan_header
+    frame
+     button '{stoich.capture}' <fac_capture>
+     button '{stoich.new-factory}' <fac_new>
+     button '{stoich.new-recipe}' <fac_new_recipe>
+     button '{stoich.new-sink}' <fac_new_sink>
+     button '{stoich.void-button}' <fac_boundary>
+     button '{stoich.import-button}' <fac_boundary>
+     empty-widget
+     button '{stoich.statistics}' <open_stats>
+     empty-widget
+     sprite-button [utility/export] <fac_export_all>
+     sprite-button [utility/import] <fac_import>
+     sprite-button [utility/trash] <fac_clear_plan>
+     empty-widget
+     label '{stoich.status-EXACT}'
+   flow #stoich_plan_problems
+   flow #stoich_plan_main
+    flow #stoich_plan_table_box
+     flow
+      label '{stoich.filter}'
+      textfield <plan_filter>
+      checkbox '{stoich.hide-ok}' <plan_hide_ok>
+     flow #stoich_plan_rows
+      scroll-pane #stoich_plan_pane
+       table
+        empty-widget
+        label '{stoich.col-name}' ~{stoich.col-name-tooltip}
+        label '{,{stoich.col-recipe}, (,/min,)}' ~{stoich.col-recipe-tooltip}
+        label '{stoich.col-copies}' ~{stoich.col-copies-tooltip}
+        label '{stoich.col-to-build}' ~{stoich.col-to-build-tooltip}
+        empty-widget
+        empty-widget
+        sprite [item/plastic-bar]
+        flow
+         label 'Plastic bar' ~{,{stoich.per-copy},
+,-14.2k/min [fluid=water]
+-8267.9/min [fluid=crude-oil]
+-1378/min [fluid=steam]
+-755.6/min [item=coal]
++960/min [item=plastic-bar]}
+        flow
+         sprite-button [fluid/water] <plan_item>
+         sprite-button [fluid/crude-oil] <plan_item>
+         sprite-button [fluid/steam] <plan_item>
+         sprite-button [item/coal] <plan_item>
+         label '→'
+         sprite-button [item/plastic-bar] <plan_item>
+        flow
+         button '−' <plan_copies>
+         label '1' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+         button '+' <plan_copies>
+         label '{stoich.copies-of,0}' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        label '✓' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        empty-widget
+        flow
+         sprite-button [utility/rename_icon] <fac_edit>
+         sprite-button [utility/center] <show_map>
+         sprite-button [utility/trash] <fac_delete>
+
+== statistics
+frame #stoich_window
+ flow #stoich_titlebar
+  label '{stoich.title}'
+  drop-down #stoich_plan_select <plan_surface>
+  empty-widget
+  sprite-button [utility/clock] <open_log>
+  sprite-button [utility/preset] <open_settings>
+  sprite-button [utility/close] <window_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow #stoich_plan_header
+    frame
+     button '{stoich.capture}' <fac_capture>
+     button '{stoich.new-factory}' <fac_new>
+     button '{stoich.new-recipe}' <fac_new_recipe>
+     button '{stoich.new-sink}' <fac_new_sink>
+     button '{stoich.void-button}' <fac_boundary>
+     button '{stoich.import-button}' <fac_boundary>
+     empty-widget
+     button '{stoich.statistics}' <open_stats>
+     empty-widget
+     sprite-button [utility/export] <fac_export_all>
+     sprite-button [utility/import] <fac_import>
+     sprite-button [utility/trash] <fac_clear_plan>
+     empty-widget
+     label '{stoich.status-EXACT}'
+   flow #stoich_plan_problems
+   flow #stoich_plan_main
+    flow #stoich_plan_table_box
+     flow
+      label '{stoich.filter}'
+      textfield <plan_filter>
+      checkbox '{stoich.hide-ok}' <plan_hide_ok>
+     flow #stoich_plan_rows
+      scroll-pane #stoich_plan_pane
+       table
+        empty-widget
+        label '{stoich.col-name}' ~{stoich.col-name-tooltip}
+        label '{,{stoich.col-recipe}, (,/min,)}' ~{stoich.col-recipe-tooltip}
+        label '{stoich.col-copies}' ~{stoich.col-copies-tooltip}
+        label '{stoich.col-to-build}' ~{stoich.col-to-build-tooltip}
+        empty-widget
+        empty-widget
+        sprite [item/plastic-bar]
+        flow
+         label 'Plastic bar' ~{,{stoich.per-copy},
+,-14.2k/min [fluid=water]
+-8267.9/min [fluid=crude-oil]
+-1378/min [fluid=steam]
+-755.6/min [item=coal]
++960/min [item=plastic-bar]}
+        flow
+         sprite-button [fluid/water] <plan_item>
+         sprite-button [fluid/crude-oil] <plan_item>
+         sprite-button [fluid/steam] <plan_item>
+         sprite-button [item/coal] <plan_item>
+         label '→'
+         sprite-button [item/plastic-bar] <plan_item>
+        flow
+         button '−' <plan_copies>
+         label '1' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+         button '+' <plan_copies>
+         label '{stoich.copies-of,0}' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        label '✓' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        empty-widget
+        flow
+         sprite-button [utility/rename_icon] <fac_edit>
+         sprite-button [utility/center] <show_map>
+         sprite-button [utility/trash] <fac_delete>
+frame #stoich_stats
+ flow #stoich_titlebar
+  label '{stoich.statistics}'
+  empty-widget
+  sprite-button [utility/close] <child_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow
+    label '{stoich.items-explain}'
+    empty-widget
+    button '{stoich.collapse-all}' <items_collapse>
+   label '{stoich.items-unused,5}'
+   label '{stoich.plan-empty}'
+
+== sink
+frame #stoich_window
+ flow #stoich_titlebar
+  label '{stoich.title}'
+  drop-down #stoich_plan_select <plan_surface>
+  empty-widget
+  sprite-button [utility/clock] <open_log>
+  sprite-button [utility/preset] <open_settings>
+  sprite-button [utility/close] <window_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow #stoich_plan_header
+    frame
+     button '{stoich.capture}' <fac_capture>
+     button '{stoich.new-factory}' <fac_new>
+     button '{stoich.new-recipe}' <fac_new_recipe>
+     button '{stoich.new-sink}' <fac_new_sink>
+     button '{stoich.void-button}' <fac_boundary>
+     button '{stoich.import-button}' <fac_boundary>
+     empty-widget
+     button '{stoich.statistics}' <open_stats>
+     empty-widget
+     sprite-button [utility/export] <fac_export_all>
+     sprite-button [utility/import] <fac_import>
+     sprite-button [utility/trash] <fac_clear_plan>
+     empty-widget
+     label '{stoich.status-EXACT}'
+   flow #stoich_plan_problems
+   flow #stoich_plan_main
+    flow #stoich_plan_table_box
+     flow
+      label '{stoich.filter}'
+      textfield <plan_filter>
+      checkbox '{stoich.hide-ok}' <plan_hide_ok>
+     flow #stoich_plan_rows
+      scroll-pane #stoich_plan_pane
+       table
+        empty-widget
+        label '{stoich.col-name}' ~{stoich.col-name-tooltip}
+        label '{,{stoich.col-recipe}, (,/min,)}' ~{stoich.col-recipe-tooltip}
+        label '{stoich.col-copies}' ~{stoich.col-copies-tooltip}
+        label '{stoich.col-to-build}' ~{stoich.col-to-build-tooltip}
+        empty-widget
+        empty-widget
+        sprite [item/plastic-bar]
+        flow
+         label 'Plastic bar' ~{,{stoich.per-copy},
+,-14.2k/min [fluid=water]
+-8267.9/min [fluid=crude-oil]
+-1378/min [fluid=steam]
+-755.6/min [item=coal]
++960/min [item=plastic-bar]}
+        flow
+         sprite-button [fluid/water] <plan_item>
+         sprite-button [fluid/crude-oil] <plan_item>
+         sprite-button [fluid/steam] <plan_item>
+         sprite-button [item/coal] <plan_item>
+         label '→'
+         sprite-button [item/plastic-bar] <plan_item>
+        flow
+         button '−' <plan_copies>
+         label '1' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+         button '+' <plan_copies>
+         label '{stoich.copies-of,0}' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        label '✓' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        empty-widget
+        flow
+         sprite-button [utility/rename_icon] <fac_edit>
+         sprite-button [utility/center] <show_map>
+         sprite-button [utility/trash] <fac_delete>
+frame #stoich_editor
+ flow #stoich_titlebar
+  label '{stoich.editor-title-sink}'
+  empty-widget
+  sprite-button [utility/close] <child_close>
+ frame #stoich_inner
+  flow #stoich_content
+   frame
+    label '{stoich.sink-name}'
+    textfield #stoich_name <editor_name>
+    choose-elem-button <editor_icon>
+    empty-widget
+   flow #stoich_problems_box
+    flow #stoich_problems
+     flow
+      sprite [utility/status_yellow]
+      label '{stoich.empty-sink}'
+   scroll-pane
+    flow
+     label '{stoich.sink-explain}'
+     flow
+      label '{stoich.sink-scale}' ~{stoich.sink-scale-tooltip}
+      slider #stoich_scale_slider <sink_scale>
+      textfield #stoich_scale_field <sink_scale_field>
+     flow #stoich_rows_sink
+      table #stoich_rows_table
+       label '{stoich.row-item}'
+       label '{stoich.row-custom}' ~{stoich.row-custom-tooltip}
+       label '{,{stoich.row-rate}, (,/min,)}'
+       empty-widget
+       choose-elem-button <row_signal>
+       textfield <row_text>
+       textfield <row_rate>
+       sprite-button [utility/trash] <row_delete>
+      button '{stoich.add-row}' <row_add>
+   flow #stoich_save_note
+    empty-widget
+    label #stoich_save_reason '{stoich.save-not-exact,{stoich.status-NEEDS_SPLIT}}'
+   flow
+    empty-widget
+    button '{stoich.cancel}' <editor_cancel>
+    button #stoich_save '{stoich.save}' <editor_save>
+
+== recipe dialog
+frame #stoich_window
+ flow #stoich_titlebar
+  label '{stoich.title}'
+  drop-down #stoich_plan_select <plan_surface>
+  empty-widget
+  sprite-button [utility/clock] <open_log>
+  sprite-button [utility/preset] <open_settings>
+  sprite-button [utility/close] <window_close>
+ frame #stoich_inner
+  flow #stoich_content
+   flow #stoich_plan_header
+    frame
+     button '{stoich.capture}' <fac_capture>
+     button '{stoich.new-factory}' <fac_new>
+     button '{stoich.new-recipe}' <fac_new_recipe>
+     button '{stoich.new-sink}' <fac_new_sink>
+     button '{stoich.void-button}' <fac_boundary>
+     button '{stoich.import-button}' <fac_boundary>
+     empty-widget
+     button '{stoich.statistics}' <open_stats>
+     empty-widget
+     sprite-button [utility/export] <fac_export_all>
+     sprite-button [utility/import] <fac_import>
+     sprite-button [utility/trash] <fac_clear_plan>
+     empty-widget
+     label '{stoich.status-EXACT}'
+   flow #stoich_plan_problems
+   flow #stoich_plan_main
+    flow #stoich_plan_table_box
+     flow
+      label '{stoich.filter}'
+      textfield <plan_filter>
+      checkbox '{stoich.hide-ok}' <plan_hide_ok>
+     flow #stoich_plan_rows
+      scroll-pane #stoich_plan_pane
+       table
+        empty-widget
+        label '{stoich.col-name}' ~{stoich.col-name-tooltip}
+        label '{,{stoich.col-recipe}, (,/min,)}' ~{stoich.col-recipe-tooltip}
+        label '{stoich.col-copies}' ~{stoich.col-copies-tooltip}
+        label '{stoich.col-to-build}' ~{stoich.col-to-build-tooltip}
+        empty-widget
+        empty-widget
+        sprite [item/plastic-bar]
+        flow
+         label 'Plastic bar' ~{,{stoich.per-copy},
+,-14.2k/min [fluid=water]
+-8267.9/min [fluid=crude-oil]
+-1378/min [fluid=steam]
+-755.6/min [item=coal]
++960/min [item=plastic-bar]}
+        flow
+         sprite-button [fluid/water] <plan_item>
+         sprite-button [fluid/crude-oil] <plan_item>
+         sprite-button [fluid/steam] <plan_item>
+         sprite-button [item/coal] <plan_item>
+         label '→'
+         sprite-button [item/plastic-bar] <plan_item>
+        flow
+         button '−' <plan_copies>
+         label '1' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+         button '+' <plan_copies>
+         label '{stoich.copies-of,0}' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        label '✓' ~{,{stoich.shortage-tooltip,0,1,0,100},
+,{stoich.surplus-tooltip,1}}
+        empty-widget
+        flow
+         sprite-button [utility/rename_icon] <fac_edit>
+         sprite-button [utility/center] <show_map>
+         sprite-button [utility/trash] <fac_delete>
+frame #stoich_dialog
+ flow #stoich_titlebar
+  label '{stoich.new-recipe}'
+  empty-widget
+  sprite-button [utility/close] <dialog_close>
+ frame
+  table
+   label '{stoich.recipe-item}' ~{stoich.recipe-item-tooltip}
+   choose-elem-button <dlg_item>
+   label '{stoich.recipe}'
+   drop-down <dlg_recipe_pick>
+   label '{stoich.machine}'
+   drop-down <dlg_machine>
+   label '{stoich.count}' ~{stoich.recipe-count-tooltip}
+   textfield <dlg_num>
+   label '{stoich.modules}'
+   flow
+    choose-elem-button <dlg_module>
+    choose-elem-button <dlg_module>
+    choose-elem-button <dlg_module>
+    choose-elem-button <dlg_module>
+   label '{stoich.beacons}' ~{stoich.beacons-tooltip}
+   flow
+    textfield <dlg_num>
+    drop-down <dlg_beacon>
+    flow
+     choose-elem-button <dlg_beacon_module>
+     choose-elem-button <dlg_beacon_module>
+   label '{stoich.speed-pct}' ~{stoich.speed-pct-tooltip}
+   textfield <dlg_num>
+   label '{stoich.prod-pct}' ~{stoich.prod-pct-tooltip}
+   textfield <dlg_num>
+  label #stoich_module_result '{stoich.module-result,+0%,+0%}'
+ flow #stoich_buttons
+  button '{stoich.cancel}' <dialog_close>
+  empty-widget
+  button '{stoich.pick-machine}' <dlg_pick_machine>
+  button '{stoich.create}' <dlg_recipe_ok>

@@ -27,11 +27,13 @@ function model.init()
   storage.plans = storage.plans or {}
   storage.log = storage.log or {}
   storage.players = storage.players or {}
+  -- per plan: what research (or a mod update) would change, until Update all
+  storage.pending = storage.pending or {}
 end
 
 --- Only what a sink row is made of (the editor works out what its picker shows).
 function model.clean_sink_row(row)
-  return { key = row.key, rate = row.rate, fluid = row.fluid or nil }
+  return { key = row.key, rate = row.rate, fluid = row.fluid or nil, quality = row.quality }
 end
 
 local function migrate_to_2()
@@ -83,6 +85,7 @@ function model.migrate()
   end
   if storage.schema < 2 then migrate_to_2() end
   if storage.schema < 3 then migrate_to_3() end
+  storage.pending = storage.pending or {}
   storage.schema = model.SCHEMA
 end
 
@@ -91,6 +94,7 @@ end
 function model.reset_transient(state)
   state.dialog = nil
   state.recapture = nil
+  state.pick_machine = nil
   state.pending_open = nil
   state.pending_close = nil
   state.focus_item = nil
@@ -306,6 +310,23 @@ function model.delete_factory(id, player_index)
   return true, key
 end
 
+--- Empty a plan: every factory, sink, void and import, its splits and its research notice go.
+--- Its own settings (the quality switch) stay.
+--- @return integer how many factories went
+function model.clear_plan(key, player_index)
+  local p = storage.plans[key]
+  if not p then return 0 end
+  local count = 0
+  for _ in pairs(p.factories) do count = count + 1 end
+  if count == 0 then return 0 end
+  p.factories = {}
+  p.splits = {}
+  p.result = nil
+  if storage.pending then storage.pending[key] = nil end
+  model.log(player_index, { "stoich.log-cleared", count }, nil, key)
+  return count
+end
+
 function model.set_copies(id, copies, player_index)
   local f = model.get(id)
   if not f or model.LIST_KINDS[f.kind] then return false end
@@ -329,8 +350,30 @@ local function line_problems(line)
     if line.kind == "mining" and line.resource and not prototypes.entity[line.resource] then
       problems[#problems + 1] = "resource " .. line.resource
     end
+    -- the tiers it was captured or set up with (a string from Space Age in a game without it)
+    local function tier(q)
+      if q and not prototypes.quality[q] then problems[#problems + 1] = "quality " .. q end
+    end
+    tier(line.recipe_quality)
+    tier(line.machine_quality)
+    local c = line.config
+    if c then
+      -- the machine its numbers come from: one that crafts (an import string could name any)
+      local m = c.machine and prototypes.entity[c.machine]
+      if c.machine and not (m and m.crafting_categories) then problems[#problems + 1] = "machine " .. c.machine end
+      tier(c.machine_quality)
+      tier(c.recipe_quality)
+      tier(c.beacon_quality)
+      if c.beacon and not prototypes.entity[c.beacon] then problems[#problems + 1] = "beacon " .. c.beacon end
+      for _, list in ipairs({ c.modules or {}, c.beacon_modules or {} }) do
+        for _, m in ipairs(list) do
+          if not prototypes.item[m.name] then problems[#problems + 1] = "module " .. m.name end
+          tier(m.quality)
+        end
+      end
+    end
   end
-  for _, key in ipairs(fp_util.sorted_keys(line.flow or {})) do
+  for _, key in ipairs(fp_util.sorted_keys(line.flow or {}, fp_util.key_less)) do
     if not fp_util.key_exists(key) then problems[#problems + 1] = key end
   end
   return problems

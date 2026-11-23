@@ -4,6 +4,7 @@
 local fp_util = require("scripts.util")
 local belts = require("scripts.belts")
 local model = require("scripts.model")
+local plan = require("scripts.plan")
 
 local common = {}
 
@@ -130,6 +131,11 @@ function common.rate_display(ctx, per_second, key, fluid_keys, opts)
   if belts.is_fluid(key, fluid_keys) then
     return { text = text, belt = "—", fill = "", tooltip = L("fluid-no-limit") }
   end
+  -- a trickle (a legendary byproduct): its exact value, and no belt
+  if math.abs(per_second) < 0.01 then
+    local exact = per_second ~= 0 and L("rate-exact", string.format("%.6g", common.from_per_second(ctx, per_second)), common.unit_suffix(ctx)) or nil
+    return { text = text, belt = "", fill = "", tooltip = exact }
+  end
   local check = belts.tier_for(per_second, ctx.tiers, ctx.max_index, ctx.one_lane)
   if not check then return { text = text, belt = "", fill = "" } end
   local tier = check.tier
@@ -209,11 +215,20 @@ function common.icon_sprite(icon)
 end
 
 function common.factory_sprite(f)
+  -- a void or import always shows what it is (older ones took their first item's icon):
+  -- the game's own signals, white and item-sized
+  if f.kind == "void" then return valid_sprite("virtual-signal/signal-trash-bin") end
+  if f.kind == "import" then return valid_sprite("virtual-signal/signal-input") end
   if f.icon then return common.icon_sprite(f.icon) end
   if f.kind == "sink" then return "utility/custom_tag_icon" end
   if f.kind == "void" then return "utility/trash_white" end
   if f.kind == "import" then return "utility/import_slot" end
   return "utility/missing_icon"
+end
+
+--- A factory's icon as a sprite.
+function common.factory_icon(parent, f)
+  return parent.add({ type = "sprite", sprite = common.factory_sprite(f) })
 end
 
 --- Recipe or resource sprite of a line.
@@ -247,32 +262,190 @@ end
 
 --- Tooltip: flow per machine.
 function common.flow_tooltip(ctx, flow, title)
-  local parts = { "", title or "", "\n" }
-  local n = 0
-  for _, key in ipairs(fp_util.sorted_keys(flow)) do
+  return { "", title or "", "\n", common.rates_text(ctx, flow, fp_util.sorted_keys(flow, fp_util.key_less)) }
+end
+
+--- Every rate of these keys as plain text, a line per item with its qualities side by side
+--- ("+30.97/min [circuit]  +3.23/min [circuit, uncommon]"): one string, so no limit on how
+--- many (a LocalisedString takes 20 parameters).
+--- @param keys string[] in the order to show (an item's qualities next to each other)
+function common.rates_text(ctx, flow, keys)
+  local lines, last = {}, nil
+  for _, key in ipairs(keys) do
     local v = flow[key]
-    -- LocalisedString concatenation is limited to 20 parameters; keep it compact.
-    if n < 16 then
-      parts[#parts + 1] = (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) .. " " .. fp_util.rich(key) .. "\n"
-      n = n + 1
+    local text = (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) .. " " .. fp_util.rich(key)
+    local base = fp_util.base_key(key)
+    if base == last then
+      lines[#lines] = lines[#lines] .. "    " .. text
+    else
+      lines[#lines + 1] = text
     end
+    last = base
   end
-  return parts
+  return table.concat(lines, "\n")
+end
+
+-- Item icons --------------------------------------------------------------------------------
+
+--- An item icon for the keys of one base item: the base sprite with its tier's badge when
+--- there is one tier (none for normal), the "any quality" mark when there are several.
+--- @param def table the sprite-button's definition (sprite and quality are set here)
+--- @param keys string[] keys of one base item (one or more tiers)
+function common.item_icon(parent, def, keys)
+  def.sprite = common.key_sprite(keys[1])
+  local tiers = {}
+  for _, k in ipairs(keys) do tiers[fp_util.quality_of(k)] = true end
+  local n = 0
+  for _ in pairs(tiers) do n = n + 1 end
+  local q = fp_util.quality_of(keys[1])
+  if n == 1 and q ~= fp_util.NORMAL and prototypes.quality[q] then def.quality = q end
+  local b = parent.add(def)
+  if n > 1 then
+    -- several tiers: the game's "any quality" mark in the corner
+    local mark = b.add({ type = "sprite", sprite = "utility/any_quality", ignored_by_interaction = true, tooltip = nil })
+    mark.style.size = 12
+    mark.style.stretch_image_to_widget_size = true
+  end
+  return b
+end
+
+--- Keys grouped by base item, in the order their first key comes; each group's keys by
+--- tier: { { base, keys = { ... } } }.
+function common.by_base(keys)
+  local groups, order = {}, {}
+  for _, k in ipairs(keys) do
+    local base = fp_util.base_key(k)
+    if not groups[base] then
+      groups[base] = { base = base, keys = {} }
+      order[#order + 1] = groups[base]
+    end
+    table.insert(groups[base].keys, k)
+  end
+  for _, g in ipairs(order) do table.sort(g.keys, fp_util.key_less) end
+  return order
+end
+
+--- "Gear (rare, epic)" for several tiers of one item, else the item's own name.
+function common.keys_name(keys)
+  if #keys == 1 then return fp_util.localised(keys[1]) end
+  local out = { "", fp_util.localised(fp_util.base_key(keys[1])), " (" }
+  for i, k in ipairs(keys) do
+    if i > 6 then
+      out[#out + 1] = ", …"
+      break
+    end
+    if i > 1 then out[#out + 1] = ", " end
+    out[#out + 1] = fp_util.quality_name(fp_util.quality_of(k))
+  end
+  out[#out + 1] = ")"
+  return out
+end
+
+-- Quality --------------------------------------------------------------------------------------
+
+--- Tiers a player can pick, by level: normal and every other tier the force has unlocked.
+function common.quality_choices(force)
+  local out = {}
+  for _, name in ipairs(fp_util.quality_levels()) do
+    if name == fp_util.NORMAL or (force and force.is_quality_unlocked and force.is_quality_unlocked(name)) then out[#out + 1] = name end
+  end
+  return out
+end
+
+--- Has the force unlocked a tier above normal (Space Age's quality research)?
+function common.quality_unlocked(force)
+  return #common.quality_choices(force) > 1
+end
+
+--- The drop-down choice "every quality" (common.picked_quality returns it as is).
+common.EVERY_QUALITY = "*"
+
+--- A drop-down of tiers; tags carry the choices so the handler maps the index back.
+--- @param every boolean|string? true: an "Every quality" choice at the end; "any": an "Any
+---   quality" choice first (a filter); selected as common.EVERY_QUALITY
+function common.quality_dropdown(parent, force, selected, tags, every)
+  local choices = common.quality_choices(force)
+  if every == "any" then
+    table.insert(choices, 1, common.EVERY_QUALITY)
+  elseif every then
+    choices[#choices + 1] = common.EVERY_QUALITY
+  end
+  local items, index = {}, 1
+  for i, name in ipairs(choices) do
+    if name == common.EVERY_QUALITY then
+      items[i] = { "", "[img=utility/any_quality] ", L(every == "any" and "any-quality" or "every-quality") }
+    else
+      items[i] = { "", "[quality=" .. name .. "] ", fp_util.quality_name(name) }
+    end
+    if name == (selected or fp_util.NORMAL) then index = i end
+  end
+  local t = fp_util.deep_copy(tags)
+  t.choices = choices
+  local dd = parent.add({ type = "drop-down", items = items, selected_index = index, tags = t })
+  -- "Any quality" / "Every quality" need the room (with the icon); a tier alone fits 120
+  dd.style.width = every and 165 or 120
+  return dd
+end
+
+-- A quality condition: the item picker gives the tier (as the game's pickers do), this
+-- comparator how the row compares to it ("any" ignores the tier).
+local OP_CAPTIONS = { ["="] = "=", [">="] = "≥", [">"] = ">", ["<="] = "≤", ["<"] = "<" }
+common.COMPARATORS = { "=", ">=", ">", "<=", "<", "any" }
+
+--- A narrow drop-down of comparators for a quality condition.
+function common.comparator_dropdown(parent, op, tags, enabled)
+  local items, index = {}, 1
+  for i, o in ipairs(common.COMPARATORS) do
+    items[i] = OP_CAPTIONS[o] or L("quality-any")
+    if o == op then index = i end
+  end
+  local dd = parent.add({ type = "drop-down", items = items, selected_index = index, tags = tags, enabled = enabled ~= false,
+    tooltip = L("quality-condition-tooltip") })
+  dd.style.width = 72
+  return dd
+end
+
+--- A condition's comparator and tier: ">=rare" -> ">=", "rare"; "any" -> "any", nil.
+function common.split_condition(cond)
+  if cond == nil or cond == "any" then return cond or "=", nil end
+  local op, tier = cond:match("^([<>=]+)(.+)$")
+  return op or "=", tier
+end
+
+--- The tier picked in a quality_dropdown (nil for normal).
+function common.picked_quality(element)
+  local name = element.tags.choices and element.tags.choices[element.selected_index]
+  if name == fp_util.NORMAL then return nil end
+  return name
 end
 
 -- Display names ----------------------------------------------------------------------------
+
+--- A factory's name as shown: a void or import is the plan's "Void" or "Import" (older ones
+--- were named after their first item).
+function common.display_name(f)
+  if f.kind == "void" then return L("void-button") end
+  if f.kind == "import" then return L("import-button") end
+  return f.name
+end
 
 --- Names for factories, made unique where several share a name: the main
 --- output per copy is appended ("Iron plate · 300/min"), then the id if needed.
 --- @return table<integer, string>
 function common.factory_names(ctx)
   local groups = {}
-  for _, id in ipairs(model.factory_ids(ctx.plan)) do
-    local name = model.get(id).name or ""
-    groups[name] = groups[name] or {}
-    table.insert(groups[name], id)
-  end
   local names = {}
+  for _, id in ipairs(model.factory_ids(ctx.plan)) do
+    local f = model.get(id)
+    if model.BOUNDARY_KINDS[f.kind] then
+      -- one of each per plan: it is the plan's void or import, whatever it was called
+      names[id] = common.display_name(f)
+    else
+      local name = f.name or ""
+      groups[name] = groups[name] or {}
+      table.insert(groups[name], id)
+    end
+  end
   for name, ids in pairs(groups) do
     if #ids == 1 then
       names[ids[1]] = name
@@ -282,7 +455,7 @@ function common.factory_names(ctx)
         local f = model.get(id)
         local net = f.result and f.result.net or {}
         local best, best_v = nil, 0
-        for _, key in ipairs(fp_util.sorted_keys(net)) do
+        for _, key in ipairs(fp_util.sorted_keys(net, fp_util.key_less)) do
           if math.abs(net[key]) > math.abs(best_v) then best, best_v = key, net[key] end
         end
         local caption = name
@@ -305,9 +478,13 @@ function common.unit_names(ctx)
     local f = model.get(id)
     if model.BOUNDARY_KINDS[f.kind] then
       for _, row in ipairs(f.sink_items or {}) do
-        if row.key then names[id .. ":" .. row.key] = { "", names[id] or "", " · ", fp_util.rich(row.key) } end
+        if row.key and not row.quality then names[id .. ":" .. row.key] = { "", names[id] or "", " · ", fp_util.rich(row.key) } end
       end
     end
+  end
+  -- the tiers a quality condition stands for are units of their own
+  for _, unit in ipairs((plan.units(ctx.plan))) do
+    if unit.item then names[unit.id] = { "", names[unit.factory] or "", " · ", fp_util.rich(unit.item) } end
   end
   return names
 end

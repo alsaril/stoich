@@ -283,6 +283,8 @@ end
 function window.plan_changed(key, opts)
   if type(key) ~= "string" then error("window.plan_changed: a plan key is needed", 2) end
   plan.rebalance(key)
+  -- what research would change is checked again (a save may have brought old numbers)
+  storage.pending_dirty = true
   window.refresh_all(opts)
 end
 

@@ -28,6 +28,10 @@ local steps = {
     end
     remote.call(D, "open", 1)
   end,
+  -- the plan balanced again with this code (a loaded save keeps the result it was saved
+  -- with): copies + 1 and - 1 on the copy of the save
+  function() remote.call(D, "act", 1, "plan_copies", { delta = 1 }) end,
+  function() remote.call(D, "act", 1, "plan_copies", { delta = -1 }) end,
   function() shot("plan") end,
   function() remote.call(D, "act", 1, "plan_all_problems", {}) end,
   function() shot("plan-all-problems") end,

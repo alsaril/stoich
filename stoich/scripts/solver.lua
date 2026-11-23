@@ -244,7 +244,7 @@ function solver.balance(lines, anchors, splits, external, opts)
       -- Candidate items: made by a line of the group and by at least one other line.
       -- A split over k producers adds k - 1 equations, so items with the fewest
       -- producers come first (they fix the free choice without over-constraining),
-      -- then external ones, then by name.
+      -- then the lower tier, then external ones, then by name.
       -- An item that already has a valid split can't help: its rows are in the
       -- system, so the free direction already satisfies them.
       local made = {}
@@ -256,6 +256,9 @@ function solver.balance(lines, anchors, splits, external, opts)
       local candidates = sorted_keys(made)
       table.sort(candidates, function(x, y)
         if producers[x] ~= producers[y] then return producers[x] < producers[y] end
+        -- the lower tier first (normal before rare): a split isn't anchored on a byproduct tier
+        local qx, qy = fp_util.quality_of(x), fp_util.quality_of(y)
+        if qx ~= qy then return fp_util.quality_less(qx, qy) end
         local ex, ey = external[x] and 1 or 0, external[y] and 1 or 0
         if ex ~= ey then return ex > ey end
         return x < y

@@ -1,5 +1,6 @@
 -- Factory actions of the main window: new factory, sink, void or import, capture,
--- edit, show on map, delete (with its question), export and import of strings.
+-- edit, show on map, delete (with its question), clearing the plan (also asked), export and
+-- import of strings.
 -- They act on the plan the player looks at.
 
 local common = require("scripts.gui.common")
@@ -41,7 +42,7 @@ handlers.fac_boundary = function(player, element)
   if not check_edit(player) then return end
   local f = draft.new_boundary(element.tags.kind)
   f.sink_items[1] = {}
-  editor.open_factory(player, f, { auto_name = true })
+  editor.open_factory(player, f)
 end
 
 local function give_tool(player)
@@ -89,6 +90,31 @@ handlers.fac_delete_ok = function(player, element)
   if not check_edit(player) then return end
   local deleted, key = model.delete_factory(id, player.index)
   if deleted then window.plan_changed(key) end
+end
+
+-- Clear the plan --------------------------------------------------------------------------------
+
+handlers.fac_clear_plan = function(player)
+  if not check_edit(player) then return end
+  local key = model.selected(player.index)
+  local count = #model.factory_ids(key)
+  if count == 0 then return end
+  local frame = common.open_dialog(player, "clear_plan", L("clear-plan"))
+  local body = frame.add({ type = "frame", style = "inside_shallow_frame_with_padding", direction = "vertical" })
+  body.add({ type = "label", caption = L("clear-plan-confirm", count) })
+  body.add({ type = "label", caption = L("clear-plan-hint"), style = "info_label" })
+  local buttons = common.dialog_buttons(frame)
+  buttons.add({ type = "button", caption = L("cancel"), style = "back_button", tags = { fp = "dialog_close" } })
+  common.spacer(buttons)
+  -- the plan it was asked about, should the player switch plans with the dialog open
+  buttons.add({ type = "button", caption = L("clear-plan"), style = "red_confirm_button", tags = { fp = "fac_clear_plan_ok", plan = key } })
+end
+
+handlers.fac_clear_plan_ok = function(player, element)
+  local key = element.tags.plan -- read before the dialog (and this button) is destroyed
+  common.close_dialog(player)
+  if not check_edit(player) then return end
+  if model.clear_plan(key, player.index) > 0 then window.plan_changed(key) end
 end
 
 -- Export / import ----------------------------------------------------------------------------------

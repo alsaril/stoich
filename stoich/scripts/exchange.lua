@@ -8,7 +8,37 @@ local draft = require("scripts.draft")
 
 local exchange = {}
 
-exchange.FORMAT = 1
+-- 1: before quality. 2: item keys with a tier ("item/gear|rare"), lines with their inputs.
+-- A string is written as 1 when it has neither, so older versions still read it.
+exchange.FORMAT = 2
+
+-- Line fields that came with format 2.
+exchange.V2_LINE_FIELDS = { "recipe_quality", "machine_quality", "variants", "config" }
+
+--- Does packed data need format 2: a key with a tier, or a line with the new fields?
+function exchange.needs_v2(data)
+  local function is_quality_key(v)
+    return type(v) == "string" and v:sub(1, 5) == "item/" and fp_util.quality_of(v) ~= fp_util.NORMAL
+  end
+  local function walk(v)
+    if type(v) ~= "table" then return is_quality_key(v) end
+    for k, x in pairs(v) do
+      if is_quality_key(k) or walk(x) then return true end
+    end
+    return false
+  end
+  for _, f in ipairs(data.factories or {}) do
+    for _, row in ipairs(f.sink_items or {}) do
+      if row.quality then return true end
+    end
+    for _, line in ipairs(f.lines or {}) do
+      for _, field in ipairs(exchange.V2_LINE_FIELDS) do
+        if line[field] ~= nil then return true end
+      end
+    end
+  end
+  return walk(data)
+end
 
 -- Maps keyed by numeric ids don't survive JSON (keys become strings), so they
 -- travel as arrays of pairs.
@@ -33,6 +63,8 @@ local function serialize_line(line)
     label = line.label, count = line.count, flow = line.flow, fluid_keys = key_list(line.fluid_keys),
     overridden = line.overridden or false, idle = line.idle, key = line.key,
     speed_pct = line.speed_pct, prod_pct = line.prod_pct, manual = line.manual, assigned_from = line.assigned_from,
+    recipe_quality = line.recipe_quality, machine_quality = line.machine_quality,
+    variants = line.variants, config = line.config,
   }
 end
 
@@ -69,13 +101,15 @@ local function num(v)
   return n
 end
 
--- An item key: "item/…", "fluid/…" or "custom/…".
+-- An item key: "item/…" (with its tier: "item/…|rare"), "fluid/…" or "custom/…".
 local function item_key(v)
   if type(v) ~= "string" then return nil end
   local t, n = v:match("^(%a+)/(.+)$")
-  if (t == "item" or t == "fluid" or t == "custom") and #n <= 200 then return v end
+  -- "item/x|normal" is "item/x"
+  if (t == "item" or t == "fluid" or t == "custom") and #n <= 200 then return fp_util.key(fp_util.parse_key(v)) end
   return nil
 end
+exchange.item_key = item_key
 
 local function key_set(list)
   local out = {}
@@ -105,6 +139,56 @@ local function id_numbers(list, ids)
   return out
 end
 
+-- What a captured line is worked out from: one entry per set of machine values.
+local function variants_of(v, kind)
+  if type(v) ~= "table" then return nil end
+  local out = {}
+  for _, x in ipairs(v) do
+    if type(x) == "table" then
+      local n, prod = num(x.n), num(x.productivity)
+      if n and n > 0 and prod then
+        local base = type(x.base) == "table" and flow_of(x.base) or nil
+        local speed = num(x.speed)
+        -- a crafter needs its speed, a drill its base flow
+        if (kind == "recipe" and speed) or (kind == "mining" and base) then
+          out[#out + 1] = { n = n, speed = speed, productivity = prod, quality_chance = math.max(0, math.min(1, num(x.quality_chance) or 0)), base = base }
+        end
+      end
+    end
+    if #out >= 100 then break end
+  end
+  return #out > 0 and out or nil
+end
+
+local function tier(v)
+  local q = str(v, 100)
+  if q == fp_util.NORMAL then return nil end
+  return q
+end
+
+local function module_list(v)
+  local out = {}
+  for _, m in ipairs(type(v) == "table" and v or {}) do
+    local slot = type(m) == "table" and num(m.slot)
+    if slot and slot >= 1 and slot <= 64 and slot == math.floor(slot) and str(m.name) then
+      out[#out + 1] = { slot = slot, name = str(m.name), quality = tier(m.quality) }
+    end
+  end
+  return out
+end
+
+-- The configuration of a recipe line added by hand.
+local function config_of(c)
+  if type(c) ~= "table" or not str(c.machine) then return nil end
+  local count = num(c.beacon_count)
+  return {
+    machine = str(c.machine), machine_quality = tier(c.machine_quality), recipe_quality = tier(c.recipe_quality),
+    modules = module_list(c.modules), beacon = str(c.beacon), beacon_quality = tier(c.beacon_quality),
+    beacon_count = count and math.max(0, math.min(1000, math.floor(count))) or nil, beacon_modules = module_list(c.beacon_modules),
+    speed = num(c.speed), prod = num(c.prod),
+  }
+end
+
 local function deserialize_line(l, id)
   return {
     id = id, kind = LINE_KINDS[l.kind] and l.kind or "custom",
@@ -113,6 +197,8 @@ local function deserialize_line(l, id)
     overridden = l.overridden == true, idle = l.idle == true or nil, key = str(l.key),
     speed_pct = num(l.speed_pct), prod_pct = num(l.prod_pct), manual = l.manual == true or nil,
     assigned_from = str(l.assigned_from),
+    recipe_quality = tier(l.recipe_quality), machine_quality = tier(l.machine_quality),
+    variants = variants_of(l.variants, l.kind), config = config_of(l.config),
   }
 end
 
@@ -134,7 +220,10 @@ function exchange.deserialize_factory(s)
       if key then
         local fluid = row.fluid == true and key:sub(1, 7) == "custom/" or nil
         -- a void or import has no rates of its own
-        f.sink_items[#f.sink_items + 1] = { key = key, rate = sink and math.abs(num(row.rate) or 0) or nil, fluid = fluid }
+        -- a void or import row can stand for tiers of its item (a quality condition)
+        local quality = not sink and plan.parse_condition(row.quality) and str(row.quality) or nil
+        if quality then key = fp_util.base_key(key) end
+        f.sink_items[#f.sink_items + 1] = { key = key, rate = sink and math.abs(num(row.rate) or 0) or nil, fluid = fluid, quality = quality }
       end
     end
     local scale = sink and num(s.scale)
@@ -178,11 +267,14 @@ end
 --- at least two of their factories come along).
 --- @param key string the plan they come from
 function exchange.pack(factories, key)
-  local out = { fp = exchange.FORMAT, kind = "plan", factories = {}, splits = {} }
+  local out = { fp = 1, kind = "plan", factories = {}, splits = {} }
   for _, f in ipairs(factories) do out.factories[#out.factories + 1] = exchange.serialize_factory(f) end
   for _, s in ipairs(model.plan(key).splits) do
     out.splits[#out.splits + 1] = { item = s.item, shares = pairs_of(s.shares), match_usage = s.match_usage or nil }
   end
+  if exchange.needs_v2(out) then out.fp = 2 end
+  -- the plan's Quality switch (older versions ignore it)
+  if model.plan(key).quality then out.quality = true end
   return out
 end
 
@@ -200,7 +292,7 @@ function exchange.unpack(data)
 end
 
 function exchange.unpack_unchecked(data)
-  local out = { factories = {}, splits = {} }
+  local out = { factories = {}, splits = {}, quality = data.quality == true or nil }
   for _, s in ipairs(data.factories) do
     out.factories[#out.factories + 1] = { old_id = num(type(s) == "table" and s.id), factory = exchange.deserialize_factory(s) }
   end
@@ -246,6 +338,7 @@ function exchange.add_to_plan(unpacked, player_index, key)
     end
     if n >= 2 then p.splits[#p.splits + 1] = { item = sp.item, shares = shares, match_usage = sp.match_usage } end
   end
+  if unpacked.quality then p.quality = true end
   -- a void or import that came along joins the plan's own (one of each per plan)
   draft.merge_boundaries(key, player_index)
   return added

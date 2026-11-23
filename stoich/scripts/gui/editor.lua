@@ -210,7 +210,7 @@ end
 
 local function main_output(line)
   local best, best_v = nil, 0
-  for _, key in ipairs(fp_util.sorted_keys(line.flow)) do
+  for _, key in ipairs(fp_util.sorted_keys(line.flow, fp_util.key_less)) do
     if line.flow[key] > best_v then best, best_v = key, line.flow[key] end
   end
   return best
@@ -280,35 +280,102 @@ local function render_items(box, player, d, ctx)
   local ext_head = t.add({ type = "label", caption = L("col-external"), style = "bold_label", tooltip = L("col-external-tooltip") })
   ext_head.style.single_line = true
   ext_head.style.minimal_width = 60 -- single-line labels would otherwise shrink to "Exte…"
+  local quality = plan.has_quality(d.plan) or plan.factory_has_quality(f)
+  d.items_open = d.items_open or {}
+  -- an item of several tiers: one row (their total), opening to a row per tier
+  local function base_row(keys)
+    local base = fp_util.base_key(keys[1])
+    local icon = common.item_icon(t, { type = "sprite-button", style = "transparent_slot", tooltip = common.keys_name(keys) }, keys)
+    icon.style.size = 28
+    local cell = t.add({ type = "flow", direction = "horizontal" })
+    cell.style.vertical_align = "center"
+    local open = d.items_open[base]
+    cell.add({ type = "sprite-button", style = "mini_button", sprite = open and "utility/collapse" or "utility/expand",
+      tooltip = L("quality-tiers", #keys), tags = { fp = "editor_items_toggle", item = base } })
+    local name = cell.add({ type = "label", caption = common.keys_name(keys) })
+    name.style.maximal_width = 200
+    local total, any_net, all_external = 0, false, true
+    for _, key in ipairs(keys) do
+      if r.net[key] then
+        total = total + math.abs(r.net[key])
+        any_net = true
+      end
+      if not f.external[key] then all_external = false end
+    end
+    if any_net then
+      common.rate_cells(t, ctx, total, keys[1], fluid_keys, nil, 80)
+    else
+      local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+      dash.style.width = 80
+      dash.style.horizontal_align = "right"
+      t.add({ type = "empty-widget" })
+      t.add({ type = "empty-widget" })
+    end
+    local ext = t.add({ type = "checkbox", state = all_external, enabled = ctx.can_edit,
+      tooltip = { "", L("col-external-tooltip"), "\n", L("external-all-tiers") }, tags = { fp = "editor_external", item = keys[1], keys = keys } })
+    ext.style.left_margin = 16
+    return open
+  end
+  local function item_row(key, indent)
+    if quality then
+      local icon = common.item_icon(t, { type = "sprite-button", style = "transparent_slot", tooltip = fp_util.localised(key) }, { key })
+      icon.style.size = 28
+    else
+      t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
+    end
+    local name = t.add({ type = "label", caption = fp_util.localised(key) })
+    name.style.maximal_width = 200
+    if indent then name.style.left_padding = 24 end
+    local net = r.net[key]
+    if net then
+      -- the group says which way it goes: no minus sign on inputs
+      common.rate_cells(t, ctx, math.abs(net), key, fluid_keys, nil, 80)
+    else
+      local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
+      dash.style.width = 80
+      dash.style.horizontal_align = "right"
+      t.add({ type = "empty-widget" })
+      t.add({ type = "empty-widget" })
+    end
+    local suggested = r.suggested_external[key]
+    local ext = t.add({
+      type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
+      tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
+      tags = { fp = "editor_external", item = key },
+    })
+    ext.style.left_margin = 16
+  end
   for _, group in ipairs(ITEM_GROUPS) do
     if not (group.optional and #groups[group.key] == 0) then
       t.add({ type = "empty-widget" })
-      local head = t.add({ type = "label", caption = { "", L(group.caption), " (" .. #groups[group.key] .. ")" }, style = "caption_label",
+      local count = #groups[group.key]
+      local by_base = quality and common.by_base(groups[group.key]) or nil
+      if by_base then count = #by_base end
+      local head = t.add({ type = "label", caption = { "", L(group.caption), " (" .. count .. ")" }, style = "caption_label",
         tooltip = L(group.tooltip) })
       head.style.top_margin = 6
       for _ = 1, 4 do t.add({ type = "empty-widget" }) end
-      for _, key in ipairs(groups[group.key]) do
-        t.add({ type = "sprite", sprite = common.key_sprite(key), tooltip = fp_util.localised(key) })
-        local name = t.add({ type = "label", caption = fp_util.localised(key) })
-        name.style.maximal_width = 200
-        local net = r.net[key]
-        if net then
-          -- the group says which way it goes: no minus sign on inputs
-          common.rate_cells(t, ctx, math.abs(net), key, fluid_keys, nil, 80)
-        else
-          local dash = t.add({ type = "label", caption = "—", tooltip = L("balanced-inside") })
-          dash.style.width = 80
-          dash.style.horizontal_align = "right"
-          t.add({ type = "empty-widget" })
-          t.add({ type = "empty-widget" })
+      local list = groups[group.key]
+      if by_base then
+        -- tiers of an item together; a single tier as its own row
+        list = {}
+        for _, g in ipairs(by_base) do
+          if #g.keys == 1 then
+            list[#list + 1] = g.keys[1]
+          else
+            list[#list + 1] = g
+          end
         end
-        local suggested = r.suggested_external[key]
-        local ext = t.add({
-          type = "checkbox", state = f.external[key] and true or false, enabled = ctx.can_edit,
-          tooltip = suggested and { "", L("col-external-tooltip"), "\n", L("suggested-tooltip") } or L("col-external-tooltip"),
-          tags = { fp = "editor_external", item = key },
-        })
-        ext.style.left_margin = 16
+      end
+      for _, item in ipairs(list) do
+        if type(item) == "table" then
+          -- several tiers: their row, then a row per tier when it is open
+          if base_row(item.keys) then
+            for _, k in ipairs(item.keys) do item_row(k, true) end
+          end
+        else
+          item_row(item)
+        end
       end
     end
   end
@@ -399,11 +466,17 @@ local function build_header(parent, player, d, ctx)
   bar.style.horizontally_stretchable = true
   bar.style.height = 44
   bar.style.vertical_align = "center"
-  bar.add({ type = "label", caption = L(f.kind == "sink" and "sink-name" or "factory-name") })
-  local name = bar.add({ type = "textfield", name = "stoich_name", text = f.name or "", enabled = ctx.can_edit, tags = { fp = "editor_name" } })
-  name.style.width = 180
-  bar.add({ type = "choose-elem-button", elem_type = "signal", signal = f.icon and { type = f.icon.type, name = f.icon.name } or nil,
-    enabled = ctx.can_edit, tooltip = L("icon"), tags = { fp = "editor_icon" } })
+  if plan.is_boundary(f) then
+    -- the plan's one void or import: its window title says what it is; no name or icon
+    common.factory_icon(bar, f)
+    bar.add({ type = "label", caption = common.display_name(f), style = "caption_label" })
+  else
+    bar.add({ type = "label", caption = L(f.kind == "sink" and "sink-name" or "factory-name") })
+    local name = bar.add({ type = "textfield", name = "stoich_name", text = f.name or "", enabled = ctx.can_edit, tags = { fp = "editor_name" } })
+    name.style.width = 180
+    bar.add({ type = "choose-elem-button", elem_type = "signal", signal = f.icon and { type = f.icon.type, name = f.icon.name } or nil,
+      enabled = ctx.can_edit, tooltip = L("icon"), tags = { fp = "editor_icon" } })
+  end
   common.spacer(bar)
   -- a sink, void or import is always balanced: no status there
   if not plan.is_list(f) then
@@ -454,7 +527,12 @@ local function build_lines(parent, player, d, ctx)
     else
       t.add({ type = "sprite", sprite = common.line_sprite(line), tooltip = common.flow_tooltip(ctx, line.flow, { "", line_name(line), " ", L("per-machine") }) })
       -- the Machine column already tells same-recipe lines apart; split cards use the suffixed names
-      local name = t.add({ type = "label", caption = line_name(line), tooltip = common.flow_tooltip(ctx, line.flow, L("per-machine")) })
+      local tip = common.flow_tooltip(ctx, line.flow, L("per-machine"))
+      -- a line from before 0.5 has no inputs: research leaves it as it is
+      if (line.kind == "recipe" or line.kind == "mining") and not line.overridden and not scanner.has_inputs(line) then
+        tip = { "", tip, "\n", L(line.manual and "old-manual-line-tooltip" or "old-line-tooltip") }
+      end
+      local name = t.add({ type = "label", caption = line_name(line), tooltip = tip })
       name.style.maximal_width = 200
       if line.invalid then name.style.font_color = common.RED end
       if line.missing then name.style.font_color = common.GREY end
@@ -526,6 +604,20 @@ local function build_actions(parent, player, d, ctx)
   bar.add({ type = "button", name = "stoich_save", caption = L("save"), style = "confirm_button", tags = { fp = "editor_save" } })
 end
 
+--- Quality before anything in the plan has it: a switch for the plan (when the force has
+--- a tier above normal), until something in the plan has quality of its own.
+local function quality_toggle(parent, player, d, ctx)
+  if not common.quality_unlocked(player.force) then return end
+  local p = model.plan(d.plan)
+  local own = false
+  for _, f in pairs(p.factories) do
+    if plan.factory_has_quality(f) then own = true end
+  end
+  if own or plan.factory_has_quality(d.factory) then return end
+  parent.add({ type = "checkbox", caption = L("quality-toggle"), tooltip = L("quality-plan-toggle-tooltip"), state = p.quality == true,
+    enabled = ctx.can_edit, tags = { fp = "editor_quality_toggle" } })
+end
+
 function editor.build(player, parent, ctx)
   local d = get_draft(player)
   local f = d.factory
@@ -546,6 +638,7 @@ function editor.build(player, parent, ctx)
     local explain = pane.add({ type = "label", caption = L(f.kind == "void" and "void-explain" or "import-explain"), style = "info_label" })
     explain.style.single_line = false
     explain.style.maximal_width = window.SINK_WIDTH - 40
+    quality_toggle(pane, player, d, ctx)
     rows.build(pane, player, "boundary", ctx, ctx.can_edit, { stretch = true })
   elseif f.kind == "sink" then
     local pane = scroll.add({ type = "flow", direction = "vertical" })
@@ -567,6 +660,7 @@ function editor.build(player, parent, ctx)
       allow_decimal = true, lose_focus_on_confirm = true, enabled = ctx.can_edit, tags = { fp = "sink_scale_field" } })
     field.style.width = 64
     field.style.horizontal_align = "right"
+    quality_toggle(pane, player, d, ctx)
     rows.build(pane, player, "sink", ctx, ctx.can_edit, { stretch = true })
   else
     -- one column: recipe lines, splits, then the items
@@ -646,9 +740,11 @@ end
 -- one is named after that item until the player types a name.
 local function list_changed(player, structural)
   local d = get_draft(player)
-  draft.sink_icon(d.factory)
+  -- a sink is named after and shows its first item; a void or import stays what it is
+  local sink = d.factory.kind == "sink"
+  if sink then draft.sink_icon(d.factory) end
   local first = d.factory.sink_items[1]
-  if d.name_auto and first and first.key and first.key ~= d.name_key then
+  if sink and d.name_auto and first and first.key and first.key ~= d.name_key then
     d.name_key = first.key
     local _, n = fp_util.parse_key(first.key)
     d.factory.name = fp_util.pretty_name(n)
@@ -659,10 +755,19 @@ local function list_changed(player, structural)
   if structural then editor.rebuild(player) else editor.update_results(player) end
 end
 
+--- Does the open draft's plan show quality (or the draft itself have it)?
+local function draft_quality(player)
+  local d = get_draft(player)
+  return d and (plan.has_quality(d.plan) or plan.factory_has_quality(d.factory))
+end
+
+-- A sink asks for an exact tier (a rate of "any quality" can't balance): its picker's.
 rows.targets.sink = { rows = list_items, field = "rate", changed = list_changed }
 
--- The items of a void or import: no rates (the plan balance sets them).
-rows.targets.boundary = { rows = list_items, changed = list_changed }
+-- The items of a void or import: no rates (the plan balance sets them); a row can stand
+-- for tiers of its item (a comparator with the picker's tier).
+rows.targets.boundary = { rows = list_items, changed = list_changed,
+  conditions = function(player) return draft_quality(player) and true or false end }
 
 -- Header handlers ---------------------------------------------------------------------------------
 
@@ -742,7 +847,23 @@ handlers.editor_line_count = { text = with_draft(function(player, element, event
   end
 end) }
 
+handlers.editor_quality_toggle = with_draft(function(player, element, _, d)
+  if not model.can_edit(player) then return end
+  model.plan(d.plan).quality = element.state or nil
+  window.refresh_all()
+  editor.rebuild(player)
+end)
+
+handlers.editor_items_toggle = with_draft(function(player, element, _, d)
+  d.items_open = d.items_open or {}
+  local base = element.tags.item
+  d.items_open[base] = not d.items_open[base] or nil
+  editor.update_results(player)
+end)
+
 handlers.editor_external = with_draft(function(player, element, _, d)
+  -- an item of several tiers: every tier
+  for _, key in ipairs(element.tags.keys or {}) do draft.set_external(d.factory, key, element.state) end
   draft.set_external(d.factory, element.tags.item, element.state)
   rebalance(player)
   editor.update_results(player)
@@ -959,12 +1080,16 @@ end
 -- Lines added by hand ---------------------------------------------------------------------------------
 
 --- Add a recipe line (from the recipe dialog) to the player's draft.
-function editor.add_manual_line(player, line)
+function editor.add_manual_lines(player, lines)
   local d = get_draft(player)
   if not d then return end
-  model.add_line(d.factory, line)
+  for _, line in ipairs(lines) do model.add_line(d.factory, line) end
   rebalance(player)
   editor.rebuild(player)
+end
+
+function editor.add_manual_line(player, line)
+  editor.add_manual_lines(player, { line })
 end
 
 return editor

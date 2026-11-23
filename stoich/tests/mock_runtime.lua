@@ -9,6 +9,20 @@ local API = dofile(TEST_ROOT .. "/tests/fixtures/api.lua")
 
 local mock = {}
 
+-- As in the game: the mod's code can't require once control.lua is parsed (an event, a
+-- remote call). Test code may; the mod's own files (scripts/, control.lua) may not.
+local real_require = require
+mock.runtime = false
+function require(name)
+  if mock.runtime then
+    local src = debug.getinfo(2, "S").source or ""
+    if src:find("/scripts/", 1, true) or src:find("control%.lua$") then
+      error("Require can't be used outside of control.lua parsing.", 2)
+    end
+  end
+  return real_require(name)
+end
+
 -- Style type each element type accepts.
 local STYLE_TYPES = {
   ["button"] = { button_style = true }, ["sprite-button"] = { button_style = true },
@@ -225,8 +239,13 @@ function methods.add(e, def)
     if v < lo or v > hi then error("add: slider value " .. v .. " outside " .. lo .. ".." .. hi, 2) end
   end
   if def.type == "textfield" and def.text ~= nil and type(def.text) ~= "string" then error("add: text must be a string", 2) end
+  local index = def.index
+  if index ~= nil and (type(index) ~= "number" or index < 1 or index > #d.children + 1) then
+    error("add: index " .. tostring(index) .. " out of range 1.." .. (#d.children + 1), 2)
+  end
+  def.index = nil
   local child = make_element(def, e, d.player_index)
-  d.children[#d.children + 1] = child
+  table.insert(d.children, index or #d.children + 1, child)
   return child
 end
 
@@ -464,9 +483,10 @@ end
 
 function mock.reset(opts)
   opts = opts or {}
+  mock.runtime = false
   storage = {}
   local handlers, custom = {}, {}
-  mock.handlers, mock.custom, mock.init = handlers, custom, {}
+  mock.handlers, mock.custom, mock.init, mock.nth = handlers, custom, {}, {}
   local ids = {}
   local n = 0
   for name in pairs(API.events) do
@@ -517,6 +537,20 @@ function mock.reset(opts)
     module_effects = { productivity = 0.04, speed = -0.05, consumption = 0.4, pollution = 0.05 } })
   items["quality-module"] = proto("quality-module", { type = "module", category = "quality", tier = 1,
     module_effects = { quality = 0.01, speed = -0.05 } })
+  -- as the game: a module's bonuses grow by 30% a quality level, its maluses don't
+  for _, m in pairs(items) do
+    if m.type == "module" then
+      m.get_module_effects = function(q)
+        local level = q and prototypes.quality[q] and prototypes.quality[q].level or 0
+        local out = {}
+        for k, v in pairs(m.module_effects) do
+          local bonus = (k == "consumption" or k == "pollution") and v < 0 or (k ~= "consumption" and k ~= "pollution" and v > 0)
+          out[k] = bonus and v * (1 + 0.3 * level) or v
+        end
+        return out
+      end
+    end
+  end
   for _, n2 in ipairs({ "water", "steam", "crude-oil", "heavy-oil", "light-oil", "petroleum-gas" }) do fluids[n2] = proto(n2) end
   local entities = {
     ["assembling-machine-2"] = proto("assembling-machine-2", { type = "assembling-machine", crafting_categories = { crafting = true }, get_crafting_speed = function() return 0.75 end,
@@ -526,7 +560,7 @@ function mock.reset(opts)
     ["recycler"] = proto("recycler", { type = "furnace", crafting_categories = { recycling = true }, get_crafting_speed = function() return 0.5 end,
       module_inventory_size = 4, allowed_effects = { consumption = true, speed = true, pollution = true, quality = true },
       effect_receiver = { base_effect = {}, uses_module_effects = true, uses_beacon_effects = true } }),
-    ["beacon"] = proto("beacon", { type = "beacon", module_inventory_size = 2, distribution_effectivity = 1.5,
+    ["beacon"] = proto("beacon", { type = "beacon", module_inventory_size = 2, distribution_effectivity = 1.5, distribution_effectivity_bonus_per_quality_level = 0.2,
       profile = { 1, 0.7071, 0.5773, 0.5 }, allowed_effects = { consumption = true, speed = true, pollution = true } }),
     ["oil-refinery"] = proto("oil-refinery", { type = "assembling-machine", crafting_categories = { ["oil-processing"] = true }, get_crafting_speed = function() return 1 end }),
     ["chemical-plant"] = proto("chemical-plant", { type = "assembling-machine", crafting_categories = { chemistry = true }, get_crafting_speed = function() return 1 end }),
@@ -540,9 +574,20 @@ function mock.reset(opts)
     ["fast-transport-belt"] = proto("fast-transport-belt", { type = "transport-belt", belt_speed = 0.0625 }),
     ["express-transport-belt"] = proto("express-transport-belt", { type = "transport-belt", belt_speed = 0.09375 }),
   }
+  -- crafting speed grows by 30% a quality level
+  for _, e in pairs(entities) do
+    local base = e.get_crafting_speed
+    if base then
+      e.get_crafting_speed = function(q)
+        local level = q and prototypes.quality[q] and prototypes.quality[q].level or 0
+        return base() * (1 + 0.3 * level)
+      end
+    end
+  end
   prototypes = {
-    item = items, fluid = fluids, recipe = recipes, entity = entities, virtual_signal = { ["signal-A"] = proto("signal-A") },
-    quality = {}, space_location = {}, asteroid_chunk = {},
+    item = items, fluid = fluids, recipe = recipes, entity = entities, virtual_signal = { ["signal-A"] = proto("signal-A"), ["signal-trash-bin"] = proto("signal-trash-bin"),
+      ["signal-input"] = proto("signal-input"), ["signal-output"] = proto("signal-output") },
+    quality = require("tests.fake_game").qualities(opts.quality), space_location = {}, asteroid_chunk = {},
     get_entity_filtered = function(filters)
       local out = {}
       for name, p in pairs(entities) do
@@ -560,7 +605,13 @@ function mock.reset(opts)
     force_recipes[name] = { name = name, energy = r.energy, ingredients = r.ingredients, products = r.products, productivity_bonus = 0, prototype = r, enabled = true, valid = true }
   end
   force_recipes["express-transport-belt"].enabled = false
-  mock.force = { name = "player", valid = true, recipes = force_recipes, belt_stack_size_bonus = 0 }
+  mock.force = { name = "player", valid = true, recipes = force_recipes, belt_stack_size_bonus = 0, mining_drill_productivity_bonus = 0,
+    locked = {} }
+  function mock.force.is_quality_unlocked(name)
+    if type(name) ~= "string" then error("is_quality_unlocked: a quality name is needed", 2) end
+    return prototypes.quality[name] ~= nil and not mock.force.locked[name]
+  end
+  game.forces = { player = mock.force }
   helpers = {
     is_valid_sprite_path = mock.sprite_valid,
     table_to_json = function(t) return json.encode(t) end,
@@ -587,9 +638,14 @@ function mock.reset(opts)
   remote = { add_interface = function(name, functions) mock.interfaces[name] = functions end }
   script = {
     mod_name = "stoich",
-    on_init = function(fn) mock.init.on_init = fn end,
-    on_load = function(fn) mock.init.on_load = fn end,
-    on_configuration_changed = function(fn) mock.init.on_configuration_changed = fn end,
+    -- the game runs these after control.lua is parsed: no require from then on
+    on_init = function(fn) mock.init.on_init = function(...) mock.runtime = true return fn(...) end end,
+    on_load = function(fn) mock.init.on_load = function(...) mock.runtime = true return fn(...) end end,
+    on_configuration_changed = function(fn) mock.init.on_configuration_changed = function(...) mock.runtime = true return fn(...) end end,
+    on_nth_tick = function(tick, fn)
+      if type(tick) ~= "number" then error("on_nth_tick: a tick number is needed", 2) end
+      mock.nth[tick] = fn
+    end,
     on_event = function(event, fn)
       if type(event) == "string" then
         custom[event] = fn
@@ -630,6 +686,17 @@ function mock.add_surface(name, opts)
   return surface
 end
 
+--- Let the game run: game.tick advances, on_nth_tick handlers fire as in the game.
+function mock.run_ticks(n)
+  mock.runtime = true
+  for _ = 1, n do
+    game.tick = game.tick + 1
+    for every, fn in pairs(mock.nth) do
+      if game.tick % every == 0 then fn({ tick = game.tick, nth_tick = every }) end
+    end
+  end
+end
+
 --- The player presses Esc / E: the GUI they have open closes.
 function mock.press_esc(player)
   player.press_esc()
@@ -638,6 +705,7 @@ end
 -- Events ------------------------------------------------------------------------------------------------
 
 function mock.fire(name, data)
+  mock.runtime = true
   data = data or {}
   local id = defines.events[name]
   if not id then error("unknown event " .. name, 2) end
@@ -774,17 +842,51 @@ end
 
 local next_unit = 1
 
+--- A module inventory as the game's: #inv slots, inv[i] a stack (valid_for_read, name, quality).
+--- @param list table[] { name, quality? } by slot (nil: empty)
+local function module_inventory(size, list)
+  local slots = {}
+  for i = 1, size do
+    local m = list and list[i]
+    slots[i] = m and { valid_for_read = true, name = m[1], quality = prototypes.quality[m[2] or "normal"], count = 1 }
+      or { valid_for_read = false }
+  end
+  return setmetatable({}, {
+    __len = function() return size end,
+    __index = function(_, k)
+      if type(k) ~= "number" or k < 1 or k > size then error("LuaInventory: index " .. tostring(k) .. " out of range", 2) end
+      return slots[k]
+    end,
+  })
+end
+
 function mock.crafter(type, name, recipe_name, x, y, opts)
   opts = opts or {}
   local r = recipe_name and mock.force.recipes[recipe_name] or nil
   local proto_ = prototypes.entity[name]
   local e = {
     valid = true, type = type, name = name, position = { x = x, y = y }, unit_number = next_unit,
-    crafting_speed = opts.speed or proto_.get_crafting_speed(), productivity_bonus = opts.prod or 0, speed_bonus = 0,
-    prototype = proto_, surface = opts.surface or mock.surface, quality = { name = "normal" },
-    get_recipe = function() if opts.idle then return nil end return r end,
-    previous_recipe = opts.previous and { name = mock.force.recipes[opts.previous], quality = "normal" } or nil,
+    crafting_speed = opts.speed or proto_.get_crafting_speed(opts.quality), productivity_bonus = opts.prod or 0, speed_bonus = 0,
+    prototype = proto_, surface = opts.surface or mock.surface, quality = prototypes.quality[opts.quality or "normal"],
+    effects = opts.effects or {},
+    -- as the game: the recipe and its quality
+    get_recipe = function()
+      if opts.idle then return nil end
+      return r, r and prototypes.quality[opts.recipe_quality or "normal"] or nil
+    end,
+    previous_recipe = opts.previous and { name = mock.force.recipes[opts.previous], quality = opts.recipe_quality or "normal" } or nil,
   }
+  -- opts.modules: { { name, quality? } } by slot; opts.beacons: { { name, quality?, modules } }
+  local inv = module_inventory(proto_.module_inventory_size or 0, opts.modules)
+  e.get_module_inventory = function() return inv end
+  local beacons = {}
+  for _, b in ipairs(opts.beacons or {}) do
+    local bp = prototypes.entity[b.name]
+    local binv = module_inventory(bp.module_inventory_size or 0, b.modules)
+    beacons[#beacons + 1] = { valid = true, type = "beacon", name = b.name, quality = prototypes.quality[b.quality or "normal"],
+      get_module_inventory = function() return binv end }
+  end
+  e.get_beacons = function() return beacons end
   next_unit = next_unit + 1
   e.surface.entities[#e.surface.entities + 1] = e
   return e

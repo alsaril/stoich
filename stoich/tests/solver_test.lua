@@ -314,3 +314,16 @@ t.test("solver: only one anchor prompt", function()
   t.eq(n, 1)
   t.eq(#find_problem(r, "anchor").lines, 2)
 end)
+
+t.test("solver: a split prompt offers the lower tier first", function()
+  -- two recipes make gears of two tiers: the split is on normal gears, not the rare byproduct
+  local lines = {
+    { id = 1, flow = { ["item/gear"] = 1, ["item/gear|rare"] = 0.1, ["item/plate"] = -2 } },
+    { id = 2, flow = { ["item/gear"] = 0.5, ["item/gear|rare"] = 0.2, ["item/plate"] = -1 } },
+    { id = 3, flow = { ["item/gear"] = -1 } },
+  }
+  local r = solver.balance(lines, { [3] = 1 }, {}, { ["item/plate"] = true, ["item/gear|rare"] = true })
+  local p = find_problem(r, "split")
+  t.eq(p.candidates[1], "item/gear")
+  t.eq(p.candidates[2], "item/gear|rare")
+end)

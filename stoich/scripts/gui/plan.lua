@@ -9,6 +9,7 @@ local problems = require("scripts.gui.problems")
 local scopes = require("scripts.gui.scopes")
 local editor = require("scripts.gui.editor")
 local items = require("scripts.gui.items")
+local notices = require("scripts.gui.notices")
 local model = require("scripts.model")
 local plan = require("scripts.plan")
 local draft = require("scripts.draft")
@@ -71,6 +72,48 @@ local function shown_net(f, r)
   return scaled
 end
 
+--- A factory's items as the row shows them: one group per item and way, its tiers together,
+--- inputs then outputs, each by size (largest first). The chips and the name's tooltip
+--- follow this order.
+--- @return table[] inputs, table[] outputs ({ keys, total })
+local function flow_groups(f, net)
+  local groups, inputs, outputs = {}, {}, {}
+  for _, key in ipairs(fp_util.sorted_keys(net, fp_util.key_less)) do
+    -- a void's items always go in and an import's come out, at 0 too
+    local out = net[key] > 0
+    if f.kind == "void" then out = false elseif f.kind == "import" then out = true end
+    local id = fp_util.base_key(key) .. (out and ">" or "<")
+    local g = groups[id]
+    if not g then
+      g = { id = id, keys = {}, total = 0 }
+      groups[id] = g
+      table.insert(out and outputs or inputs, g)
+    end
+    g.keys[#g.keys + 1] = key
+    g.total = g.total + net[key]
+  end
+  local function by_size(a, b)
+    if math.abs(a.total) ~= math.abs(b.total) then return math.abs(a.total) > math.abs(b.total) end
+    -- by item, as before quality ("item/stone" before "item/stone-brick")
+    return fp_util.key_less(a.keys[1], b.keys[1])
+  end
+  table.sort(inputs, by_size)
+  table.sort(outputs, by_size)
+  return inputs, outputs
+end
+
+--- The keys of a factory's items in the row's order (flow_groups).
+local function flow_order(f, net)
+  local inputs, outputs = flow_groups(f, net)
+  local keys = {}
+  for _, list in ipairs({ inputs, outputs }) do
+    for _, g in ipairs(list) do
+      for _, k in ipairs(g.keys) do keys[#keys + 1] = k end
+    end
+  end
+  return keys
+end
+
 --- Net flow of one copy as plain slots: inputs → outputs (red slots would read as "missing").
 --- The arrow is always there, so a sink reads "inputs →" and a mine "→ outputs".
 local function flow_chips(parent, f, ctx, max_chips, r)
@@ -78,28 +121,29 @@ local function flow_chips(parent, f, ctx, max_chips, r)
   flow.style.horizontal_spacing = 2
   flow.style.vertical_align = "center"
   local net = shown_net(f, r)
-  local inputs, outputs = {}, {}
-  for _, key in ipairs(fp_util.sorted_keys(net)) do
-    -- a void's items always go in and an import's come out, at 0 too
-    local out = net[key] > 0
-    if f.kind == "void" then out = false elseif f.kind == "import" then out = true end
-    table.insert(out and outputs or inputs, key)
-  end
-  local function by_size(a, b)
-    if math.abs(net[a]) ~= math.abs(net[b]) then return math.abs(net[a]) > math.abs(net[b]) end
-    return a < b
-  end
-  table.sort(inputs, by_size)
-  table.sort(outputs, by_size)
+  -- one chip per item and way: its tiers together (a quality build's outputs don't push
+  -- its inputs out of the row)
+  local inputs, outputs = flow_groups(f, net)
   local shown = 0
-  local function chip(key)
-    local v = net[key]
-    local b = flow.add({
-      type = "sprite-button", style = "slot_button", sprite = common.key_sprite(key),
+  local function chip(g)
+    local v = g.total
+    local tip = { "", common.keys_name(g.keys), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true) }
+    if #g.keys > 1 then
+      -- each tier with its rate
+      local tiers = { "" }
+      for i, key in ipairs(g.keys) do
+        if i <= 8 then tiers[#tiers + 1] = { "", "\n", fp_util.rich(key), " ", fp_util.format_rate(net[key], ctx.unit, true) } end
+      end
+      tip[#tip + 1] = tiers
+    end
+    tip[#tip + 1] = "\n"
+    tip[#tip + 1] = L("item-click")
+    local b = common.item_icon(flow, {
+      type = "sprite-button", style = "slot_button",
       number = math.abs(common.from_per_second(ctx, v)),
-      tooltip = { "", fp_util.localised(key), "\n", (v > 0 and "+" or "") .. fp_util.format_rate(v, ctx.unit, true), "\n", L("item-click") },
-      tags = { fp = "plan_item", item = key },
-    })
+      tooltip = tip,
+      tags = { fp = "plan_item", item = g.keys[1] },
+    }, g.keys)
     b.style.size = 32
     shown = shown + 1
   end
@@ -113,8 +157,17 @@ local function flow_chips(parent, f, ctx, max_chips, r)
   for i = 1, out_slots do chip(outputs[i]) end
   local hidden = #inputs + #outputs - shown
   if hidden > 0 then
+    -- the items without a chip, with their rates
+    local keys = {}
+    for i = in_slots + 1, #inputs do
+      for _, k in ipairs(inputs[i].keys) do keys[#keys + 1] = k end
+    end
+    for i = out_slots + 1, #outputs do
+      for _, k in ipairs(outputs[i].keys) do keys[#keys + 1] = k end
+    end
+    local tip = { "", L("more-flows-tooltip", hidden), "\n", common.rates_text(ctx, net, keys) }
     -- single line with room for the text, or a squeezed flow wraps "+5" onto two lines
-    local more = flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = L("more-flows-tooltip", hidden) })
+    local more = flow.add({ type = "label", caption = "+" .. hidden, style = "info_label", tooltip = tip })
     more.style.single_line = true
     more.style.minimal_width = 24
   end
@@ -143,6 +196,8 @@ local function add_buttons(bar, ctx)
     tags = { fp = "fac_export_all" } })
   bar.add({ type = "sprite-button", style = "tool_button", sprite = "utility/import", tooltip = L("import-string"), enabled = ctx.can_edit,
     tags = { fp = "fac_import" } })
+  bar.add({ type = "sprite-button", style = "tool_button_red", sprite = "utility/trash", tooltip = L("clear-plan-tooltip"),
+    enabled = ctx.can_edit and not empty, tags = { fp = "fac_clear_plan" } })
   -- buttons as wide as their captions (not the default 108 px): the status keeps its room
   for _, b in ipairs(bar.children) do
     if b.type == "button" then b.style.minimal_width = 0 end
@@ -255,8 +310,19 @@ local NET_TITLE = { sink = "sink-demand", void = "void-rates", import = "import-
 local function name_cell(t, f, name, ctx, max_width, r)
   local cell = t.add({ type = "flow", direction = "horizontal" })
   cell.style.vertical_align = "center"
-  local label = cell.add({ type = "label", caption = name,
-    tooltip = common.flow_tooltip(ctx, shown_net(f, r), L(NET_TITLE[f.kind] or "per-copy")) })
+  local net = shown_net(f, r)
+  -- in the order of the row's icons
+  local tooltip = { "", L(NET_TITLE[f.kind] or "per-copy"), "\n", common.rates_text(ctx, net, flow_order(f, net)) }
+  -- a factory with several outputs, some left over: what it runs for
+  local binding = r.binding and r.binding[f.id]
+  if binding then
+    local icons = {}
+    for i, k in ipairs(binding) do
+      if i <= 8 then icons[#icons + 1] = fp_util.rich(k) end
+    end
+    tooltip = { "", tooltip, "\n", L("runs-for", table.concat(icons, " ")) }
+  end
+  local label = cell.add({ type = "label", caption = name, tooltip = tooltip })
   label.style.maximal_width = max_width
   if f.invalid then
     label.style.font_color = common.RED
@@ -272,11 +338,8 @@ local function name_cell(t, f, name, ctx, max_width, r)
     mark.style.single_line = true
     mark.style.minimal_width = scale < 1 and 70 or 36
   elseif plan.is_boundary(f) then
-    local void = f.kind == "void"
-    local mark = cell.add({ type = "label", caption = L(void and "void-mark" or "import-mark"), style = "info_label",
-      tooltip = L(void and "void-explain" or "import-explain") })
-    mark.style.single_line = true
-    mark.style.minimal_width = void and 36 or 50
+    -- its name says what it is ("Void"): the explanation in its tooltip
+    label.tooltip = { "", L(f.kind == "void" and "void-explain" or "import-explain"), "\n\n", label.tooltip }
   end
 end
 
@@ -299,6 +362,7 @@ local function plan_cells(t, f, r, ctx)
     tip = L("shortage-tooltip", fp_util.format_count(needed), fp_util.format_count(f.copies),
       fp_util.format_count(math.max(0, shortage)), covered)
     if shortage < -0.005 then tip = { "", tip, "\n", L("surplus-tooltip", fp_util.format_count(-shortage)) } end
+    if r.with_fixes then tip = { "", tip, "\n", L("needed-with-fixes") } end
   end
   -- [−] 2 [+] of 2.09
   local copies = t.add({ type = "flow", direction = "horizontal", tooltip = tip })
@@ -365,7 +429,7 @@ function plan_window.fill_rows(player, holder, r, ctx)
     local class = f and not plan.is_list(f) and plan.shortage_class(r.shortage[id])
     if not (f and matches(f, filter) and not (state.hide_ok and class == "ok")) then return end
     shown = shown + 1
-    t.add({ type = "sprite", sprite = common.factory_sprite(f) })
+    common.factory_icon(t, f)
     name_cell(t, f, names[id], ctx, name_width, r)
     flow_chips(t, f, ctx, max_chips, r)
     plan_cells(t, f, r, ctx)
@@ -453,7 +517,7 @@ local function build_problems(box, player, r, ctx)
       if i <= 10 then
         local f = model.get(id)
         if i > 1 then names[#names + 1] = ", " end
-        names[#names + 1] = f and f.name or "?"
+        names[#names + 1] = f and common.display_name(f) or "?"
       end
     end
     box.add({ type = "label", caption = L("excluded", names), style = "info_label" })
@@ -462,13 +526,16 @@ end
 
 --- A section of the window, made on the first build and reused after (the table keeps
 --- its scroll position); cleared unless the builder keeps parts of it.
-local function section(parent, name, keep)
+--- @param index integer? its place among the parent's children when it is made (a section
+---   that comes and goes, under the ones before it)
+local function section(parent, name, keep, index)
   local box = parent[name]
   if box then
     if not keep then box.clear() end
     return box
   end
-  box = parent.add({ type = "flow", name = name, direction = "vertical" })
+  index = index and math.min(index, #parent.children + 1) or nil
+  box = parent.add({ type = "flow", name = name, direction = "vertical", index = index })
   box.style.vertical_spacing = 6
   box.style.horizontally_stretchable = true
   return box
@@ -528,6 +595,10 @@ function plan_window.build(player, parent, ctx)
   update_selector(player, ctx)
   local r = result(ctx.plan)
   build_header(section(parent, "stoich_plan_header"), player, r, ctx)
+  -- research changed numbers: one click takes them in (no section without notices: it
+  -- would add a gap)
+  local box = section(parent, "stoich_plan_notices", false, 2)
+  if notices.render(box, player, ctx) == 0 then box.destroy() end
   -- problems first: they are what needs doing
   build_problems(section(parent, "stoich_plan_problems"), player, r, ctx)
   build_table(section(parent, "stoich_plan_main", true), player, r, ctx)
@@ -622,6 +693,14 @@ scopes.plan = {
       selected(player))
   end,
   -- problem actions
+  remove_split = function(player, item)
+    local key = selected(player)
+    local index = split_index(key, item)
+    if not index then return end
+    draft.remove_split(model.plan(key), index)
+    model.log(player.index, { "stoich.log-split-removed", fp_util.rich(item) }, nil, key)
+    window.plan_changed(key)
+  end,
   add_sink = function(player, item)
     local f = draft.new_sink()
     f.name = fp_util.pretty_name(select(2, fp_util.parse_key(item)))
@@ -654,12 +733,22 @@ scopes.plan = {
     plan_window.open_split(player, p.splits[index].item)
   end,
   -- the item goes to the plan's void or import (one is made when there is none)
-  add_boundary = function(player, kind, item)
+  -- several tiers of an item go in as one row with the quality condition that covers them
+  add_boundary = function(player, kind, item, keys)
     local key = selected(player)
-    if draft.add_boundary_item(key, kind, item, player.index) then window.plan_changed(key) end
+    local added = false
+    for _, row in ipairs(plan.condition_rows(keys or { item }, plan.present_keys(key))) do
+      if draft.add_boundary_item(key, kind, row.key, player.index, row.quality) then added = true end
+    end
+    if added then window.plan_changed(key) end
   end,
   show_item = function(player, item)
     items.open(player, item)
+  end,
+  -- everyone sees the result: it is the plan's (until the next change)
+  find_fix = function(player)
+    plan.find_fix(selected(player))
+    window.refresh_all()
   end,
 }
 

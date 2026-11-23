@@ -1,0 +1,482 @@
+{
+ "factories": [
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Scrap",
+   "net": {
+    "item/scrap": 16.200000000000003
+   }
+  },
+  {
+   "copies": 1,
+   "items": [
+    {
+     "key": "item/electromagnetic-science-pack",
+     "quality": null,
+     "rate": 0.16666666666666666
+    }
+   ],
+   "kind": "sink",
+   "name": "Electromagnetic science pack"
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Scrap recycling",
+   "net": {
+    "item/advanced-circuit": 0.5160960000000004,
+    "item/advanced-circuit|rare": 0.005990400000000005,
+    "item/advanced-circuit|uncommon": 0.05391360000000005,
+    "item/battery": 0.6881280000000006,
+    "item/battery|rare": 0.007987200000000007,
+    "item/battery|uncommon": 0.07188480000000007,
+    "item/concrete": 1.032192,
+    "item/concrete|rare": 0.011980799999999998,
+    "item/concrete|uncommon": 0.10782719999999998,
+    "item/copper-cable": 0.5160960000000004,
+    "item/copper-cable|rare": 0.005990400000000005,
+    "item/copper-cable|uncommon": 0.05391360000000005,
+    "item/holmium-ore": 0.17203200000000016,
+    "item/holmium-ore|rare": 0.0019968000000000017,
+    "item/holmium-ore|uncommon": 0.017971200000000017,
+    "item/ice": 0.8601599999999998,
+    "item/ice|rare": 0.009983999999999995,
+    "item/ice|uncommon": 0.08985599999999995,
+    "item/iron-gear-wheel": 3.440640000000001,
+    "item/iron-gear-wheel|rare": 0.039936,
+    "item/iron-gear-wheel|uncommon": 0.35942399999999997,
+    "item/low-density-structure": 0.17203200000000016,
+    "item/low-density-structure|rare": 0.0019968000000000017,
+    "item/low-density-structure|uncommon": 0.017971200000000017,
+    "item/processing-unit": 0.34406399999999837,
+    "item/processing-unit|rare": 0.00399359999999998,
+    "item/processing-unit|uncommon": 0.035942399999999826,
+    "item/scrap": -16,
+    "item/solid-fuel": 1.2042240000000002,
+    "item/solid-fuel|rare": 0.013977600000000003,
+    "item/solid-fuel|uncommon": 0.1257984,
+    "item/steel-plate": 0.6881279999999997,
+    "item/steel-plate|rare": 0.007987199999999995,
+    "item/steel-plate|uncommon": 0.07188479999999996,
+    "item/stone": 0.6881279999999997,
+    "item/stone|rare": 0.007987199999999995,
+    "item/stone|uncommon": 0.07188479999999996
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Heavy oil",
+   "net": {
+    "fluid/heavy-oil": 1200
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Water",
+   "net": {
+    "fluid/water": 40,
+    "item/ice": -2
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Light oil",
+   "net": {
+    "fluid/heavy-oil": -38,
+    "fluid/light-oil": 28.5,
+    "fluid/water": -28.5
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Holmium solution",
+   "net": {
+    "fluid/holmium-solution": 8.26,
+    "fluid/water": -0.7,
+    "item/holmium-ore": -0.13999999999999999,
+    "item/stone": -0.07
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Holmium solution",
+   "net": {
+    "fluid/holmium-solution": 8.26,
+    "fluid/water": -0.7,
+    "item/holmium-ore|uncommon": -0.13999999999999999,
+    "item/stone|uncommon": -0.07
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Holmium plate",
+   "net": {
+    "fluid/holmium-solution": -15,
+    "item/holmium-plate": 0.9299999999999999
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Electrolyte",
+   "net": {
+    "fluid/electrolyte": 3.6,
+    "fluid/heavy-oil": -2,
+    "fluid/holmium-solution": -2,
+    "item/stone": -0.2
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Supercapacitor",
+   "net": {
+    "fluid/electrolyte": -1,
+    "item/battery": -0.1,
+    "item/electronic-circuit": -0.4,
+    "item/holmium-plate": -0.2,
+    "item/supercapacitor": 0.18000000000000005,
+    "item/superconductor": -0.2
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Superconductor",
+   "net": {
+    "fluid/light-oil": -1,
+    "item/copper-plate": -0.2,
+    "item/holmium-plate": -0.2,
+    "item/plastic-bar": -0.2,
+    "item/superconductor": 0.7200000000000001
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Electromagnetic science pack",
+   "net": {
+    "fluid/electrolyte": -2.5,
+    "fluid/holmium-solution": -2.5,
+    "item/accumulator": -0.1,
+    "item/electromagnetic-science-pack": 0.18000000000000005,
+    "item/supercapacitor": -0.1
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Accumulator",
+   "net": {
+    "item/accumulator": 0.30000000000000004,
+    "item/battery": -1,
+    "item/iron-plate": -0.4
+   }
+  },
+  {
+   "copies": 1,
+   "items": [
+    {
+     "key": "item/ice",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/concrete",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/low-density-structure",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/steel-plate",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/solid-fuel",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/stone",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/advanced-circuit",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/battery",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/copper-cable",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/copper-plate",
+     "quality": ">=uncommon",
+     "rate": null
+    },
+    {
+     "key": "item/electronic-circuit",
+     "quality": ">=uncommon",
+     "rate": null
+    },
+    {
+     "key": "item/iron-gear-wheel",
+     "quality": "any",
+     "rate": null
+    },
+    {
+     "key": "item/holmium-ore|rare",
+     "quality": null,
+     "rate": null
+    },
+    {
+     "key": "item/plastic-bar",
+     "quality": ">=uncommon",
+     "rate": null
+    },
+    {
+     "key": "item/processing-unit",
+     "quality": "any",
+     "rate": null
+    }
+   ],
+   "kind": "void",
+   "name": "Void"
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Copper cable recycling",
+   "net": {
+    "item/copper-cable": -25.6,
+    "item/copper-plate": 2.8672000000000004,
+    "item/copper-plate|rare": 0.03328,
+    "item/copper-plate|uncommon": 0.29951999999999995
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Copper cable recycling (Uncommon)",
+   "net": {
+    "item/copper-cable|uncommon": -25.6,
+    "item/copper-plate|rare": 0.3328,
+    "item/copper-plate|uncommon": 2.8672000000000004
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Copper cable recycling (Rare)",
+   "net": {
+    "item/copper-cable|rare": -25.6,
+    "item/copper-plate|rare": 3.2
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Electronic circuit recycling",
+   "net": {
+    "item/copper-cable": 8.601600000000001,
+    "item/copper-cable|rare": 0.09984000000000001,
+    "item/copper-cable|uncommon": 0.89856,
+    "item/electronic-circuit": -12.8,
+    "item/iron-plate": 2.8672000000000004,
+    "item/iron-plate|rare": 0.03328,
+    "item/iron-plate|uncommon": 0.29951999999999995
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Electronic circuit recycling (Uncommon)",
+   "net": {
+    "item/copper-cable|rare": 0.9984,
+    "item/copper-cable|uncommon": 8.601600000000001,
+    "item/electronic-circuit|uncommon": -12.8,
+    "item/iron-plate|rare": 0.3328,
+    "item/iron-plate|uncommon": 2.8672000000000004
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Electronic circuit recycling (Rare)",
+   "net": {
+    "item/copper-cable|rare": 9.600000000000001,
+    "item/electronic-circuit|rare": -12.8,
+    "item/iron-plate|rare": 3.2
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Advanced circuit recycling",
+   "net": {
+    "item/advanced-circuit": -1.0666666666666667,
+    "item/copper-cable": 0.9557333333333332,
+    "item/copper-cable|rare": 0.011093333333333334,
+    "item/copper-cable|uncommon": 0.09983999999999998,
+    "item/electronic-circuit": 0.4778666666666666,
+    "item/electronic-circuit|rare": 0.005546666666666667,
+    "item/electronic-circuit|uncommon": 0.04991999999999999,
+    "item/plastic-bar": 0.4778666666666666,
+    "item/plastic-bar|rare": 0.005546666666666667,
+    "item/plastic-bar|uncommon": 0.04991999999999999
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Advanced circuit recycling (Uncommon)",
+   "net": {
+    "item/advanced-circuit|uncommon": -1.0666666666666667,
+    "item/copper-cable|rare": 0.11093333333333333,
+    "item/copper-cable|uncommon": 0.9557333333333332,
+    "item/electronic-circuit|rare": 0.05546666666666667,
+    "item/electronic-circuit|uncommon": 0.4778666666666666,
+    "item/plastic-bar|rare": 0.05546666666666667,
+    "item/plastic-bar|uncommon": 0.4778666666666666
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Advanced circuit recycling (Rare)",
+   "net": {
+    "item/advanced-circuit|rare": -1.0666666666666667,
+    "item/copper-cable|rare": 1.0666666666666667,
+    "item/electronic-circuit|rare": 0.5333333333333333,
+    "item/plastic-bar|rare": 0.5333333333333333
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Processing unit recycling",
+   "net": {
+    "item/advanced-circuit": 0.28672000000000003,
+    "item/advanced-circuit|rare": 0.003328,
+    "item/advanced-circuit|uncommon": 0.029951999999999996,
+    "item/electronic-circuit": 2.8672000000000004,
+    "item/electronic-circuit|rare": 0.03328,
+    "item/electronic-circuit|uncommon": 0.29951999999999995,
+    "item/processing-unit": -0.64
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Processing unit recycling (Uncommon)",
+   "net": {
+    "item/advanced-circuit|rare": 0.03328,
+    "item/advanced-circuit|uncommon": 0.28672000000000003,
+    "item/electronic-circuit|rare": 0.3328,
+    "item/electronic-circuit|uncommon": 2.8672000000000004,
+    "item/processing-unit|uncommon": -0.64
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Processing unit recycling (Rare)",
+   "net": {
+    "item/advanced-circuit|rare": 0.32,
+    "item/electronic-circuit|rare": 3.2,
+    "item/processing-unit|rare": -0.64
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Iron gear wheel recycling",
+   "net": {
+    "item/iron-gear-wheel": -12.8,
+    "item/iron-plate": 5.734400000000001,
+    "item/iron-plate|rare": 0.06656,
+    "item/iron-plate|uncommon": 0.5990399999999999
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Iron gear wheel recycling (Uncommon)",
+   "net": {
+    "item/iron-gear-wheel|uncommon": -12.8,
+    "item/iron-plate|rare": 0.6656,
+    "item/iron-plate|uncommon": 5.734400000000001
+   }
+  },
+  {
+   "copies": 1,
+   "kind": "factory",
+   "name": "Iron gear wheel recycling (Rare)",
+   "net": {
+    "item/iron-gear-wheel|rare": -12.8,
+    "item/iron-plate|rare": 6.4
+   }
+  }
+ ],
+ "splits": [
+  {
+   "item": "item/copper-plate|rare",
+   "match_usage": true,
+   "shares": {
+    "16": 0.933237616654702,
+    "17": 9.33237616654702,
+    "18": 89.73438621679827
+   }
+  },
+  {
+   "item": "item/iron-plate|rare",
+   "match_usage": true,
+   "shares": {
+    "19": 0.3110792055515673,
+    "20": 3.110792055515674,
+    "21": 29.91146207226609,
+    "28": 0.6221584111031346,
+    "29": 6.221584111031348,
+    "30": 59.82292414453218
+   }
+  },
+  {
+   "item": "item/plastic-bar|rare",
+   "match_usage": true,
+   "shares": {
+    "22": 0.933237616654702,
+    "23": 9.332376166547022,
+    "24": 89.73438621679827
+   }
+  },
+  {
+   "item": "item/advanced-circuit|rare",
+   "match_usage": true,
+   "shares": {
+    "25": 0.9178198249082181,
+    "26": 9.17819824908218,
+    "27": 88.25190624117481,
+    "3": 1.6520756848347942
+   }
+  }
+ ]
+}

@@ -152,7 +152,7 @@ end
 --- A sink with the fuel of the selected generators prefilled at rate 0.
 function draft.sink_from_generators(fuels)
   local f = draft.new_sink()
-  for _, key in ipairs(fp_util.sorted_keys(fuels)) do
+  for _, key in ipairs(fp_util.sorted_keys(fuels, fp_util.key_less)) do
     f.sink_items[#f.sink_items + 1] = { key = key, rate = 0 }
   end
   f.name = "Generators"
@@ -201,20 +201,25 @@ function draft.merge_boundaries(key, player_index)
           first = f
         else
           local have = {}
+          local function id_of(row) return row.key .. "\0" .. (row.quality or "") end
           for _, row in ipairs(first.sink_items) do
-            if row.key then have[row.key] = true end
+            if row.key then have[id_of(row)] = true end
           end
           for _, row in ipairs(f.sink_items or {}) do
-            if row.key and not have[row.key] then
-              have[row.key] = true
-              first.sink_items[#first.sink_items + 1] = { key = row.key, fluid = row.fluid }
+            if row.key and not have[id_of(row)] then
+              have[id_of(row)] = true
+              first.sink_items[#first.sink_items + 1] = { key = row.key, fluid = row.fluid, quality = row.quality }
             end
-            -- an import's share in a plan split goes with its item
-            local from, to = plan.unit_id(f.id, row.key or ""), plan.unit_id(first.id, row.key or "")
-            for _, split in ipairs(p.splits) do
-              if split.shares[from] ~= nil then
-                if split.shares[to] == nil then split.shares[to] = split.shares[from] end
-                split.shares[from] = nil
+          end
+          -- an import's share in a plan split goes with its item (every tier a condition
+          -- row stands for is a unit of its own: "<id>:<key>")
+          local prefix = plan.unit_id(f.id, "")
+          for _, split in ipairs(p.splits) do
+            for _, uid in ipairs(fp_util.sorted_keys(split.shares, function(a, b) return tostring(a) < tostring(b) end)) do
+              if type(uid) == "string" and uid:sub(1, #prefix) == prefix then
+                local to = plan.unit_id(first.id, uid:sub(#prefix + 1))
+                if split.shares[to] == nil then split.shares[to] = split.shares[uid] end
+                split.shares[uid] = nil
               end
             end
           end
@@ -233,17 +238,16 @@ function draft.merge_boundaries(key, player_index)
 end
 
 --- Add an item to a plan's void or import, or to a new one, and save it.
+--- @param quality string? a quality condition ("any", ">=rare"…): the row stands for those
+---   tiers of the item (item is then its base key)
 --- @return boolean added (false: already there)
-function draft.add_boundary_item(key, kind, item, player_index)
+function draft.add_boundary_item(key, kind, item, player_index, quality)
   local f = draft.boundary_of(key, kind)
   local copy = f and fp_util.deep_copy(f) or draft.new_boundary(kind)
   for _, row in ipairs(copy.sink_items) do
-    if row.key == item then return false end
+    if row.key == item and row.quality == quality then return false end
   end
-  -- a new one is named after its first item, and shows it
-  if not f then copy.name = fp_util.pretty_name(select(2, fp_util.parse_key(item))) end
-  copy.sink_items[#copy.sink_items + 1] = { key = item }
-  draft.sink_icon(copy)
+  copy.sink_items[#copy.sink_items + 1] = { key = item, quality = quality }
   plan.balance_factory(copy)
   model.save_factory(copy, { revision = f and f.revision }, player_index, false, key)
   return true
@@ -364,7 +368,7 @@ function draft.split_candidates(lines, split)
   for item, k in pairs(made) do
     if k >= 2 then out[#out + 1] = item end
   end
-  table.sort(out)
+  table.sort(out, fp_util.key_less)
   return out
 end
 
@@ -416,6 +420,10 @@ function draft.apply_rescan(f, scan)
         if new then
           line.count = new.count
           line.flow = new.flow
+          -- what it is worked out from: research follows the machines as they are now
+          line.variants = new.variants
+          line.recipe_quality = new.recipe_quality
+          line.machine_quality = new.machine_quality
           line.missing = nil
           stats.updated = stats.updated + 1
         else
@@ -477,7 +485,7 @@ end
 --- Turn a flow map into editable rows (for overrides of scanned lines).
 function draft.rows_from_flow(line)
   local rows = {}
-  for _, key in ipairs(fp_util.sorted_keys(line.flow)) do
+  for _, key in ipairs(fp_util.sorted_keys(line.flow, fp_util.key_less)) do
     rows[#rows + 1] = { key = key, amount = line.flow[key], fluid = line.fluid_keys and line.fluid_keys[key] or nil }
   end
   return rows

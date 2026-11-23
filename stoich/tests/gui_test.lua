@@ -418,15 +418,26 @@ t.test("gui: a long problem list shows its first rows; split prompts come first"
   local list = mock.named(win(p), "stoich_problems")
   local first = list.children[1]
   t.eq(first.children[#first.children].tags.fp, "problem_split", "the split prompt first")
-  t.eq(#list.children, 4, "four rows")
+  -- rows: the list's own, and an item table's (four cells a row: icon, problem, actions, alternatives)
+  local function rows_of(l)
+    local n = 0
+    for _, c in ipairs(l.children) do
+      if c.type == "table" then n = n + #c.children / 4 else n = n + 1 end
+    end
+    return n
+  end
+  t.eq(rows_of(list), 4, "four rows")
+  local items = mock.named(list, "stoich_problem_items")
+  t.truthy(items, "the items' rows in one table")
+  t.eq(items.column_count, 4)
   -- the rest behind a toggle under the list, which scrolls in a pane of its own
   t.eq(list.parent.name, "stoich_problems_pane")
   t.eq(list.parent.style.maximal_height, 220)
   click(p, "plan_all_problems")
-  t.truthy(#mock.named(win(p), "stoich_problems").children > 5, "all of them")
+  t.truthy(rows_of(mock.named(win(p), "stoich_problems")) > 5, "all of them")
   t.truthy(mock.find(win(p), "plan_all_problems"), "the toggle is still there to go back")
   click(p, "plan_all_problems")
-  t.eq(#mock.named(win(p), "stoich_problems").children, 4, "back to four")
+  t.eq(rows_of(mock.named(win(p), "stoich_problems")), 4, "back to four")
 end)
 
 t.test("gui: plan split between two factories, slider in its window", function()
@@ -697,6 +708,28 @@ t.test("gui: delete with confirmation, rescan, show on map, add recipe and custo
   t.eq(storage.plans.nauvis.factories[id], nil)
 end)
 
+t.test("gui: Clear plan asks, then empties the plan and logs it", function()
+  local p = boot()
+  saved_oil(p)
+  open(p)
+  go(p, "plan")
+  local n = 0
+  for _ in pairs(storage.plans.nauvis.factories) do n = n + 1 end
+  t.truthy(n > 0)
+  click(p, "fac_clear_plan")
+  t.truthy(dialog(p))
+  click(p, "dialog_close")
+  t.truthy(next(storage.plans.nauvis.factories), "cancel keeps the plan")
+  click(p, "fac_clear_plan")
+  click(p, "fac_clear_plan_ok", { plan = "nauvis" })
+  t.eq(dialog(p), nil)
+  t.eq(next(storage.plans.nauvis.factories), nil)
+  t.eq(#storage.plans.nauvis.splits, 0)
+  t.eq(storage.log[#storage.log].action[1], "stoich.log-cleared")
+  t.truthy(win(p), "window rebuilt")
+  t.eq(mock.find(win(p), "fac_clear_plan").enabled, false, "nothing left to clear")
+end)
+
 t.test("gui: removed mod marks factories invalid and the GUI still builds", function()
   local p = boot()
   local id = saved_oil(p)
@@ -848,6 +881,8 @@ t.test("gui: idle machines can be deleted; add sink fixes surpluses", function()
   custom_factory("gear press", { ["item/plastic-bar"] = -1, ["item/iron-gear-wheel"] = 1, ["item/sulfur"] = 1 })
   add_sink(p, "iron-gear-wheel", 60)
   t.eq(mock.find(scr(p), "problem_sink", { mode = "plan", item = "fluid/crude-oil" }), nil, "no sink offered for a missing input")
+  -- what the plan needs comes in and its byproduct goes out, all listed at once: show them all
+  click(p, "plan_all_problems")
   click(p, "problem_sink", { mode = "plan", item = "item/sulfur" })
   t.eq(draft_of(p).factory.kind, "sink")
   t.eq(draft_of(p).factory.sink_items[1].key, "item/sulfur")
@@ -1387,8 +1422,9 @@ t.test("gui: voids and imports close the plan, from the toolbar or a problem", f
   local r = storage.plans.nauvis.result
   t.eq(r.status, "CONFLICT")
   go(p, "plan")
-  -- the missing cable: import it; then the surplus copper shows: void it
-  t.eq(mock.find(win(p), "problem_boundary", { item = "item/copper-plate" }), nil)
+  -- the missing cable comes in and the surplus copper goes out: both listed at once
+  t.truthy(mock.find(win(p), "problem_boundary", { item = "item/copper-plate", kind = "void" }), "the copper byproduct, at once")
+  t.eq(mock.find(win(p), "problem_boundary", { item = "item/copper-cable", kind = "void" }), nil, "nothing makes cable: no void")
   click(p, "problem_boundary", { item = "item/copper-cable", kind = "import" })
   t.eq(storage.plans.nauvis.result.status, "CONFLICT")
   click(p, "problem_boundary", { item = "item/copper-plate", kind = "void" })
@@ -1399,8 +1435,8 @@ t.test("gui: voids and imports close the plan, from the toolbar or a problem", f
     if f.kind == "void" then void = f elseif f.kind == "import" then import = f end
   end
   t.truthy(void and import)
-  t.truthy(mock.text(win(p)):find("<stoich.void-mark>", 1, true), "void row")
-  t.truthy(mock.text(win(p)):find("<stoich.import-mark>", 1, true), "import row")
+  t.truthy(mock.text(win(p)):find("<stoich.void-button>", 1, true), "void row")
+  t.truthy(mock.text(win(p)):find("<stoich.import-button>", 1, true), "import row")
   -- no copies for them
   t.eq(mock.find(win(p), "plan_copies", { id = void.id }), nil)
   -- statistics names them
@@ -1478,12 +1514,20 @@ t.test("gui: a recipe factory, picked by item, with modules and beacons", functi
   t.truthy(d, "editor open")
   t.eq(#d.factory.lines, 1)
   local line = d.factory.lines[1]
-  t.near(line.speed_pct, speed, 1e-6)
+  -- the line keeps its configuration, not totals
+  t.eq(line.speed_pct, nil)
+  t.eq(line.config.machine, "recycler")
+  t.eq(line.config.modules[1].name, "speed-module")
+  t.eq(line.config.beacon_count, 2)
+  t.eq(line.config.beacon_modules[1].name, "speed-module")
   t.eq(line.machine, "recycler")
   -- 0.5 speed / 0.03125 s = 16 cables a second at base speed, an eighth of a plate each
   local crafts = 16 * (1 + speed / 100)
   t.near(line.flow["item/copper-cable"], -crafts, 1e-6)
   t.near(line.flow["item/copper-plate"], crafts / 8, 1e-6)
+  -- worked out again from it: the same flow
+  local again = require("scripts.scanner").line_flow(line, mock.force)
+  t.map_near(again, line.flow, 1e-9, "recomputed")
   t.eq(d.factory.result.status, "EXACT")
   t.eq(d.factory.icon.type, "recipe")
   t.eq(#p.translations, 1, "named after the recipe once translated")
@@ -1501,18 +1545,21 @@ t.test("gui: a split between a factory and an import is set by hand, the import 
   require("scripts.draft").add_boundary_item("nauvis", "import", "item/copper-plate", 1)
   require("scripts.gui.window").plan_changed("nauvis")
   go(p, "plan")
-  t.eq(storage.plans.nauvis.result.status, "NEEDS_SPLIT")
-  click(p, "problem_split", { mode = "plan" })
+  -- the plan settles it: recycling cable it needs would only raise the import
+  t.eq(storage.plans.nauvis.result.status, "EXACT")
+  t.near(storage.plans.nauvis.result.counts[recycler.id], 0, 1e-9)
+  -- a split the player sets (or an older save has): the import first
+  require("scripts.gui.scopes").plan.add_split(p, "item/copper-plate")
   local split = storage.plans.nauvis.splits[1]
   t.eq(split.match_usage, nil, "nothing built to match")
   t.eq(split.shares[recycler.id], 0)
   t.eq(storage.plans.nauvis.result.status, "EXACT")
   t.near(storage.plans.nauvis.result.counts[cables.id], 1)
-  -- the plan's split row shows the import with its own icon
+  -- the plan's split row shows the import's share with the import's icon
   mock.press_esc(p)
   local import_chip = false
   for _, chip in ipairs(mock.find_all(win(p), "plan_split_edit")) do
-    if chip.type == "sprite-button" and chip.sprite == "item/copper-plate" then import_chip = true end
+    if chip.type == "sprite-button" and chip.sprite == "virtual-signal/signal-input" then import_chip = true end
   end
   t.truthy(import_chip, "the import's share shows its icon")
   click(p, "plan_split_edit", { item = "item/copper-plate" })
@@ -1535,8 +1582,10 @@ t.test("gui: one void per plan: made on first use, then opened; an imported one 
   t.eq(draft_of(p).factory.id, nil, "a new void")
   t.eq(mock.named(scr(p), "stoich_save").enabled, false, "needs an item")
   mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "coal" })
-  t.eq(draft_of(p).factory.name, "Coal", "named after its first item")
-  t.eq(draft_of(p).factory.icon.name, "coal")
+  t.eq(draft_of(p).factory.name, "Void", "the plan's void, not named after its first item")
+  t.eq(draft_of(p).factory.icon, nil)
+  t.eq(mock.named(scr(p), "stoich_name"), nil, "no name field: one void per plan")
+  t.truthy(mock.text(scr(p)):find("<stoich.void-button>", 1, true))
   mock.click(p, mock.named(scr(p), "stoich_save"))
   local id = next(storage.plans.nauvis.factories)
   click(p, "fac_boundary", { kind = "void" })
@@ -1581,7 +1630,8 @@ t.test("gui: a plan that can't balance lists what would close it, with one-click
   add_sink(p, "iron-plate", 60)
   local r = storage.plans.nauvis.result
   t.eq(r.status, "CONFLICT")
-  t.eq(#r.fixes, 1)
+  t.eq(#r.fixes, 1, "a small plan: the search runs by itself")
+  t.eq(r.complicated, nil)
   -- void the stone where it comes out, rather than make bricks only to void them
   t.eq(r.fixes[1].item, "custom/stone")
   t.near(r.fixes[1].rate, 0.5)
@@ -1621,9 +1671,613 @@ t.test("gui: a recipe with many outputs still shows its input in the plan", func
   t.truthy(shown["custom/product"], "the output keeps a slot")
 end)
 
+t.test("gui: research changes nothing by itself; the plan offers Update all", function()
+  local p = boot()
+  local id = saved_oil(p)
+  -- a factory captured before 0.5: its lines have no inputs and never change
+  local old = custom_factory("old plastic", { ["item/plastic-bar"] = 2, ["fluid/petroleum-gas"] = -20, ["item/coal"] = -1 })
+  local f = storage.plans.nauvis.factories[id]
+  local plastic
+  for _, line in ipairs(f.lines) do
+    if line.recipe == "plastic-bar" then plastic = line end
+    if line.recipe and not line.idle then t.truthy(line.variants, "a new capture keeps its inputs: " .. line.recipe) end
+  end
+  local before_flow = plastic.flow["item/plastic-bar"]
+  go(p, "plan")
+  mock.run_ticks(120)
+  t.eq(mock.find(win(p), "notice_update_all"), nil, "nothing changed yet")
+  -- research: +10% plastic
+  mock.force.recipes["plastic-bar"].productivity_bonus = 0.1
+  mock.fire("on_research_finished", { research = { name = "plastics-productivity" }, by_script = false })
+  t.eq(plastic.flow["item/plastic-bar"], before_flow, "research changes nothing by itself")
+  mock.run_ticks(60)
+  t.truthy(mock.text(win(p)):find("<stoich.research-changes>", 1, true), "the notice")
+  local pending = storage.pending.nauvis
+  t.eq(#pending.factories, 1)
+  t.eq(pending.factories[1].id, id)
+  t.eq(pending.factories[1].lines, 1)
+  -- another player has the factory open meanwhile
+  local p2 = mock.new_player(2, { admin = true })
+  mock.fire("on_player_joined_game", { player_index = 2 })
+  go(p2, "plan")
+  click(p2, "fac_edit", { id = id })
+  t.truthy(draft_of(p2))
+  local revision = f.revision
+  click(p, "notice_update_all")
+  f = storage.plans.nauvis.factories[id]
+  for _, line in ipairs(f.lines) do
+    if line.recipe == "plastic-bar" then plastic = line end
+  end
+  t.near(plastic.flow["item/plastic-bar"], before_flow * 1.1, 1e-9)
+  t.eq(f.revision, revision + 1)
+  t.eq(storage.plans.nauvis.factories[old.id].revision, old.revision, "the old factory is left alone")
+  local last = storage.log[#storage.log]
+  t.eq(last.action[1], "stoich.log-research-update")
+  mock.run_ticks(60)
+  t.eq(mock.find(win(p), "notice_update_all"), nil, "taken in")
+  t.eq(storage.pending.nauvis, nil)
+  -- their save would undo the update: the stale-save question
+  mock.type_text(p2, mock.find(scr(p2), "editor_name"), "Oil 2")
+  mock.click(p2, mock.named(scr(p2), "stoich_save"))
+  t.truthy(mock.find(dialog(p2), "conflict_overwrite"), "stale save")
+end)
+
+t.test("gui: only players who can edit see Update all", function()
+  local p = boot({ edit = "admins" })
+  local p2 = mock.new_player(2, { admin = false })
+  mock.fire("on_player_joined_game", { player_index = 2 })
+  saved_oil(p)
+  mock.force.recipes["plastic-bar"].productivity_bonus = 0.2
+  mock.fire("on_research_finished", { research = { name = "x" }, by_script = true })
+  mock.run_ticks(60)
+  go(p2, "plan")
+  t.truthy(mock.text(win(p2)):find("<stoich.research-changes>", 1, true), "they see the notice")
+  t.eq(mock.find(win(p2), "notice_update_all"), nil, "but not the button")
+  go(p, "plan")
+  t.truthy(mock.find(win(p), "notice_update_all"))
+end)
+
+t.test("gui: the recipe dialog with quality: recipe, machine, module and beacon tiers", function()
+  local p = boot({ quality = true })
+  open(p)
+  click(p, "fac_new_recipe")
+  t.eq(mock.find(dialog(p), "dlg_quality"), nil, "no quality in the plan: no pickers")
+  -- quality before anything has it, for this dialog
+  mock.check(p, mock.find(dialog(p), "dlg_quality_toggle"), true)
+  t.truthy(mock.find(dialog(p), "dlg_quality", { field = "recipe_quality" }))
+  mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
+  local dlg = storage.players[1].dialog
+  t.eq(dlg.recipe, "copper-cable-recycling")
+  local function pick_tier(field, name)
+    local dd = mock.find(dialog(p), "dlg_quality", { field = field })
+    for i, q in ipairs(dd.tags.choices) do
+      if q == name then mock.select(p, dd, i) end
+    end
+  end
+  pick_tier("recipe_quality", "rare")
+  t.eq(dlg.recipe_quality, "rare")
+  pick_tier("machine_quality", "uncommon")
+  t.eq(dlg.machine_quality, "uncommon")
+  pick_tier("recipe_quality", "normal")
+  t.eq(dlg.recipe_quality, nil, "normal is no tier")
+  pick_tier("recipe_quality", "rare")
+  -- module pickers carry a tier
+  local slot = mock.find(dialog(p), "dlg_module", { slot = 1 })
+  t.eq(slot.elem_type, "item-with-quality")
+  mock.pick(p, slot, { name = "quality-module", quality = "legendary" })
+  t.eq(dlg.modules[1], "quality-module")
+  t.eq(dlg.module_qualities[1], "legendary")
+  mock.type_text(p, mock.find(dialog(p), "dlg_num", { field = "beacon_count" }), "1")
+  pick_tier("beacon_quality", "epic")
+  t.eq(dlg.beacon_quality, "epic")
+  mock.pick(p, mock.find(dialog(p), "dlg_beacon_module", { slot = 1 }), { name = "speed-module", quality = "normal" })
+  t.eq(dlg.beacon_module_qualities[1], nil)
+  t.truthy(mock.text(dialog(p)):find("<stoich.quality-split>", 1, true), "where the products land")
+  click(p, "dlg_recipe_ok")
+  local line = draft_of(p).factory.lines[1]
+  t.eq(line.recipe_quality, "rare")
+  t.eq(line.config.machine_quality, "uncommon")
+  t.eq(line.config.modules[1].quality, "legendary")
+  -- rare cable in; rare plates out and some epic and legendary
+  t.truthy(line.flow["item/copper-cable|rare"] < 0, "rare cable in")
+  t.truthy(line.flow["item/copper-plate|rare"] > 0)
+  t.truthy(line.flow["item/copper-plate|epic"] > 0)
+  t.truthy(line.flow["item/copper-plate|legendary"] > 0)
+  t.eq(line.flow["item/copper-plate"], nil)
+  -- an uncommon recycler at 0.5 × 1.3 speed, the epic beacon's speed module
+  local speed = 0.5 * 1.3 * (1 + (-0.05) + (1.5 + 0.2 * 3) * 0.2)
+  local crafts = speed / 0.03125
+  t.near(line.flow["item/copper-cable|rare"], -crafts, 1e-9)
+  -- the chance: the legendary module's 2.5%, less the beacon's speed module malus (1% × 2.1)
+  local chance = 0.025 - 0.01 * (1.5 + 0.2 * 3)
+  t.near(line.flow["item/copper-plate|epic"], crafts / 8 * chance * 0.9, 1e-9)
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  -- now the plan has quality: the next dialog shows the pickers at once
+  go(p, "plan")
+  click(p, "fac_new_recipe")
+  t.truthy(mock.find(dialog(p), "dlg_quality"), "the plan has quality")
+  t.eq(mock.find(dialog(p), "dlg_quality_toggle"), nil)
+  click(p, "dialog_close")
+end)
+
+t.test("gui: the recipe dialog's Every quality makes a line (a factory) per unlocked quality", function()
+  local p = boot({ quality = true })
+  mock.force.locked.legendary = true
+  open(p)
+  local function every_quality()
+    mock.check(p, mock.find(dialog(p), "dlg_quality_toggle"), true)
+    mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
+    local dd = mock.find(dialog(p), "dlg_quality", { field = "recipe_quality" })
+    t.eq(dd.tags.choices[#dd.tags.choices], "*", "the last choice")
+    for _, q in ipairs(dd.tags.choices) do t.truthy(q ~= "legendary", "locked: not offered") end
+    local n = #dd.tags.choices
+    mock.select(p, dd, n)
+    local dlg = storage.players[1].dialog
+    t.truthy(dlg.every_quality)
+    t.eq(dlg.recipe_quality, nil)
+    t.eq(mock.find(dialog(p), "dlg_quality", { field = "recipe_quality" }).selected_index, n, "stays picked")
+    mock.pick(p, mock.find(dialog(p), "dlg_module", { slot = 1 }), { name = "quality-module", quality = "rare" })
+    click(p, "dlg_recipe_ok")
+  end
+  -- in the editor: four lines of one factory, each its own recipe quality, the same modules
+  click(p, "fac_new")
+  click(p, "editor_add_recipe")
+  every_quality()
+  local lines = draft_of(p).factory.lines
+  t.eq(#lines, 4)
+  local tiers = {}
+  for i, line in ipairs(lines) do
+    tiers[i] = line.recipe_quality or "normal"
+    t.eq(line.config.modules[1].quality, "rare")
+    t.truthy(line.flow["item/copper-cable" .. (line.recipe_quality and ("|" .. line.recipe_quality) or "")] < 0, "its own quality of cable in")
+  end
+  t.eq(table.concat(tiers, " "), "normal uncommon rare epic")
+  click(p, "editor_cancel")
+  -- from the toolbar: four factories saved at once, the plan balance sets their copies
+  go(p, "plan")
+  click(p, "fac_new_recipe")
+  every_quality()
+  t.eq(dialog(p), nil)
+  local names = {}
+  for _, f in pairs(storage.plans.nauvis.factories) do
+    names[#names + 1] = f.name
+    t.eq(f.result.status, "EXACT")
+  end
+  table.sort(names)
+  t.eq(table.concat(names, ", "), "Copper cable recycling, Copper cable recycling (Epic), Copper cable recycling (Rare), Copper cable recycling (Uncommon)")
+  t.eq(p.printed[#p.printed][1], "stoich.every-quality-added")
+end)
+
+t.test("gui: a capture reads recipe, machine and quality chance; research of a tier changes it", function()
+  local p = boot({ quality = true })
+  local list = {}
+  for i = 1, 3 do
+    list[#list + 1] = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", i * 3, 0,
+      { recipe_quality = "rare", quality = "legendary", effects = { quality = 0.1 } })
+  end
+  list[#list + 1] = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", 12, 0)
+  capture(p, list)
+  local f = draft_of(p).factory
+  local rare, plain
+  for _, line in ipairs(f.lines) do
+    if line.recipe_quality == "rare" then rare = line else plain = line end
+  end
+  t.eq(rare.count, 3)
+  t.eq(rare.machine_quality, "legendary")
+  t.eq(rare.key, "recipe|copper-cable|assembling-machine-2|rare|legendary")
+  t.eq(plain.key, "recipe|copper-cable|assembling-machine-2", "a normal machine keeps its old key")
+  -- legendary assembler 2: 0.75 × 2.5 speed; 2 cables a craft, rolled from rare at 10%
+  local crafts = 0.75 * 2.5 / 0.5
+  t.near(rare.flow["item/copper-plate|rare"], -crafts, 1e-9)
+  t.near(rare.flow["item/copper-cable|rare"], 2 * crafts * 0.9, 1e-9)
+  t.near(rare.flow["item/copper-cable|epic"], 2 * crafts * 0.09, 1e-9)
+  t.near(rare.flow["item/copper-cable|legendary"], 2 * crafts * 0.01, 1e-9)
+  t.eq(rare.variants[1].quality_chance, 0.1)
+  local scanner = require("scripts.scanner")
+  t.map_near(scanner.line_flow(rare, mock.force), rare.flow, 1e-12, "worked out again")
+  t.map_near(plain.flow, { ["item/copper-plate"] = -1.5, ["item/copper-cable"] = 3 }, 1e-12, "no quality: as before")
+  -- the build is named and anchored after its highest output tier: the rare line's
+  t.eq(f.anchors[rare.id], 3)
+  t.eq(f.icon.name, "copper-cable")
+  -- legendary locked (a modded reset, say): rolls stop at epic
+  mock.force.locked.legendary = true
+  local after = scanner.line_flow(rare, mock.force)
+  t.near(after["item/copper-cable|epic"], 2 * crafts * 0.1, 1e-9)
+  t.eq(after["item/copper-cable|legendary"], nil)
+end)
+
+t.test("gui: a plan without quality looks exactly as before quality (0.4)", function()
+  local now = require("tests.no_quality_scenario")(mock)
+  local h = assert(io.open(TEST_ROOT .. "/tests/fixtures/no_quality_snapshot.txt"))
+  local before = h:read("*a")
+  h:close()
+  if now ~= before then
+    -- the first line that differs
+    local a, b = {}, {}
+    for line in before:gmatch("[^\n]*") do a[#a + 1] = line end
+    for line in now:gmatch("[^\n]*") do b[#b + 1] = line end
+    for i = 1, math.max(#a, #b) do
+      if a[i] ~= b[i] then t.eq(b[i], a[i], "line " .. i) end
+    end
+  end
+end)
+
+t.test("gui: a plan with quality: switch, conditions, Void all, any-quality marks, filters", function()
+  local p = boot({ quality = true })
+  -- a void before anything has quality: the switch turns quality on for the plan
+  go(p, "plan")
+  click(p, "fac_boundary", { kind = "void" })
+  t.eq(mock.find(scr(p), "row_quality"), nil, "no quality yet")
+  mock.click(p, mock.find(scr(p), "editor_quality_toggle"))
+  t.eq(storage.plans.nauvis.quality, true)
+  -- the picker gives the tier (as the game's do); a comparator next to it the condition
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "copper-plate", quality = "rare" })
+  local row = draft_of(p).factory.sink_items[1]
+  t.eq(row.key, "item/copper-plate|rare") t.eq(row.quality, nil)
+  local function compare(op)
+    local dd = mock.find(scr(p), "row_quality", { mode = "boundary" })
+    t.truthy(dd, "the comparator")
+    for i, c in ipairs(require("scripts.gui.common").COMPARATORS) do
+      if c == op then mock.select(p, dd, i) return end
+    end
+  end
+  compare(">=")
+  t.eq(row.key, "item/copper-plate") t.eq(row.quality, ">=rare")
+  t.truthy(mock.text(editor_win(p)):find("<stoich.quality-at-least>", 1, true), "the row says which qualities")
+  t.eq(mock.find(scr(p), "row_signal", { mode = "boundary" }).elem_value.quality, "rare", "the picker shows the tier")
+  -- another tier on the picker keeps the comparator
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "boundary" }), { type = "item", name = "copper-plate", quality = "epic" })
+  t.eq(row.key, "item/copper-plate") t.eq(row.quality, ">=epic")
+  compare("=")
+  t.eq(row.key, "item/copper-plate|epic", "one tier is the item's own key") t.eq(row.quality, nil)
+  compare("any")
+  t.eq(row.key, "item/copper-plate") t.eq(row.quality, "any")
+  click(p, "editor_cancel")
+
+  -- gears with quality modules: four tiers nothing uses
+  local gears = custom_factory("Gears", { ["item/iron-plate"] = -2, ["item/iron-gear-wheel"] = 0.9, ["item/iron-gear-wheel|uncommon"] = 0.09,
+    ["item/iron-gear-wheel|rare"] = 0.009, ["item/iron-gear-wheel|epic"] = 0.0009, ["item/iron-gear-wheel|legendary"] = 0.0001 })
+  custom_factory("Plates", { ["item/iron-plate"] = 1 })
+  -- a sink for normal gears: its row picks a tier
+  go(p, "plan")
+  click(p, "fac_new_sink")
+  -- a sink row has no comparator: its picker's tier is what it asks for
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "sink" }), { type = "item", name = "iron-gear-wheel", quality = "rare" })
+  t.eq(draft_of(p).factory.sink_items[1].key, "item/iron-gear-wheel|rare")
+  t.eq(mock.find(scr(p), "row_quality", { mode = "sink" }), nil)
+  mock.pick(p, mock.find(scr(p), "row_signal", { mode = "sink" }), { type = "item", name = "iron-gear-wheel", quality = "normal" })
+  t.eq(draft_of(p).factory.sink_items[1].key, "item/iron-gear-wheel")
+  mock.type_text(p, mock.find(scr(p), "row_rate", { mode = "sink" }), "54")
+  mock.type_text(p, mock.find(scr(p), "editor_name"), "Gears out")
+  mock.click(p, mock.named(scr(p), "stoich_save"))
+  go(p, "plan")
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  -- one problem row for the four tiers, with Void all
+  local voids = {}
+  for _, b in ipairs(mock.find_all(win(p), "problem_boundary")) do
+    if b.tags.kind == "void" and b.tags.keys and #b.tags.keys == 4 then voids[#voids + 1] = b end
+  end
+  t.eq(#voids, 1, "one Void all for the tiers")
+  t.truthy(mock.text(win(p)):find("<stoich.void-all>", 1, true))
+  mock.click(p, voids[1])
+  r = storage.plans.nauvis.result
+  t.eq(r.status, "EXACT", "one click closes the plan")
+  local void
+  for _, f in pairs(storage.plans.nauvis.factories) do if f.kind == "void" then void = f end end
+  t.eq(#void.sink_items, 1, "one row (the void was made by the click)")
+  t.eq(void.sink_items[1].key, "item/iron-gear-wheel")
+  t.eq(void.sink_items[1].quality, ">=uncommon")
+  -- the plan's chips: the gears' outputs as one icon with the any-quality mark
+  go(p, "plan")
+  local marks = 0
+  for _, e in ipairs(mock.all(win(p))) do
+    if e.type == "sprite" and e.sprite == "utility/any_quality" then marks = marks + 1 end
+  end
+  t.truthy(marks >= 2, "the gears' tiers and the void's items carry the mark")
+  -- statistics: gears as one row, opening to their tiers; the filter lists some tiers only
+  click(p, "open_stats")
+  local base = mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel", base = true })
+  t.truthy(base, "a row for the item")
+  t.eq(mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|rare" }), nil, "its tiers closed")
+  local pane = mock.named(stats_win(p), "stoich_items_pane")
+  mock.click(p, base)
+  t.truthy(mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|rare" }), "open")
+  -- opened in place: the same scroll pane (a rebuild scrolls away from the row)
+  t.truthy(pane.valid, "not rebuilt")
+  mock.click(p, mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|rare" }))
+  t.truthy(pane.valid)
+  local function table_text() return mock.text(mock.named(stats_win(p), "stoich_items_table")) end
+  local in_place = table_text()
+  require("scripts.gui.items").refresh(p)
+  t.eq(table_text(), in_place, "the same rows as a rebuild")
+  -- closed again in place: the rare gears' sources and then the qualities go
+  pane = mock.named(stats_win(p), "stoich_items_pane")
+  mock.click(p, mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|rare" }))
+  mock.click(p, mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel", base = true }))
+  t.truthy(pane.valid)
+  t.eq(mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|rare" }), nil, "closed")
+  local closed = table_text()
+  require("scripts.gui.items").refresh(p)
+  t.eq(table_text(), closed, "the same rows as a rebuild, closed")
+  mock.click(p, mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel", base = true }))
+  -- a drop-down of Any quality (first, the default) or one quality
+  local function filter() return mock.find(stats_win(p), "items_quality") end
+  t.eq(filter().tags.choices[1], "*")
+  t.eq(filter().selected_index, 1, "any quality")
+  local epic
+  for i, q in ipairs(filter().tags.choices) do if q == "epic" then epic = i end end
+  mock.select(p, filter(), epic)
+  t.eq(storage.players[1].stats_quality, "epic")
+  t.eq(filter().selected_index, epic, "stays picked")
+  t.eq(mock.find(stats_win(p), "items_toggle", { item = "item/iron-plate" }), nil, "normal plates filtered out")
+  t.truthy(mock.find(stats_win(p), "items_toggle", { item = "item/iron-gear-wheel|epic" }), "epic gears, a row of their own")
+  mock.select(p, filter(), 1)
+  t.eq(storage.players[1].stats_quality, nil, "back to any quality")
+  t.truthy(mock.find(stats_win(p), "items_toggle", { item = "item/iron-plate" }), "every quality again")
+  mock.press_esc(p)
+  -- the editor's items: one row for the tiers, External for all of them
+  click(p, "fac_edit", { id = gears.id })
+  local toggle = mock.find(scr(p), "editor_items_toggle", { item = "item/iron-gear-wheel" })
+  t.truthy(toggle)
+  mock.click(p, toggle)
+  t.truthy(mock.find(scr(p), "editor_external", { item = "item/iron-gear-wheel|epic" }), "the tiers' rows")
+  local all
+  for _, e in ipairs(mock.find_all(scr(p), "editor_external")) do
+    if e.tags.keys then all = e end
+  end
+  t.eq(all.state, true, "all external (as custom_factory makes them)")
+  mock.click(p, all)
+  local f = draft_of(p).factory
+  for _, q in ipairs({ "", "|uncommon", "|rare", "|epic", "|legendary" }) do
+    t.eq(f.external["item/iron-gear-wheel" .. q], nil, "every tier: " .. q)
+  end
+  t.eq(f.external["item/iron-plate"], true, "the other item stays")
+end)
+
+t.test("gui: a string from Space Age with tiers this game lacks: invalid, never a crash", function()
+  local p = boot() -- no quality mod: normal only
+  local exchange = require("scripts.exchange")
+  local data = { fp = 2, kind = "plan", splits = {}, factories = { {
+    name = "Rare gears", kind = "factory", copies = 1, next_line_id = 2, anchors = { { 1, 1 } }, external = { "item/iron-plate", "item/iron-gear-wheel" },
+    lines = { { id = 1, kind = "recipe", recipe = "copper-cable", machine = "assembling-machine-2", count = 1, manual = true,
+      flow = { ["item/copper-plate"] = -1, ["item/copper-cable"] = 2 },
+      recipe_quality = "rare",
+      config = { machine = "assembling-machine-2", machine_quality = "epic", modules = { { slot = 1, name = "speed-module", quality = "legendary" } } } } },
+  } } }
+  local unpacked = assert(exchange.unpack(data))
+  exchange.add_to_plan(unpacked, 1, "nauvis")
+  local f
+  for _, x in pairs(storage.plans.nauvis.factories) do f = x end
+  t.truthy(f.invalid, "its tiers don't exist here")
+  -- research and the once-a-second check: no error
+  mock.fire("on_research_finished", { research = { name = "x" }, by_script = true })
+  mock.run_ticks(120)
+  t.eq(storage.pending.nauvis, nil)
+  mock.init.on_configuration_changed()
+  go(p, "plan")
+end)
+
+t.test("gui: tiers picked in the dialog don't count once its Quality is off", function()
+  local p = boot({ quality = true })
+  open(p)
+  click(p, "fac_new_recipe")
+  mock.check(p, mock.find(dialog(p), "dlg_quality_toggle"), true)
+  mock.pick(p, mock.find(dialog(p), "dlg_recipe"), "copper-cable")
+  local dd = mock.find(dialog(p), "dlg_quality", { field = "machine_quality" })
+  mock.select(p, dd, 3)
+  local dlg = storage.players[1].dialog
+  t.truthy(dlg.machine_quality)
+  mock.check(p, mock.find(dialog(p), "dlg_quality_toggle"), false)
+  t.eq(dlg.machine_quality, nil)
+  click(p, "dlg_recipe_ok")
+  t.eq(draft_of(p).factory.lines[1].config.machine_quality, nil)
+end)
+
+t.test("gui: a plan too complicated to search after every change gets Find a fix", function()
+  local p = boot()
+  local plan = require("scripts.plan")
+  local budget = plan.AUTO_WORK
+  plan.AUTO_WORK = 0 -- no work allowed: the search waits for the button
+  custom_factory("mine", { ["item/iron-ore"] = 2, ["custom/stone"] = 1 })
+  custom_factory("bricks", { ["custom/stone"] = -2, ["custom/brick"] = 1 })
+  custom_factory("plates", { ["item/iron-ore"] = -1, ["item/iron-plate"] = 1 })
+  add_sink(p, "iron-plate", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  t.eq(r.complicated, true)
+  t.eq(r.fixes, nil)
+  go(p, "plan")
+  t.truthy(mock.text(win(p)):find("<stoich.find-fix-explain>", 1, true))
+  click(p, "problem_find_fix", { mode = "plan" })
+  r = storage.plans.nauvis.result
+  t.eq(#r.fixes, 1, "the full search")
+  t.eq(r.fixes[1].item, "custom/stone")
+  t.eq(mock.find(win(p), "problem_find_fix"), nil, "found: the button is gone")
+  -- the next change balances again: complicated again
+  click(p, "plan_copies", { delta = 1 })
+  t.eq(storage.plans.nauvis.result.complicated, true)
+  plan.AUTO_WORK = budget
+end)
+
+t.test("gui: a void named after its first item by an older version shows as the plan's Void", function()
+  local p = boot()
+  custom_factory("plates", { ["item/iron-plate"] = 1, ["item/copper-plate"] = 1 })
+  local draft = require("scripts.draft")
+  draft.add_boundary_item("nauvis", "void", "item/copper-plate", 1)
+  local void = draft.boundary_of("nauvis", "void")
+  -- as 0.4 left it
+  void.name, void.icon = "Copper plate", { type = "item", name = "copper-plate" }
+  require("scripts.gui.window").plan_changed("nauvis")
+  go(p, "plan")
+  local text = mock.text(win(p))
+  t.truthy(text:find("<stoich.void-button>", 1, true), "shown as Void")
+  t.eq(text:find("Copper plate", 1, true), nil, "not by its old name")
+  local bin = false
+  for _, e in ipairs(mock.all(win(p))) do
+    if e.type == "sprite" and e.sprite == "virtual-signal/signal-trash-bin" then bin = true end
+  end
+  t.truthy(bin, "with the bin icon")
+end)
+
+t.test("gui: the recipe dialog copies a machine's modules and beacons from the map; the recipe stays", function()
+  local p = boot({ quality = true })
+  local recycler = mock.crafter("furnace", "recycler", nil, 5, 5, {
+    modules = { { "quality-module", "legendary" }, { "quality-module", "legendary" }, { "speed-module" } },
+    beacons = { { name = "beacon", quality = "rare", modules = { { "speed-module" }, { "speed-module" } } },
+      { name = "beacon", quality = "rare", modules = { { "speed-module" }, { "speed-module" } } } },
+  })
+  open(p)
+  click(p, "fac_new_recipe")
+  t.eq(mock.find(dialog(p), "dlg_pick_machine").enabled, false, "a recipe first")
+  mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
+  local dlg = storage.players[1].dialog
+  t.eq(dlg.recipe, "copper-cable-recycling")
+  click(p, "dlg_pick_machine")
+  t.eq(dialog(p), nil, "out of the way while picking")
+  t.eq(p.cursor, TOOL)
+  t.truthy(p.gui.screen.stoich_hint, "a hint says what to do")
+  -- the player drags over the recycler
+  mock.fire("on_player_selected_area", { player_index = 1, item = TOOL, entities = { recycler }, area = AREA, surface = mock.surface })
+  t.truthy(dialog(p), "back")
+  dlg = storage.players[1].dialog
+  t.eq(dlg.recipe, "copper-cable-recycling", "the recipe stays")
+  t.eq(dlg.machines[dlg.machine_index], "recycler")
+  t.eq(dlg.modules[1], "quality-module") t.eq(dlg.module_qualities[1], "legendary")
+  t.eq(dlg.modules[3], "speed-module") t.eq(dlg.module_qualities[3], nil)
+  t.eq(dlg.modules[4], nil, "an empty slot")
+  t.eq(dlg.beacon, "beacon") t.eq(dlg.beacon_quality, "rare") t.eq(dlg.beacon_count, 2)
+  t.eq(dlg.beacon_modules[2], "speed-module")
+  t.eq(dlg.quality, true, "tiers show")
+  t.eq(p.cursor, nil)
+  click(p, "dlg_recipe_ok")
+  local line = draft_of(p).factory.lines[1]
+  t.eq(line.config.modules[1].quality, "legendary")
+  t.eq(line.config.beacon_count, 2)
+  -- a machine that can't make the recipe: said so, nothing copied
+  click(p, "editor_cancel")
+  go(p, "plan")
+  click(p, "fac_new_recipe")
+  mock.pick(p, mock.find(dialog(p), "dlg_item"), "copper-cable")
+  click(p, "dlg_pick_machine")
+  local am = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", 9, 9, { modules = { { "speed-module" } } })
+  mock.fire("on_player_selected_area", { player_index = 1, item = TOOL, entities = { am }, area = AREA, surface = mock.surface })
+  t.eq(storage.players[1].dialog.modules[1], nil)
+  t.truthy(#p.printed > 0, "told")
+  -- dropping the tool brings the dialog back as it was
+  click(p, "dlg_pick_machine")
+  p.clear_cursor()
+  t.truthy(dialog(p), "back after Q")
+  t.eq(storage.players[1].pick_machine, nil)
+end)
+
+t.test("gui: suggested fixes list the imports first", function()
+  local p = boot()
+  -- a byproduct to void (coal: the search lists it first, by name) and an input nothing makes (cable)
+  custom_factory("plates", { ["item/iron-plate"] = 1, ["item/coal"] = 1 })
+  custom_factory("science", { ["item/iron-plate"] = -1, ["item/copper-cable"] = -1, ["item/automation-science-pack"] = 1 })
+  add_sink(p, "automation-science-pack", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(#r.fixes, 2)
+  t.eq(r.fixes[1].item, "item/coal", "the search's order: the void first")
+  go(p, "plan")
+  local first = mock.find(win(p), "problem_boundary")
+  t.eq(first.tags.kind, "import", "the import first")
+  t.eq(first.tags.item, "item/copper-cable")
+end)
+
+t.test("gui: a split that forces an import is named with Remove split; the fixes are without it", function()
+  local p = boot()
+  -- science makes coal on the side; a second coal maker needs wood nothing makes
+  local science = custom_factory("science", { ["item/automation-science-pack"] = 1, ["item/coal"] = 1 })
+  local burner = custom_factory("wood to coal", { ["item/wood"] = -1, ["item/coal"] = 1 })
+  storage.plans.nauvis.splits = { { item = "item/coal", shares = { [science.id] = 50, [burner.id] = 50 } } }
+  add_sink(p, "automation-science-pack", 60)
+  local r = storage.plans.nauvis.result
+  t.eq(r.status, "CONFLICT")
+  t.eq(table.concat(r.splits_in_way or {}, ","), "item/coal")
+  t.eq(#r.fixes, 1)
+  t.eq(r.fixes[1].item, "item/coal", "without the split: void the coal, no wood")
+  go(p, "plan")
+  t.truthy(mock.text(win(p)):find("<stoich.split-in-way>", 1, true))
+  click(p, "problem_remove_split", { item = "item/coal" })
+  t.eq(#storage.plans.nauvis.splits, 0)
+  t.eq(storage.log[#storage.log].action[1], "stoich.log-split-removed")
+  t.eq(storage.plans.nauvis.result.splits_in_way, nil)
+end)
+
+t.test("gui: a factory's tooltip lists every rate; the +N label lists the items without a chip", function()
+  local p = boot()
+  local fp_util_rich = require("scripts.util").rich
+  local keys = {}
+  for name in pairs(prototypes.item) do keys[#keys + 1] = "item/" .. name end
+  for name in pairs(prototypes.fluid) do keys[#keys + 1] = "fluid/" .. name end
+  table.sort(keys)
+  local n = math.min(#keys, 20)
+  t.truthy(n > 16, "more than the old cut of 16: " .. n)
+  local net = {}
+  for i = 1, n do net[keys[i]] = i end
+  custom_factory("many", net)
+  open(p)
+  go(p, "plan")
+  local more
+  local function flat(v)
+    if type(v) ~= "table" then return tostring(v) end
+    local out = {}
+    for i = 1, #v do out[#out + 1] = flat(v[i]) end
+    return table.concat(out)
+  end
+  local name_label
+  local function find_name(e)
+    if e.type == "label" and e.caption == "many" then name_label = e end
+    for _, c in ipairs(e.children) do find_name(c) end
+  end
+  find_name(win(p))
+  t.truthy(name_label, "the factory's name")
+  local text = flat(name_label.tooltip)
+  for i = 1, n do
+    local rich = fp_util_rich(keys[i]):gsub("[%-%[%]]", "%%%0")
+    local _, count = text:gsub(rich, "")
+    t.truthy(count >= 1, "listed: " .. keys[i])
+  end
+  -- in the order of the row's icons (by size), not by name
+  local chips = {}
+  local function find_chips(e)
+    if e.tags and e.tags.fp == "plan_item" then chips[#chips + 1] = e.tags.item end
+    for _, c in ipairs(e.children) do find_chips(c) end
+  end
+  find_chips(name_label.parent.parent)
+  t.truthy(#chips > 1, "chips")
+  local listed = {}
+  for kind, name in text:gmatch("%[([a-z]+)=([%w%-]+)%]") do listed[#listed + 1] = kind .. "/" .. name end
+  for i, key in ipairs(chips) do t.eq(listed[i], key, "tooltip line " .. i) end
+  -- the "+N" label: the items without a chip, with their rates
+  local function walk(e)
+    if e.type == "label" and type(e.caption) == "string" and e.caption:match("^%+%d+$") then more = e end
+    for _, c in ipairs(e.children) do walk(c) end
+  end
+  walk(win(p))
+  t.truthy(more, "a +N label")
+  local hidden = tonumber(more.caption:sub(2))
+  local tip = flat(more.tooltip)
+  local _, lines = tip:gsub("%[[a-z]+=", "")
+  t.eq(lines, hidden, "each hidden item in its tooltip")
+end)
+
+t.test("gui: Copy from a machine tells a beacon with a module in slot 2 only from an empty one", function()
+  boot()
+  local recipe_dialog = require("scripts.gui.recipe")
+  local e = mock.crafter("assembling-machine", "assembling-machine-2", "copper-cable", 300, 300, {
+    beacons = { { name = "beacon", modules = { [2] = { "speed-module" } } }, { name = "beacon" }, { name = "beacon" } } })
+  local m = recipe_dialog.read_machine(e)
+  t.eq(m.mixed, true, "two kinds of beacon")
+  t.eq(m.beacon_count, 2, "the empty ones are the most")
+  t.eq(next(m.beacon_modules), nil)
+end)
+
 t.test("gui: every handler is reached by some scenario", function()
   local missing = {}
-  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items", "recipe" }) do
+  for _, file in ipairs({ "common", "window", "dialogs", "splits", "problems", "rows", "editor", "actions", "plan", "items", "recipe", "notices" }) do
     local h = assert(io.open(TEST_ROOT .. "/scripts/gui/" .. file .. ".lua"))
     local src = h:read("*a")
     h:close()
