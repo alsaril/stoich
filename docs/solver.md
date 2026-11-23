@@ -207,9 +207,9 @@ same way, that item is an alternative. Rule 2 applies here too; rule 1 doesn't, 
 alternative only says "this would close it too" (or instead, bricks).
 
 **Budget.** One balance has one budget for all its programs: settling the voids' rates, the
-fixes, the split check and the alternatives (`plan_lp.AUTO_WORK`, about 1 s of work). Work is
-counted in pivots × rows × columns, not time, so every peer stops at the same point. The
-program that crosses the line finishes. Alternatives stop when the budget is gone. A plan
+fixes, the split check and the alternatives (`plan_lp.AUTO_WORK`, about half a second in the
+game). Work is the simplex's arithmetic operations, counted, not time, so every peer stops at
+the same point; a program stops inside when the budget is spent. Alternatives stop when the budget is gone. A plan
 that runs out before its fixes are known is marked complicated and offers Find a fix, which
 has no budget and lists every alternative. One that runs out while settling its voids'
 rates is "Not worked out": copies "?", no split prompts (the free rates are a question of
@@ -252,7 +252,7 @@ program's results are explained.
 Every peer in a multiplayer game runs the solver on every plan change and must reach
 bit-identical results, so it does nothing that could differ between them.
 
-- **No time, no randomness.** Budgets count work (pivots × rows × columns), never time:
+- **No time, no randomness.** Budgets count work (the simplex's operations), never time:
   Factorio's Lua has no clock, and a time limit would stop each peer at a different point.
 - **Fixed order.** Units are sorted by id and items by key (base key, then quality level).
   The simplex enters the first improving column and leaves the row with the smallest ratio,
@@ -265,18 +265,26 @@ bit-identical results, so it does nothing that could differ between them.
 - **Pure Lua 5.2 arithmetic.** No `//` or bitwise operators, no library maths beyond
   `math.abs` and `math.min`/`max`.
 
-Measured in plain Lua 5.5 on an M-series Mac, `tests/fixtures/`:
+**The simplex** keeps its objective row up to date with each pivot instead of working every
+column's reduced cost out again each step, and a pivot touches only the pivot row's non-zero
+columns (a plan's rows are mostly zeros). That made it about four times faster. Before it
+calls a program optimal it checks a freshly worked-out objective row (rounding drift), and a
+column with no row to pivot on is set aside, not taken for the optimum. Dantzig's rule (the
+most improving column) was tried: on the real plans it did no less work overall and stalled
+on one, so Bland's stays.
 
-| Plan | Units | Balance, plan can't balance | Balance once closed (rates settled by the program) | Fixes + alternatives |
-| --- | --- | --- | --- | --- |
-| Fulgora, no quality | 25 | 0.5 ms | 5 ms | 104 ms |
-| Fulgora, quality modules everywhere | 25 (84 once closed) | 4.7 ms | 139 ms | about 1 s (budget reached) |
-| Real save, scrap without recyclers | 15 | under 1 ms | 2 ms | 195 ms |
-| Real save, scrap with recyclers | 17 | under 1 ms | 3 ms | 480 ms |
+Measured in the game (Factorio's profiler, `test-world/run_game.sh dump`, debug interface
+`time_balance`) on a real save, "at fulgora" (27 factories, recyclers of every quality),
+taking its void's 16 rows away one at a time:
 
-The settling program runs on every change of a plan whose void or import rates are free:
-a few milliseconds on real plans, 139 ms on the stress fixture with quality modules on every
-scrap output. A sparse simplex would bring that down if it matters.
+| State | Before (0.5.1) | Now |
+| --- | --- | --- |
+| Balanced (rates settled) | 49 ms | 51 ms |
+| 1 to 3 void rows missing | 120 to 160 ms | 120 to 165 ms |
+| 4 to 16 missing | 370 ms to 1.2 s, once 3.1 s (a program past its budget) | 380 to 480 ms |
+
+Every state gets its fixes without Find a fix; the alternatives take what is left of the
+budget. The game's Lua takes about 47 ns per counted operation, three times plain Lua 5.5.
 
 ## Open questions
 

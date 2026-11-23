@@ -406,6 +406,29 @@ if debug_setting and debug_setting.value then
       end
       return n
     end,
+    --- Time the plan balance in the game (a profiler in the log, "stoich-time"): as it is, then
+    --- with its void's rows taken away one at a time. Changes the plan: for copies of saves.
+    time_balance = function(key)
+      local p = model.plan(key)
+      local function one(label)
+        local profiler = helpers.create_profiler()
+        local r = plan.rebalance(key)
+        profiler.stop()
+        local fixes = r.complicated and "Find a fix" or (r.fixes and (#r.fixes .. " fixes") or "-")
+        log({ "", "stoich-time ", label, " ", r.status, " ", fixes, " work ", tostring(r.lp_work), " ", profiler })
+      end
+      one("as saved")
+      for _, id in ipairs(model.factory_ids(key)) do
+        local f = p.factories[id]
+        if f.kind == "void" then
+          for n = #f.sink_items, 1, -1 do
+            table.remove(f.sink_items, n)
+            plan.balance_factory(f)
+            one("void rows " .. (n - 1))
+          end
+        end
+      end
+    end,
     --- Names of the surfaces that have a plan.
     plan_keys = function()
       return model.plan_keys()

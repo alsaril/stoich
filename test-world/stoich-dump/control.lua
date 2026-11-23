@@ -35,6 +35,10 @@ local steps = {
   function() shot("plan") end,
   function() remote.call(D, "act", 1, "plan_all_problems", {}) end,
   function() shot("plan-all-problems") end,
+  -- last: it changes the plan (a copy of the save) -- the balance timed in the game's log
+  function()
+    if remote.interfaces[D].time_balance and game.surfaces.fulgora then remote.call(D, "time_balance", "fulgora") end
+  end,
   function() helpers.write_file("dump/done.txt", "done") end,
 }
 

@@ -20,10 +20,11 @@ local plan_lp = {}
 -- a factory costs a little.
 plan_lp.FIX_COSTS = { void = 1, void_used = 3, import = 1000, import_made = 1e5, demanded = 1e7, factory = 1e-3 }
 -- Work one plan balance may do in linear programs (Find a fix has no limit): settling the
--- voids' rates and the whole diagnosis share it. Pivots x rows x columns, ~0.02 us each in
--- plain Lua 5.5 on an M-series Mac, so ~1 s at most. Out of budget, the alternatives ("or
+-- voids' rates and the whole diagnosis share it, and a program stops inside when it is spent.
+-- Counted in the simplex's arithmetic operations (lp.minimize), ~47 ns each in the game on an
+-- M-series Mac (~16 ns in plain Lua 5.5), so ~0.5 s at most. Out of budget, the alternatives ("or
 -- instead") stop; a plan that runs out before its first fixes is marked complicated.
-plan_lp.AUTO_WORK = 50000000
+plan_lp.AUTO_WORK = 10000000
 
 --- A work budget shared by the linear programs of one balance.
 --- @param work number? nil: no limit
@@ -191,8 +192,10 @@ local function run(M, forbidden)
     A[#A + 1], b[#b + 1] = row, rhs
   end
   M.solves = M.solves + 1
-  local x, pivots, why = lp.minimize(c, A, b, #cols)
-  budget.spent = budget.spent + (pivots or 0) * #A * (#cols + #A)
+  local x, _, why, work = lp.minimize(c, A, b, #cols, nil, budget.work and (budget.work - budget.spent) or nil)
+  budget.spent = budget.spent + (work or 0)
+  -- out of the work allowed: out of budget, even inside one program
+  if why == "work" then budget.exhausted = true end
   -- out of pivots says nothing about the plan, and no budget helps: too complicated
   if why == "pivots" then budget.exhausted, budget.pivots = true, true end
   if not x then return nil end
@@ -345,7 +348,7 @@ end
 --- @param lines table[] the plan's units
 --- @param anchors table the balance's anchors (only the sinks' count here)
 --- @param splits table[] the plan's splits
---- @param work number|table|nil a budget (pivots x rows x columns, or plan_lp.new_budget); nil: none
+--- @param work number|table|nil a budget (operations, or plan_lp.new_budget); nil: none
 --- @return table[] fixes { item (the key, or the base key of several tiers), keys, rates = { [key] = rate },
 ---   rate (per second, the sum; > 0 surplus, < 0 short), alternatives },
 ---   boolean closed, integer solves (linear programs), boolean exhausted (the budget ran out),

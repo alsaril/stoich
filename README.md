@@ -172,8 +172,8 @@ code (without `tests/`) and tags `v<version>`. Push the tag yourself.
 - **Can't balance:** what would close the plan is a linear program: the least voided (and,
   only when nothing else closes it, imported) per second with every factory running forwards
   and the sinks getting their rates. It minimises what is voided, not how many items are:
-  it may list one more item than a person would. After each change it gets about a second of
-  work, alternatives included; a plan that needs more offers Find a fix, which lists them all.
+  it may list one more item than a person would. After each change it gets about half a second
+  (in the game), alternatives included; a plan that needs more offers Find a fix, which lists them all.
 - **Quality:** the qualities of an item share its belt (its belt check sums them). A chance
   above 100% is modelled as the game's tooltip shows it; rates of quality byproducts are
   long-run averages of random rolls.

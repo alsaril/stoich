@@ -1109,3 +1109,25 @@ t.test("research: each factory follows the research of the force that saved it (
   t.eq(research.force_of(gears), team, "the team that saved it")
   t.eq(research.force_of(model.get(plates.id)), player_force, "the other team's factory keeps its force")
 end)
+
+t.test("plan: a real plan taken apart, void row by void row: fixes at once, never past the budget", function()
+  fake.reset({ quality = true })
+  local plans = require("tests.plans")
+  -- "at fulgora": recyclers of every quality, balanced by 16 void rows
+  plans.load("fulgora_balanced_plan.json")
+  t.eq(plan.rebalance("fulgora").status, "EXACT")
+  local void
+  for _, id in ipairs(model.factory_ids("fulgora")) do
+    if model.get(id).kind == "void" then void = model.get(id) end
+  end
+  for n = #void.sink_items, 1, -1 do
+    table.remove(void.sink_items, n)
+    plan.balance_factory(void)
+    local r = plan.rebalance("fulgora")
+    t.eq(r.status, "CONFLICT", n - 1 .. " rows")
+    t.eq(r.complicated, nil, n - 1 .. " rows: its fixes without Find a fix")
+    t.truthy(r.fixes and #r.fixes > 0, n - 1 .. " rows: fixes")
+    -- a program stops inside when the budget is spent: one pivot over at most
+    t.truthy(r.lp_work <= plan_lp.AUTO_WORK * 1.01, n - 1 .. " rows: " .. r.lp_work)
+  end
+end)

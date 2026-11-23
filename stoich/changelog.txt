@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.2
+Date: 2026-11-23
+  Changes:
+    - A plan that can't balance is worked out about four times faster, and never past its budget: the game freezes at most about half a second after a change (on a big quality plan it was up to 3 seconds). Fixes still come at once; Find a fix lists every alternative.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-11-23
   Changes:
@@ -25,7 +30,7 @@ Date: 2026-11-23
     - Clear plan (the bin in the toolbar) removes every factory, sink, void and import of the plan, after asking.
   Changes:
     - Void and import rates are settled by a linear program too: the least voided and imported with every factory running forwards. A plan with voids no longer asks for a split it doesn't need; a split between factories is still the player's. A factory with several outputs says in its tooltip what sets its copies.
-    - What would close a plan that can't balance is a linear program instead of a search: the least voided per second with every factory running forwards and the sinks getting their rates; no factory runs only to make what is voided, or beyond what its outputs are needed for (surplus batteries are voided, not made into accumulators to void); imports only of what nothing makes, unless nothing else closes the plan. Exact on any plan size; one balance's programs share about a second of work after each change (the alternatives stop when it is spent), Find a fix lists them all.
+    - What would close a plan that can't balance is a linear program instead of a search: the least voided per second with every factory running forwards and the sinks getting their rates; no factory runs only to make what is voided, or beyond what its outputs are needed for (surplus batteries are voided, not made into accumulators to void); imports only of what nothing makes, unless nothing else closes the plan. Exact on any plan size; one balance's programs share about half a second after each change (the alternatives stop when it is spent), Find a fix lists them all.
     - While a plan can't balance, its copies are the ones the suggested fixes would need (never below 0), or "?" until Find a fix.
     - A plan with voids that has no answer with every factory running forwards can't balance, and lists what would close it, instead of asking for splits. A split that would force the plan to bring things in is named, with a Remove split action; the fixes shown are without it.
     - Rates below 0.01 read in m, µ and n (exact value in the tooltip, no belt); they can be typed so too.
